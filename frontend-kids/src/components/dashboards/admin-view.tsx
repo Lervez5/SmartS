@@ -118,7 +118,7 @@ export function AdminView() {
             </header>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 {[
                     { label: "Total Users", value: users.length.toString(), icon: Users, color: "text-blue-600", bg: "bg-blue-100" },
                     { label: "Active Subs", value: "0", icon: ShieldAlert, color: "text-primary", bg: "bg-primary/10" },
@@ -140,9 +140,9 @@ export function AdminView() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* User Management Table */}
                 <div className="lg:col-span-2 space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <h3 className="text-xl font-bold">User Management</h3>
-                        <div className="relative border border-slate-200/50 dark:border-slate-800 rounded-lg group focus-within:border-primary/40 bg-white/60 dark:bg-slate-900/60 shadow-sm transition-all overflow-hidden flex items-center">
+                        <div className="relative border border-slate-200/50 dark:border-slate-800 rounded-lg group focus-within:border-primary/40 bg-white/60 dark:bg-slate-900/60 shadow-sm transition-all overflow-hidden flex items-center w-full sm:w-64">
                             <Search className="absolute left-3 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                             <input
                                 type="text"
@@ -153,8 +153,8 @@ export function AdminView() {
                             />
                         </div>
                     </div>
-                    <div className="glass rounded-3xl overflow-hidden border border-slate-200/50 dark:border-slate-800 shadow-sm">
-                        <table className="w-full text-left border-collapse">
+                    <div className="glass rounded-3xl overflow-hidden border border-slate-200/50 dark:border-slate-800 shadow-sm overflow-x-auto">
+                        <table className="w-full text-left border-collapse min-w-[600px]">
                             <thead>
                                 <tr className="bg-slate-50/80 dark:bg-slate-900/80 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-200/50 dark:border-slate-800">
                                     <th className="px-6 py-4">User</th>

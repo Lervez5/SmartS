@@ -16,7 +16,8 @@ async function main() {
         return;
     }
 
-    const passwordHash = await argon2.hash("supersecret");
+    const adminPassword = process.env.ADMIN_PASSWORD || "supersecret";
+    const passwordHash = await argon2.hash(adminPassword);
 
     const admin = await prisma.user.create({
         data: {
@@ -29,7 +30,7 @@ async function main() {
 
     console.log("Successfully created superadmin!");
     console.log(`Email: ${admin.email}`);
-    console.log(`Password: supersecret`);
+    console.log(`Password: ${process.env.ADMIN_PASSWORD ? "[CONFIGURED]" : "supersecret (default)"}`);
     console.log(`Role: ${admin.role}`);
 }
 

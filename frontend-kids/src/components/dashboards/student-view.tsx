@@ -36,14 +36,14 @@ export function StudentView() {
     return (
         <div className="space-y-8 max-w-7xl mx-auto">
             {/* Welcome Header */}
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-1">
-                    <h1 className="text-3xl font-bold tracking-tight">Welcome back, {user?.name || "Sprout"}! 👋</h1>
-                    <p className="text-muted-foreground text-lg">Your brain is growing every day. Ready for more?</p>
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-2">
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white text-center md:text-left">Welcome back, {user?.name || "Sprout"}! 👋</h1>
+                    <p className="text-muted-foreground text-base md:text-lg text-center md:text-left">Your brain is growing every day. Ready for more?</p>
                 </div>
 
                 {/* Level Badge in Header */}
-                <div className="flex items-center gap-4 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md px-6 py-3 rounded-[2rem] border border-white/20 dark:border-white/10 shadow-xl">
+                <div className="flex items-center gap-4 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md px-6 py-3 rounded-[2rem] border border-white/20 dark:border-white/10 shadow-xl self-center md:self-auto">
                     <div className="relative">
                         <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white font-black text-xl shadow-lg rotate-3">
                             {profile?.level || 1}
@@ -68,12 +68,12 @@ export function StudentView() {
                             <div className="bg-gradient-to-br from-primary via-primary/90 to-brand-dark p-8 text-white relative">
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none" />
 
-                                <div className="flex justify-between items-start mb-8 relative z-10">
+                                <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-8 relative z-10">
                                     <div className="space-y-1">
-                                        <span className="text-white/70 dark:text-white/90 text-xs font-bold uppercase tracking-widest bg-white/10 dark:bg-slate-900/40 px-3 py-1 rounded-full">Currently Learning</span>
-                                        <h2 className="text-4xl font-black mt-3">Mathematics</h2>
+                                        <span className="text-white/70 dark:text-white/90 text-[10px] md:text-xs font-bold uppercase tracking-widest bg-white/10 dark:bg-slate-900/40 px-3 py-1 rounded-full whitespace-nowrap">Currently Learning</span>
+                                        <h2 className="text-3xl md:text-4xl font-black mt-3">Mathematics</h2>
                                     </div>
-                                    <div className="w-16 h-16 rounded-[2rem] bg-white/20 dark:bg-slate-900/20 backdrop-blur-xl flex items-center justify-center text-3xl shadow-inner border border-white/20 dark:border-white/10 rotate-6 group-hover:rotate-0 transition-transform">
+                                    <div className="w-14 h-14 md:w-16 md:h-16 rounded-[1.5rem] md:rounded-[2rem] bg-white/20 dark:bg-slate-900/20 backdrop-blur-xl flex items-center justify-center text-2xl md:text-3xl shadow-inner border border-white/20 dark:border-white/10 rotate-6 group-hover:rotate-0 transition-transform self-end sm:self-auto">
                                         🔢
                                     </div>
                                 </div>
@@ -92,7 +92,7 @@ export function StudentView() {
                                     </div>
                                 </div>
 
-                                <button className="mt-8 flex items-center gap-2 bg-white dark:bg-slate-900 text-primary px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-wider hover:scale-[1.05] active:scale-[0.95] transition-all shadow-xl hover:shadow-primary/20">
+                                <button className="mt-8 w-full sm:w-auto flex items-center justify-center gap-2 bg-white dark:bg-slate-900 text-primary px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-wider hover:scale-[1.05] active:scale-[0.95] transition-all shadow-xl hover:shadow-primary/20">
                                     <Play className="w-5 h-5 fill-current" />
                                     Launch Lesson
                                 </button>

@@ -60,11 +60,11 @@ export default function LoginPage() {
 
                     <div className="relative z-10 space-y-8">
                         <header className="text-center space-y-2">
-                            <div className="w-16 h-16 bg-primary rounded-2xl mx-auto flex items-center justify-center text-white shadow-xl shadow-primary/20 mb-6 rotate-3">
-                                <Sparkles className="w-8 h-8" />
+                            <div className="w-12 h-12 md:w-16 md:h-16 bg-primary rounded-xl md:rounded-2xl mx-auto flex items-center justify-center text-white shadow-xl shadow-primary/20 mb-4 md:mb-6 rotate-3">
+                                <Sparkles className="w-6 h-6 md:w-8 md:h-8" />
                             </div>
-                            <h1 className="text-3xl font-black text-slate-900 dark:text-white">Welcome Back!</h1>
-                            <p className="text-muted-foreground font-medium">Ready for another learning sprout?</p>
+                            <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white">Welcome Back!</h1>
+                            <p className="text-xs md:text-sm text-muted-foreground font-medium">Ready for another learning sprout?</p>
                         </header>
 
                         <form onSubmit={handleLogin} className="space-y-6">
