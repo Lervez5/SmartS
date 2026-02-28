@@ -83,7 +83,7 @@ export default function AddNewUserPage() {
                             <input
                                 name="firstName"
                                 type="text"
-                                placeholder="John"
+                                placeholder="Firstname"
                                 value={formData.firstName}
                                 onChange={handleChange}
                                 className="w-full bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 focus:border-primary/50 focus:bg-white dark:focus:bg-slate-950 rounded-2xl py-4 px-6 outline-none transition-all shadow-sm font-medium"
@@ -94,7 +94,7 @@ export default function AddNewUserPage() {
                             <input
                                 name="lastName"
                                 type="text"
-                                placeholder="Doe"
+                                placeholder="Lastname"
                                 value={formData.lastName}
                                 onChange={handleChange}
                                 className="w-full bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 focus:border-primary/50 focus:bg-white dark:focus:bg-slate-950 rounded-2xl py-4 px-6 outline-none transition-all shadow-sm font-medium"
