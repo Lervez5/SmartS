@@ -69,16 +69,16 @@ export default function RegisterPage() {
                     <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
                     <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-brand-light/20 rounded-full blur-3xl pointer-events-none" />
 
-                    <div className="text-center mb-10">
+                    <div className="text-center mb-8 md:mb-10">
                         <motion.div
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
-                            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-white mb-6 shadow-xl rotate-3"
+                            className="inline-flex items-center justify-center w-12 h-12 md:w-16 md:h-16 rounded-xl md:rounded-2xl bg-primary text-white mb-4 md:mb-6 shadow-xl rotate-3"
                         >
-                            <UserPlus className="w-8 h-8" />
+                            <UserPlus className="w-6 h-6 md:w-8 md:h-8" />
                         </motion.div>
-                        <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Join SmartSprout</h1>
-                        <p className="text-muted-foreground mt-2 font-medium">Start your learning adventure today!</p>
+                        <h1 className="text-2xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight">Join SmartSprout</h1>
+                        <p className="text-xs md:text-sm text-muted-foreground mt-2 font-medium">Start your learning adventure today!</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
