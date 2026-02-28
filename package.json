@@ -1,0 +1,12 @@
+{
+    "name": "smartsprout-workspace",
+    "private": true,
+    "scripts": {
+        "dev": "concurrently \"pnpm --filter @smartsprout/backend dev\" \"pnpm --filter @smartsprout/frontend-kids dev\" \"cd ai_engine && ./.venv/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload\"",
+        "db:push": "pnpm --filter @smartsprout/backend exec prisma db push",
+        "backend:generate": "pnpm --filter @smartsprout/backend exec prisma generate"
+    },
+    "dependencies": {
+        "concurrently": "^9.2.1"
+    }
+}

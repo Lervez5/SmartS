@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  parent
+  student
+  staff
+}
+
+model User {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String?
+  firstName    String?
+  lastName     String?
+  avatar       String?
+  email        String   @unique
+  passwordHash String
+  role         Role
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  children       Child[]           @relation("StudentUser")
+  parentChildren ParentChildLink[] @relation("ParentUser")
+  notifications  Notification[]
+  payments       Payment[]
+  subscriptions  Subscription[]
+  auditLogs      AuditLog[]
+}
+
+model Child {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  user      User     @relation("StudentUser", fields: [userId], references: [id])
+  userId    String   @db.ObjectId
+  firstName String
+  lastName  String
+  birthDate DateTime
+
+  parents        ParentChildLink[]
+  progress       Progress[]
+  attempts       Attempt[]
+  recommendations Recommendation[]
+  gamification    GamificationProfile?
+}
+
+model ParentChildLink {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  parent   User   @relation("ParentUser", fields: [parentId], references: [id])
+  parentId String @db.ObjectId
+  child    Child  @relation(fields: [childId], references: [id])
+  childId  String @db.ObjectId
+}
+
+model Subject {
+  id      String  @id @default(auto()) @map("_id") @db.ObjectId
+  name    String  @unique
+  topics  Topic[]
+  lessons Lesson[]
+  progress Progress[]
+}
+
+model Topic {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  subject   Subject  @relation(fields: [subjectId], references: [id])
+  subjectId String   @db.ObjectId
+  lessons   Lesson[]
+}
+
+model Lesson {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  subject     Subject    @relation(fields: [subjectId], references: [id])
+  subjectId   String     @db.ObjectId
+  topic       Topic?     @relation(fields: [topicId], references: [id])
+  topicId     String?    @db.ObjectId
+  content     String
+  exercises   Exercise[]
+}
+
+model Exercise {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  lesson      Lesson     @relation(fields: [lessonId], references: [id])
+  lessonId    String     @db.ObjectId
+  prompt      String
+  difficulty  Float
+  maxScore    Float
+  attempts    Attempt[]
+}
+
+model Progress {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  child     Child    @relation(fields: [childId], references: [id])
+  childId   String   @db.ObjectId
+  subject   Subject  @relation(fields: [subjectId], references: [id])
+  subjectId String   @db.ObjectId
+  percent   Float
+  updatedAt DateTime @updatedAt
+}
+
+model Attempt {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  child       Child     @relation(fields: [childId], references: [id])
+  childId     String    @db.ObjectId
+  exercise    Exercise  @relation(fields: [exerciseId], references: [id])
+  exerciseId  String    @db.ObjectId
+  correct     Boolean
+  rawScore    Float
+  responseMs  Int
+  createdAt   DateTime  @default(now())
+}
+
+model Recommendation {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  child      Child    @relation(fields: [childId], references: [id])
+  childId    String   @db.ObjectId
+  exerciseId String
+  rationale  String
+  createdAt  DateTime @default(now())
+}
+
+model GamificationProfile {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  student   Child    @relation(fields: [studentId], references: [id])
+  studentId String   @unique @db.ObjectId
+  xp        Int      @default(0)
+  level     Int      @default(1)
+  badges    GamificationBadge[]
+}
+
+model GamificationBadge {
+  id        String              @id @default(auto()) @map("_id") @db.ObjectId
+  profile   GamificationProfile @relation(fields: [profileId], references: [id])
+  profileId String              @db.ObjectId
+  studentId String
+  code      String
+  awardedAt DateTime
+}
+
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @db.ObjectId
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Payment {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String   @db.ObjectId
+  amountCents   Int
+  currency      String
+  status        String
+  providerRef   String
+  createdAt     DateTime @default(now())
+}
+
+model Subscription {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  user         User     @relation(fields: [userId], references: [id])
+  userId       String   @db.ObjectId
+  plan         String
+  status       String
+  currentPeriodEnd DateTime
+  createdAt    DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?  @db.ObjectId
+  action    String
+  details   String
+  createdAt DateTime @default(now())
+}
+
+
