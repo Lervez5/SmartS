@@ -23,7 +23,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <div className="flex h-full overflow-hidden relative">
+        <div className="flex h-screen overflow-hidden relative">
             {/* Sidebar with mobile responsiveness */}
             <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
 

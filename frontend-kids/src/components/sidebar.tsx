@@ -8,7 +8,6 @@ import {
     BookOpen,
     Trophy,
     LogOut,
-    LogIn,
     CreditCard,
     ShieldCheck,
     FileText,
@@ -34,11 +33,6 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
     const router = useRouter();
     const { user, logout, isAuthenticated } = useAuthStore();
 
-    const filteredNav = navigation.filter(item => {
-        if (!isAuthenticated) return false;
-        return item.roles.includes(user?.role || "");
-    });
-
     const handleLogout = async () => {
         try {
             await fetch("http://localhost:4000/api/auth/logout", {
@@ -52,10 +46,16 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
         router.push("/login");
     };
 
+    const filteredNav = navigation.filter(item => {
+        if (!isAuthenticated) return false;
+        return item.roles.includes(user?.role || "");
+    });
+
+
     return (
         <div className={cn(
-            "fixed inset-y-0 left-0 z-50 w-72 lg:static lg:block transition-all duration-300 transform",
-            "glass border-r border-white/20 dark:border-white/10 flex flex-col h-full bg-white dark:bg-slate-950 lg:bg-transparent",
+            "fixed inset-y-0 left-0 z-50 w-72 lg:sticky lg:top-0 lg:inset-y-auto lg:h-screen transition-all duration-300 transform",
+            "glass border-r border-white/20 dark:border-white/10 flex flex-col bg-white dark:bg-slate-950 lg:bg-transparent",
             isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}>
             <div className="p-6 flex items-center justify-between">
@@ -92,22 +92,14 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () =>
                 })}
             </nav>
 
-            <div className="p-4 mt-auto border-t border-white/10 bg-white/5 dark:bg-slate-900/10">
-                {isAuthenticated ? (
+            <div className="p-4 mt-auto border-t border-slate-200 dark:border-white/10 bg-white/50 dark:bg-slate-900/50">
+                {isAuthenticated && (
                     <button
                         onClick={handleLogout}
                         className="flex items-center gap-3 px-4 py-3 w-full rounded-2xl text-sm font-bold text-slate-500 hover:bg-destructive/10 hover:text-destructive hover:shadow-inner transition-all group"
                     >
                         <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
                         Log Out
-                    </button>
-                ) : (
-                    <button
-                        onClick={() => router.push("/login")}
-                        className="flex items-center gap-3 px-4 py-3 w-full rounded-2xl text-sm font-bold text-primary hover:bg-primary/10 hover:shadow-inner transition-all group"
-                    >
-                        <LogIn className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                        Sign In
                     </button>
                 )}
             </div>
