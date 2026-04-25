@@ -69,7 +69,11 @@ export async function forgotPassword(payload: ForgotPasswordInput) {
   });
 
   // Mock email log
-  console.log(`[EMAIL MOCK] Password reset for ${user.email}. Token: ${token}`);
+  console.log("\n=======================================================");
+  console.log(`📧 [EMAIL MOCK] Password Reset Requested`);
+  console.log(`To: ${user.email}`);
+  console.log(`Reset Token: ${token}`);
+  console.log("=======================================================\n");
 
   return { message: "Password reset link sent (Check server logs in dev mode)" };
 }

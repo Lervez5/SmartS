@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { StudentView } from "@/components/dashboards/student-view";
+import { StudentView } from "@/features/dashboard/components/student-view";
 import { BookOpen, Search, Filter } from "lucide-react";
 
 export default function LessonsPage() {

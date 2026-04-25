@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { User, Mail, Shield, Bell, Save, UserCircle, Briefcase, LogOut, Upload, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/lib/auth-store";
+import { useAuthStore } from "@/store/auth.store";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [

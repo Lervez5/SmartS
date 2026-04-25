@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Role } from "../../security/rbac";
 import { createNotificationSchema } from "./schema";
 import {
   createNotificationService,
@@ -16,8 +17,8 @@ export async function listMyNotificationsController(req: Request, res: Response)
 }
 
 export async function createNotificationController(req: Request, res: Response) {
-  if (!req.user || req.user.role !== "admin") {
-    throw new ApiError(403, "Admin role required");
+  if (!req.user || req.user.role !== "super_admin") {
+    throw new ApiError(403, "Super admin role required");
   }
   const parsed = createNotificationSchema.parse(req.body);
   const notification = await createNotificationService(parsed);

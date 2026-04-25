@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Sparkles, User, Lock, ArrowRight, Shield } from "lucide-react";
-import { useAuthStore } from "@/lib/auth-store";
+import { useAuthStore } from "@/store/auth.store";
+import { authService } from "@/services/auth.service";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -21,27 +22,22 @@ export default function LoginPage() {
         setError("");
 
         try {
-            const res = await fetch("http://localhost:4000/api/auth/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ email, password }),
-            });
-
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.message || "Login failed");
-            }
-
-            const data = await res.json();
+            const data = await authService.login({ email, password });
             login(data.user);
 
             // Redirect based on role
-            if (data.user.role === "admin" || data.user.role === "staff") router.push("/admin");
-            else if (data.user.role === "parent") router.push("/parent");
-            else router.push("/dashboard/student");
+            if (data.user.role === "super_admin" || data.user.role === "school_admin") {
+                router.push("/admin");
+            } else if (data.user.role === "teacher") {
+                router.push("/dashboard/teacher");
+            } else if (data.user.role === "parent") {
+                router.push("/parent");
+            } else {
+                router.push("/dashboard/student");
+            }
         } catch (err: any) {
-            setError(err.message);
+            const message = err.response?.data?.message || err.message || "Login failed. Please check your connection.";
+            setError(message);
         } finally {
             setIsLoading(false);
         }
@@ -128,11 +124,8 @@ export default function LoginPage() {
                         </form>
 
                         <div className="text-center border-t border-slate-100 dark:border-slate-800 pt-8">
-                            <p className="text-muted-foreground font-medium text-sm">
-                                Not a Sprout yet?{" "}
-                                <Link href="/register" className="text-primary font-bold hover:underline">
-                                    Join for Free
-                                </Link>
+                            <p className="text-muted-foreground font-medium text-sm italic">
+                                LMS Provisioned Access Only. Contact your administrator to join.
                             </p>
                         </div>
                     </div>

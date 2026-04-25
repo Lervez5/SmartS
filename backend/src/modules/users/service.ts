@@ -1,8 +1,9 @@
 import argon2 from "argon2";
+import crypto from "crypto";
 import { Role } from "@prisma/client";
 import { ApiError } from "../../shared/errorHandler";
 import { CreateUserInput, UpdateUserInput, UpdateMeInput, UpdateMyPasswordInput } from "./schema";
-import { createUser, deleteUser, getUserById, listUsers, updateUserRepo } from "./repository";
+import { createUser, deleteUser, getUserById, listUsers, updateUserRepo, bulkCreateUsers } from "./repository";
 
 export async function createUserService(input: CreateUserInput) {
   const passwordHash = await argon2.hash(input.password);
@@ -12,7 +13,14 @@ export async function createUserService(input: CreateUserInput) {
 
 export async function listUsersService() {
   const users = await listUsers();
-  return users.map((u) => ({ id: u.id, email: u.email, role: u.role }));
+  return users.map((u) => ({ 
+    id: u.id, 
+    email: u.email, 
+    role: u.role, 
+    name: u.name,
+    isActive: u.isActive,
+    invitationStatus: (u as any).invitation?.status || (u.isActive ? "accepted" : "none")
+  }));
 }
 
 export async function updateUserService(id: string, input: UpdateUserInput) {
@@ -71,6 +79,43 @@ export async function updateMyPasswordService(id: string, input: UpdateMyPasswor
   const newHash = await argon2.hash(input.newPassword);
   await updateUserRepo(id, { passwordHash: newHash });
   return { success: true };
+}
+
+import { createInvitationService } from "../invitations/service";
+import { addEmailToQueue } from "../email/queue";
+
+export async function bulkCreateUsersService(users: any[], adminId: string) {
+  const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+  
+  const results = await Promise.all(users.map(async (u) => {
+    // 1. Create User (Inactive)
+    // We use a random password initially as they will set their own
+    const randomPassword = crypto.randomBytes(16).toString("hex");
+    const passwordHash = await argon2.hash(randomPassword);
+    
+    const user = await createUser(
+      u.email, 
+      passwordHash, 
+      (u.role || "student") as Role, 
+      u.firstName, 
+      u.lastName, 
+      u.avatar
+    );
+
+    // 2. Create Invitation
+    const invitation = await createInvitationService(user.id, adminId);
+
+    // 3. Queue Email
+    await addEmailToQueue(user.email, "invitation", {
+      name: u.firstName || u.email,
+      role: user.role,
+      activationLink: `\${FRONTEND_URL}/activate-account/\${invitation.token}`
+    });
+
+    return user;
+  }));
+
+  return { count: results.length };
 }
 
 

@@ -25,6 +25,7 @@ app.use(
         "script-src": ["'self'"],
         "style-src": ["'self'", "'unsafe-inline'"],
         "img-src": ["'self'", "data:", "*", "blob:"],
+        "upgrade-insecure-requests": null,
       },
     },
     referrerPolicy: { policy: "no-referrer" },
@@ -35,7 +36,7 @@ app.use(
 
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN?.split(",") || ["http://localhost:3000", "http://localhost:3001"],
+    origin: process.env.CORS_ORIGIN?.split(",") || ["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000", "http://127.0.0.1:3001"],
     credentials: true,
   })
 );

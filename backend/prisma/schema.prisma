@@ -8,10 +8,11 @@ datasource db {
 }
 
 enum Role {
-  admin
+  super_admin
+  school_admin
+  teacher
   parent
   student
-  staff
 }
 
 model User {
@@ -34,6 +35,44 @@ model User {
   payments       Payment[]
   subscriptions  Subscription[]
   auditLogs      AuditLog[]
+
+  // New relations
+  teacherClasses Class[]      @relation("TeacherClasses")
+  enrollments    Enrollment[] @relation("StudentEnrollments")
+  submissions    Submission[] @relation("StudentSubmissions")
+  attendance     Attendance[] @relation("StudentAttendance")
+  
+  isActive       Boolean      @default(false)
+  invitation     Invitation?
+}
+
+model Invitation {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique @db.ObjectId
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  status    InvitationStatus @default(pending)
+  invitedBy String   @db.ObjectId
+  createdAt DateTime @default(now())
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  expired
+}
+
+model EmailLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  to        String
+  subject   String
+  type      String   
+  status    String   
+  error     String?
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
 }
 
 model Child {
@@ -65,6 +104,7 @@ model Subject {
   topics  Topic[]
   lessons Lesson[]
   progress Progress[]
+  classes  Class[]
 }
 
 model Topic {
@@ -185,4 +225,127 @@ model AuditLog {
   createdAt DateTime @default(now())
 }
 
+// New Models for School Management
 
+model Class {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  teacher     User     @relation("TeacherClasses", fields: [teacherId], references: [id])
+  teacherId   String   @db.ObjectId
+  subject     Subject  @relation(fields: [subjectId], references: [id])
+  subjectId   String   @db.ObjectId
+  enrollments Enrollment[]
+  assignments Assignment[]
+  attendance  Attendance[]
+  schedules   ClassSchedule[]
+  schedule    DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ClassSchedule {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  class      Class    @relation(fields: [classId], references: [id])
+  classId    String   @db.ObjectId
+  dayOfWeek  Int      // 0=Sun 1=Mon … 6=Sat
+  startTime  String   // "HH:MM" 24h
+  endTime    String   // "HH:MM" 24h
+  room       String?
+  recurrence String   @default("weekly") // weekly | biweekly | daily
+  validFrom  DateTime
+  validUntil DateTime?
+  createdAt  DateTime @default(now())
+}
+
+
+model Enrollment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  student   User     @relation("StudentEnrollments", fields: [studentId], references: [id])
+  studentId String   @db.ObjectId
+  class     Class    @relation(fields: [classId], references: [id])
+  classId   String   @db.ObjectId
+  createdAt DateTime @default(now())
+}
+
+model Assignment {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  dueDate     DateTime
+  class       Class    @relation(fields: [classId], references: [id])
+  classId     String   @db.ObjectId
+  submissions Submission[]
+  createdAt   DateTime @default(now())
+}
+
+model Submission {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+  assignmentId String   @db.ObjectId
+  student      User     @relation("StudentSubmissions", fields: [studentId], references: [id])
+  studentId    String   @db.ObjectId
+  content      String?
+  score        Float?
+  feedback     String?
+  status       String   @default("pending")
+  createdAt    DateTime @default(now())
+}
+
+model Attendance {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  class       Class    @relation(fields: [classId], references: [id])
+  classId     String   @db.ObjectId
+  student     User     @relation("StudentAttendance", fields: [studentId], references: [id])
+  studentId   String   @db.ObjectId
+  status      String   @default("present")  // present | absent | late | excused | sick | on_leave
+  note        String?
+  date        DateTime
+  markedAt    DateTime?
+  submittedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum CalendarEventType {
+  class_session
+  assignment_due
+  quiz
+  examination
+  school_event
+  holiday
+  personal_reminder
+  meeting
+}
+
+model CalendarEvent {
+  id           String            @id @default(auto()) @map("_id") @db.ObjectId
+  title        String
+  description  String?
+  type         CalendarEventType @default(class_session)
+  startDate    DateTime
+  endDate      DateTime?
+  allDay       Boolean           @default(false)
+  classId      String?           @db.ObjectId
+  assignmentId String?           @db.ObjectId
+  createdBy    String            @db.ObjectId
+  visibility   String            @default("personal")  // personal | class | school
+  color        String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+}
+
+model Reminder {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String    @db.ObjectId
+  title        String
+  description  String?
+  dueDate      DateTime
+  priority     String    @default("medium")   // low | medium | high
+  repeat       String    @default("none")      // none | daily | weekly | monthly
+  channel      String    @default("in_app")    // in_app | email | both
+  isDone       Boolean   @default(false)
+  snoozedUntil DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}

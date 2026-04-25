@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Role } from "../../security/rbac";
 import { createCheckoutSchema, subscriptionUpdateSchema } from "./schema";
 import {
   adminUpdateSubscriptionService,
@@ -34,8 +35,8 @@ export async function mySubscriptionController(req: Request, res: Response) {
 }
 
 export async function adminUpdateSubscriptionController(req: Request, res: Response) {
-  if (!req.user || req.user.role !== "admin") {
-    throw new ApiError(403, "Admin role required");
+  if (!req.user || req.user.role !== "super_admin") {
+    throw new ApiError(403, "Super admin role required");
   }
   const parsed = subscriptionUpdateSchema.parse(req.body);
   const subscription = await adminUpdateSubscriptionService(req.params.userId, parsed);

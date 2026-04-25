@@ -12,7 +12,7 @@ const roleLimited = new RateLimiterMemory({
 });
 
 export async function rateLimiterMiddleware(req: Request, res: Response, next: NextFunction) {
-  const key = req.ip;
+  const key = req.ip || "unknown_ip";
   try {
     await generalLimiter.consume(key);
   } catch {
@@ -21,7 +21,8 @@ export async function rateLimiterMiddleware(req: Request, res: Response, next: N
 
   const role = (req.user && req.user.role) || "anonymous";
   const roleKey = `${role}:${key}`;
-  const perRoleLimit = role === "admin" ? 120 : role === "parent" ? 80 : role === "student" ? 100 : 60;
+  const isAdmin = role === "super_admin" || role === "school_admin";
+  const perRoleLimit = isAdmin ? 120 : role === "teacher" ? 100 : role === "parent" ? 80 : role === "student" ? 100 : 60;
   roleLimited.points = perRoleLimit;
 
   try {

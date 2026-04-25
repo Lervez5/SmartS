@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Role } from "../../security/rbac";
 import {
   createExerciseSchema,
   createLessonSchema,
@@ -18,8 +19,8 @@ import {
 import { ApiError } from "../../shared/errorHandler";
 
 function requireAdmin(req: Request) {
-  if (!req.user || req.user.role !== "admin") {
-    throw new ApiError(403, "Admin role required");
+  if (!req.user || !["super_admin", "school_admin", "teacher"].includes(req.user.role)) {
+    throw new ApiError(403, "Admin or teacher role required");
   }
 }
 
