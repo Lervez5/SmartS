@@ -11,12 +11,20 @@ import { router as routerPayments } from "./modules/payments";
 import { router as routerAuditLogs } from "./modules/audit-logs";
 import { router as routerAiConnector } from "./modules/ai-engine-connector";
 import { router as uploadRouter } from "./modules/upload";
+import { router as dashboardRouter } from "./modules/dashboard";
+import { courseRouter } from "./modules/courses";
+import { router as invitationRouter } from "./modules/invitations";
+import { router as attendanceRouter } from "./modules/attendance";
+import { router as calendarRouter } from "./modules/calendar";
+import { router as remindersRouter } from "./modules/reminders";
+import { timetableRouter } from "./modules/timetable/router";
 
 export const router = Router();
 
 router.use(authMiddleware);
 
 router.use("/auth", authRouter);
+router.use("/invitations", invitationRouter);
 router.use("/gamification", routerGamification);
 router.use("/users", routerUsers);
 router.use("/children", routerChildren);
@@ -27,5 +35,12 @@ router.use("/payments", routerPayments);
 router.use("/audit-logs", routerAuditLogs);
 router.use("/ai", routerAiConnector);
 router.use("/upload", uploadRouter);
+router.use("/dashboard", dashboardRouter);
+router.use("/courses", courseRouter);
+router.use("/attendance", attendanceRouter);
+router.use("/calendar", calendarRouter);
+router.use("/reminders", remindersRouter);
+router.use("/timetable", timetableRouter);
+
 
 

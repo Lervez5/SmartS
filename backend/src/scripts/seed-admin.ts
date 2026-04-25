@@ -24,7 +24,7 @@ async function main() {
             email: adminEmail,
             name: "Superadmin",
             passwordHash,
-            role: "admin",
+            role: "super_admin",
         },
     });
 

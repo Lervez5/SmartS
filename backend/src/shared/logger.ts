@@ -9,10 +9,8 @@ export const logger = winston.createLogger({
         winston.format.timestamp(),
         winston.format.printf((info) =>
           JSON.stringify({
-            level: info.level,
-            message: info.message,
-            timestamp: info.timestamp,
             ...info,
+            timestamp: info.timestamp,
           })
         )
       ),

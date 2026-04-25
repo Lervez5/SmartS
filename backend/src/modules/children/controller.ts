@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { createChildSchema, updateChildSchema } from "./schema";
+import { Role } from "../../security/rbac";
 import { createChildService, listChildrenForUser, updateChildService } from "./service";
 import { ApiError } from "../../shared/errorHandler";
 
@@ -12,8 +13,8 @@ export async function listChildrenController(req: Request, res: Response) {
 }
 
 export async function createChildController(req: Request, res: Response) {
-  if (!req.user || req.user.role !== "admin") {
-    throw new ApiError(403, "Only admins can create children");
+  if (!req.user || req.user.role !== "super_admin") {
+    throw new ApiError(403, "Only super admins can create children");
   }
   const parsed = createChildSchema.parse(req.body);
   const child = await createChildService(parsed);

@@ -7,9 +7,14 @@ import {
   updateUserController,
   updateMeController,
   updateMyPasswordController,
+  bulkImportUsersController,
 } from "./controller";
 
 export const router = Router();
+
+router.post("/bulk", requireAdmin, (req, res, next) => {
+  bulkImportUsersController(req, res).catch(next);
+});
 
 router.get("/", requireAdmin, (req, res, next) => {
   listUsersController(req, res).catch(next);

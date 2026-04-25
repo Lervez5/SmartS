@@ -1,16 +1,19 @@
 import { NextFunction, Request, Response } from "express";
 
-export type Role = "admin" | "parent" | "student" | "staff";
+export type Role = "super_admin" | "school_admin" | "teacher" | "parent" | "student";
 
 export interface AuthUser {
   id: string;
   email: string;
   role: Role;
+  name?: string;
 }
 
-declare module "express-serve-static-core" {
-  interface Request {
-    user?: AuthUser;
+declare global {
+  namespace Express {
+    interface Request {
+      user?: AuthUser;
+    }
   }
 }
 

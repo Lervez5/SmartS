@@ -18,8 +18,8 @@ export async function createChildService(input: CreateChildInput) {
   return child;
 }
 
-export async function listChildrenForUser(userId: string, role: "admin" | "parent" | "student") {
-  if (role === "admin") {
+export async function listChildrenForUser(userId: string, role: string) {
+  if (role === "super_admin" || role === "school_admin") {
     return listChildrenForAdmin();
   }
   if (role === "parent") {
@@ -33,7 +33,7 @@ export async function updateChildService(
   id: string,
   input: UpdateChildInput,
   requesterId: string,
-  role: "admin" | "parent" | "student"
+  role: string
 ) {
   const child = await getChildById(id);
   if (!child) {

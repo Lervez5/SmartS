@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles, BookOpen, ShieldCheck, Gamepad2, PlayCircle } from "lucide-react";
-import { useAuthStore } from "@/lib/auth-store";
+import { useAuthStore } from "@/store/auth.store";
 
 export default function HomePage() {
   const { isAuthenticated, user } = useAuthStore();
@@ -13,7 +13,15 @@ export default function HomePage() {
 
   const handleActionClick = () => {
     if (isAuthenticated) {
-      router.push(user?.role === "parent" ? "/parent" : (user?.role === "admin" || user?.role === "staff" ? "/admin" : "/dashboard/student"));
+      if (user?.role === "super_admin" || user?.role === "school_admin") {
+        router.push("/admin");
+      } else if (user?.role === "teacher") {
+        router.push("/dashboard/teacher");
+      } else if (user?.role === "parent") {
+        router.push("/parent");
+      } else {
+        router.push("/dashboard/student");
+      }
     } else {
       router.push("/register");
     }

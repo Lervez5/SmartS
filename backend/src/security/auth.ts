@@ -5,18 +5,19 @@ import { AuthUser } from "./rbac";
 const ACCESS_TOKEN_TTL = "15m";
 const REFRESH_TOKEN_TTL = "7d";
 
-const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "dev-access-secret";
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "dev-refresh-secret";
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || "dev-access-secret";
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || "dev-refresh-secret";
 
 export interface Tokens {
   accessToken: string;
   refreshToken: string;
+  userRole?: string;
 }
 
 export function signTokens(user: AuthUser): Tokens {
   const accessToken = jwt.sign(user, JWT_ACCESS_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
   const refreshToken = jwt.sign(user, JWT_REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
-  return { accessToken, refreshToken };
+  return { accessToken, refreshToken, userRole: user.role };
 }
 
 export function authMiddleware(req: Request, _res: Response, next: NextFunction) {
@@ -52,6 +53,13 @@ export function setAuthCookies(res: Response, tokens: Tokens) {
   });
   res.cookie("refreshToken", tokens.refreshToken, {
     httpOnly: true,
+    sameSite: "strict",
+    secure: isProd,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+  // Non-httpOnly cookie for role-based logic in middleware/frontend
+  res.cookie("userRole", tokens.userRole || "", {
+    httpOnly: false,
     sameSite: "strict",
     secure: isProd,
     maxAge: 7 * 24 * 60 * 60 * 1000,

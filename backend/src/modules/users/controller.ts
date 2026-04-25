@@ -8,9 +8,10 @@ import {
   updateUserService,
   updateMeService,
   updateMyPasswordService,
+  bulkCreateUsersService,
 } from "./service";
 
-export const requireAdmin = requireRole(["admin"]);
+export const requireAdmin = requireRole(["super_admin", "school_admin"]);
 
 export async function listUsersController(_req: Request, res: Response) {
   const users = await listUsersService();
@@ -44,6 +45,17 @@ export async function updateMyPasswordController(req: Request, res: Response) {
   const parsed = updateMyPasswordSchema.parse(req.body);
   await updateMyPasswordService((req as any).user.id, parsed);
   res.json({ message: "Password updated successfully" });
+}
+
+export async function bulkImportUsersController(req: Request, res: Response) {
+  const users = req.body.users;
+  const adminId = (req as any).user.id;
+  
+  if (!Array.isArray(users)) {
+    return res.status(400).json({ message: "Invalid input: expected an array of users" });
+  }
+  const result = await bulkCreateUsersService(users, adminId);
+  res.json({ success: true, count: result.count });
 }
 
 
