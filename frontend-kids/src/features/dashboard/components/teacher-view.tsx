@@ -78,8 +78,8 @@ export function TeacherView() {
     const firstName = user?.name?.split(" ")[0] ?? "Teacher";
 
     const stats = [
-        { label: "Classes",          value: classesTaught.length,  icon: BookOpen,     color: "text-blue-600 dark:text-blue-400",    bg: "bg-blue-100 dark:bg-blue-900/30",    trend: null },
-        { label: "Students",         value: totalStudents,          icon: GraduationCap,color: "text-primary",                        bg: "bg-primary/10",                       trend: null },
+        { label: "Active Cohorts",    value: classesTaught.length,  icon: BookOpen,     color: "text-blue-600 dark:text-blue-400",    bg: "bg-blue-100 dark:bg-blue-900/30",    trend: null },
+        { label: "Cohort Students",  value: totalStudents,          icon: GraduationCap,color: "text-primary",                        bg: "bg-primary/10",                       trend: null },
         { label: "Needs Grading",    value: pendingGrading.length,  icon: Clock,        color: "text-rose-600 dark:text-rose-400",    bg: "bg-rose-100 dark:bg-rose-900/30",    trend: pendingGrading.length > 0 ? "warn" : "ok" },
         { label: "Attendance Rate",  value: `${attendanceRate}%`,   icon: UserCheck,    color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-100 dark:bg-emerald-900/30", trend: attendanceRate >= 80 ? "ok" : "warn" },
     ];
@@ -90,7 +90,7 @@ export function TeacherView() {
     ];
 
     return (
-        <div className="space-y-8 max-w-7xl mx-auto pb-16">
+        <div className="space-y-10 pb-20">
 
             {/* ── Header ── */}
             <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -156,7 +156,7 @@ export function TeacherView() {
                     className="glass rounded-[2.5rem] p-8 border border-white/20 dark:border-white/10 space-y-5">
                     <div className="flex items-center justify-between">
                         <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            <ClipboardList className="w-5 h-5 text-primary" /> Today's Classes
+                            <ClipboardList className="w-5 h-5 text-primary" /> Today's Cohort Sessions
                         </h3>
                         <Link href="/dashboard/attendance" className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">
                             View all
@@ -194,7 +194,7 @@ export function TeacherView() {
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
                     className="glass rounded-[2.5rem] p-8 border border-white/20 dark:border-white/10 space-y-5">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <BookOpen className="w-5 h-5 text-blue-500" /> Your Classes
+                        <BookOpen className="w-5 h-5 text-blue-500" /> Managed Cohorts
                     </h3>
                     <div className="space-y-3">
                         {classesTaught.length === 0 ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
@@ -53,10 +53,30 @@ function CreateReminderModal({ onClose }: { onClose: () => void }) {
         onSuccess: () => { qc.invalidateQueries({ queryKey: ["reminders"] }); onClose(); },
     });
 
+    const getDefaultDueDate = () => {
+        const d = new Date();
+        d.setHours(d.getHours() + 1, 0, 0, 0);
+        const offset = d.getTimezoneOffset() * 60000;
+        return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+    };
+
+    const getLocalISO = () => {
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        return new Date(now.getTime() - offset).toISOString().slice(0, 16);
+    };
+
     const [form, setForm] = useState({
-        title: "", description: "", dueDate: "", priority: "medium" as Priority,
+        title: "", description: "", dueDate: getDefaultDueDate(), priority: "medium" as Priority,
         repeat: "none" as Repeat, channel: "in_app",
     });
+
+    const [nowISO, setNowISO] = useState(getLocalISO());
+    useEffect(() => {
+        setNowISO(getLocalISO());
+        const interval = setInterval(() => setNowISO(getLocalISO()), 60000);
+        return () => clearInterval(interval);
+    }, []);
 
     const inputCls = "w-full bg-white/70 dark:bg-slate-800/70 text-slate-900 dark:text-white placeholder:text-slate-400 border border-slate-200 dark:border-slate-700 focus:border-primary/60 rounded-2xl px-4 py-3 text-sm font-medium outline-none transition-all";
     const labelCls = "text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 ml-1";
@@ -78,14 +98,21 @@ function CreateReminderModal({ onClose }: { onClose: () => void }) {
                             <X className="w-4 h-4" />
                         </button>
                     </div>
-                    <form onSubmit={e => { e.preventDefault(); create.mutate({ ...form, dueDate: new Date(form.dueDate).toISOString() }); }} className="space-y-4">
+                    <form onSubmit={e => { 
+                        e.preventDefault(); 
+                        if (new Date(form.dueDate) < new Date()) {
+                            alert("Due date cannot be in the past.");
+                            return;
+                        }
+                        create.mutate({ ...form, dueDate: new Date(form.dueDate).toISOString() }); 
+                    }} className="space-y-4">
                         <div className="space-y-1.5">
                             <label className={labelCls}>Title</label>
-                            <input required value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Reminder title..." className={inputCls} />
+                            <input required value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="What do you need to do?" className={inputCls} />
                         </div>
                         <div className="space-y-1.5">
                             <label className={labelCls}>Due Date & Time</label>
-                            <input required type="datetime-local" value={form.dueDate} onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))} className={inputCls} />
+                            <input required type="datetime-local" min={nowISO} value={form.dueDate} onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))} className={inputCls} />
                         </div>
                         <div className="grid grid-cols-3 gap-2">
                             {(["low", "medium", "high"] as Priority[]).map(p => (
@@ -116,7 +143,7 @@ function CreateReminderModal({ onClose }: { onClose: () => void }) {
                         </div>
                         <div className="space-y-1.5">
                             <label className={labelCls}>Note (optional)</label>
-                            <textarea rows={2} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Add details..." className={cn(inputCls, "resize-none")} />
+                            <textarea rows={2} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Add any extra notes or context..." className={cn(inputCls, "resize-none")} />
                         </div>
                         <button type="submit" disabled={create.isPending}
                             className="w-full py-3.5 bg-primary text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.01] transition-all disabled:opacity-60 shadow-lg shadow-primary/20">
@@ -159,7 +186,7 @@ export default function RemindersPage() {
     const done     = reminders.filter(r => r.isDone);
 
     return (
-        <div className="space-y-8 max-w-4xl mx-auto pb-16">
+        <div className="space-y-10 pb-20">
             {/* Header */}
             <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>

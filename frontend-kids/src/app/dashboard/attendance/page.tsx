@@ -36,7 +36,7 @@ export default function AttendanceDashboard() {
     const pending = (classes?.length ?? 0) - submitted;
 
     return (
-        <div className="space-y-8 max-w-7xl mx-auto pb-16">
+        <div className="space-y-10 pb-20">
             {/* Header */}
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -61,7 +61,7 @@ export default function AttendanceDashboard() {
             {/* Summary Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                 {[
-                    { label: "Classes Today", value: classes?.length ?? 0, icon: BookOpen, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30" },
+                    { label: "Cohort Sessions", value: classes?.length ?? 0, icon: BookOpen, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30" },
                     { label: "Submitted", value: submitted, icon: CheckCircle2, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-100 dark:bg-emerald-900/30" },
                     { label: "Pending", value: pending, icon: AlertCircle, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/30" },
                 ].map((s, i) => (
@@ -85,7 +85,7 @@ export default function AttendanceDashboard() {
 
             {/* Class List */}
             <div className="space-y-4">
-                <h2 className="text-lg font-bold text-slate-800 dark:text-white px-2">Today's Classes</h2>
+                <h2 className="text-lg font-bold text-slate-800 dark:text-white px-2 uppercase tracking-tight">Today's Sessions</h2>
 
                 {isLoading ? (
                     <div className="flex justify-center py-16">
@@ -94,7 +94,7 @@ export default function AttendanceDashboard() {
                 ) : classes?.length === 0 ? (
                     <div className="glass rounded-[2.5rem] p-16 text-center border border-white/20">
                         <ClipboardList className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
-                        <p className="text-slate-500 font-medium">No classes scheduled for today.</p>
+                        <p className="text-slate-500 font-medium">No cohort sessions scheduled for today.</p>
                     </div>
                 ) : (
                     <div className="space-y-3">

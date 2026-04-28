@@ -19,6 +19,12 @@ export class ReminderController {
             const dto = req.body;
             if (!dto.title || !dto.dueDate)
                 return res.status(400).json({ message: "title and dueDate are required." });
+
+            // Guard: cannot create reminders in the past
+            if (new Date(dto.dueDate) < new Date()) {
+                return res.status(400).json({ message: "Cannot create reminders for dates in the past." });
+            }
+
             const reminder = await reminderService.create(userId, dto);
             return res.status(201).json(reminder);
         } catch (err: any) { return res.status(400).json({ message: err.message }); }

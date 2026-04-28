@@ -11,7 +11,7 @@ export function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
 
     return (
         <header className="h-16 glass border-b border-white/20 dark:border-white/10 px-4 md:px-8 flex items-center justify-between sticky top-0 z-10 transition-colors">
-            <div className="flex items-center gap-4 flex-1">
+            <div className="flex items-center gap-4 flex-1" suppressHydrationWarning>
                 {/* Mobile Menu Toggle */}
                 <button
                     onClick={onMenuClick}

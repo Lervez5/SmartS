@@ -18,6 +18,8 @@ import { router as attendanceRouter } from "./modules/attendance";
 import { router as calendarRouter } from "./modules/calendar";
 import { router as remindersRouter } from "./modules/reminders";
 import { timetableRouter } from "./modules/timetable/router";
+import { router as reportingRouter } from "./modules/reporting";
+import { router as classRouter } from "./modules/classes/routes";
 
 export const router = Router();
 
@@ -41,6 +43,8 @@ router.use("/attendance", attendanceRouter);
 router.use("/calendar", calendarRouter);
 router.use("/reminders", remindersRouter);
 router.use("/timetable", timetableRouter);
+router.use("/reporting", reportingRouter);
+router.use("/classes", classRouter);
 
 
 

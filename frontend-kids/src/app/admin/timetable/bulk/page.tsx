@@ -111,7 +111,7 @@ export default function TimetableBulkPage() {
     }
 
     return (
-        <div className="space-y-8 max-w-6xl mx-auto pb-16">
+        <div className="max-w-7xl mx-auto space-y-10 pb-20">
             {/* Header */}
             <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">

@@ -61,7 +61,7 @@ export default function MyAttendancePage() {
     }
 
     return (
-        <div className="space-y-8 max-w-5xl mx-auto pb-16">
+        <div className="space-y-10 max-w-7xl mx-auto pb-20">
             {/* Header */}
             <header>
                 <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">

@@ -37,7 +37,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
 
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[radial-gradient(at_top_right,_#f0fdf4_0%,_transparent_50%),radial-gradient(at_bottom_left,_#f0f9ff_0%,_transparent_50%)] dark:bg-none dark:bg-slate-950">
                 <Navbar onMenuClick={() => setIsMobileMenuOpen(true)} />
-                <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+                <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-10 lg:pl-6 relative">
                     {children}
                 </main>
             </div>

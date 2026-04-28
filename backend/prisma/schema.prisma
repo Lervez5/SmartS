@@ -37,10 +37,13 @@ model User {
   auditLogs      AuditLog[]
 
   // New relations
-  teacherClasses Class[]      @relation("TeacherClasses")
-  enrollments    Enrollment[] @relation("StudentEnrollments")
-  submissions    Submission[] @relation("StudentSubmissions")
-  attendance     Attendance[] @relation("StudentAttendance")
+  teacherClasses    Class[]            @relation("TeacherClasses")
+  teacherCourses    Course[]           @relation("TeacherCourses")
+  enrollments       Enrollment[]       @relation("StudentEnrollments")
+  courseEnrollments CourseEnrollment[] @relation("StudentCourseEnrollments")
+  submissions       Submission[]       @relation("StudentSubmissions")
+  attendance        Attendance[]       @relation("StudentAttendance")
+  lessonAccessLogs  LessonAccessLog[]
   
   isActive       Boolean      @default(false)
   invitation     Invitation?
@@ -105,6 +108,7 @@ model Subject {
   lessons Lesson[]
   progress Progress[]
   classes  Class[]
+  courses  Course[]
 }
 
 model Topic {
@@ -120,10 +124,19 @@ model Lesson {
   title       String
   subject     Subject    @relation(fields: [subjectId], references: [id])
   subjectId   String     @db.ObjectId
-  topic       Topic?     @relation(fields: [topicId], references: [id])
-  topicId     String?    @db.ObjectId
+  
+  unit        Unit?      @relation(fields: [unitId], references: [id])
+  unitId      String?    @db.ObjectId
+  
+  lessonType  String     @default("note") // video | pdf | note
+  fileUrl     String?
+  duration    Int?       // in seconds
+  
   content     String
   exercises   Exercise[]
+  accessLogs  LessonAccessLog[]
+  topic       Topic?     @relation(fields: [topicId], references: [id])
+  topicId     String?    @db.ObjectId
 }
 
 model Exercise {
@@ -235,6 +248,8 @@ model Class {
   teacherId   String   @db.ObjectId
   subject     Subject  @relation(fields: [subjectId], references: [id])
   subjectId   String   @db.ObjectId
+  courseId    String?  @db.ObjectId
+  course      Course?  @relation(fields: [courseId], references: [id])
   enrollments Enrollment[]
   assignments Assignment[]
   attendance  Attendance[]
@@ -273,8 +288,10 @@ model Assignment {
   title       String
   description String?
   dueDate     DateTime
-  class       Class    @relation(fields: [classId], references: [id])
-  classId     String   @db.ObjectId
+  class       Class?   @relation(fields: [classId], references: [id])
+  classId     String?  @db.ObjectId
+  unit        Unit?    @relation(fields: [unitId], references: [id])
+  unitId      String?  @db.ObjectId
   submissions Submission[]
   createdAt   DateTime @default(now())
 }
@@ -294,12 +311,21 @@ model Submission {
 
 model Attendance {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  class       Class    @relation(fields: [classId], references: [id])
-  classId     String   @db.ObjectId
+  class       Class?   @relation(fields: [classId], references: [id])
+  classId     String?  @db.ObjectId
+  unit        Unit?    @relation(fields: [unitId], references: [id])
+  unitId      String?  @db.ObjectId
   student     User     @relation("StudentAttendance", fields: [studentId], references: [id])
   studentId   String   @db.ObjectId
   status      String   @default("present")  // present | absent | late | excused | sick | on_leave
   note        String?
+  
+  // Verification details
+  latitude    Float?
+  longitude   Float?
+  deviceId    String?
+  ipAddress   String?
+  
   date        DateTime
   markedAt    DateTime?
   submittedAt DateTime?
@@ -333,6 +359,85 @@ model CalendarEvent {
   color        String?
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
+}
+
+model Course {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  title             String
+  description       String?
+  category          String?
+  learningObjectives String[]
+  status            String   @default("draft") // draft | published
+  
+  teacher           User     @relation("TeacherCourses", fields: [teacherId], references: [id])
+  teacherId         String   @db.ObjectId
+  
+  subject           Subject  @relation(fields: [subjectId], references: [id])
+  subjectId         String   @db.ObjectId
+  
+  modules           Module[]
+  enrollments       CourseEnrollment[]
+  classes           Class[]
+  prerequisites     CoursePrerequisite[] @relation("CourseToPrerequisite")
+  requiredBy        CoursePrerequisite[] @relation("PrerequisiteToCourse")
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Module {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  order       Int
+  course      Course   @relation(fields: [courseId], references: [id])
+  courseId    String   @db.ObjectId
+  units       Unit[]
+  isLocked    Boolean  @default(false)
+}
+
+model Unit {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  order       Int
+  module      Module   @relation(fields: [moduleId], references: [id])
+  moduleId    String   @db.ObjectId
+  lessons     Lesson[]
+  assignments Assignment[]
+  attendance  Attendance[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CourseEnrollment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  student   User     @relation("StudentCourseEnrollments", fields: [studentId], references: [id])
+  studentId String   @db.ObjectId
+  course    Course   @relation(fields: [courseId], references: [id])
+  courseId  String   @db.ObjectId
+  progress  Float    @default(0)
+  status    String   @default("active") // active | completed | dropped
+  createdAt DateTime @default(now())
+}
+
+model CoursePrerequisite {
+  id                   String @id @default(auto()) @map("_id") @db.ObjectId
+  course               Course @relation("CourseToPrerequisite", fields: [courseId], references: [id])
+  courseId             String @db.ObjectId
+  prerequisiteCourse   Course @relation("PrerequisiteToCourse", fields: [prerequisiteCourseId], references: [id])
+  prerequisiteCourseId String @db.ObjectId
+}
+
+model LessonAccessLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  student   User     @relation(fields: [studentId], references: [id])
+  studentId String   @db.ObjectId
+  lesson    Lesson   @relation(fields: [lessonId], references: [id])
+  lessonId  String   @db.ObjectId
+  accessedAt DateTime @default(now())
+  durationMs Int      @default(0)
 }
 
 model Reminder {

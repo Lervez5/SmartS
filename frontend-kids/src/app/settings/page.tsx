@@ -113,7 +113,7 @@ export default function SettingsPage() {
     };
 
     return (
-        <div className="max-w-6xl mx-auto space-y-8">
+        <div className="max-w-7xl mx-auto space-y-10 pb-20">
             <header>
                 <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Account Settings</h1>
                 <p className="text-muted-foreground font-medium mt-1">Manage your identity and learning preferences.</p>
