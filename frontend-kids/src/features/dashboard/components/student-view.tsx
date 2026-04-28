@@ -74,7 +74,7 @@ export function StudentView() {
     const progressToNext = profile ? (profile.xp / nextLevelXp) * 100 : 0;
 
     return (
-        <div className="space-y-8 max-w-7xl mx-auto">
+        <div className="space-y-10 pb-20">
             {/* Welcome Header */}
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="space-y-2">
@@ -243,9 +243,9 @@ export function StudentView() {
                         </div>
                     </section>
 
-                    {/* Course Progress */}
+                    {/* Cohort Curriculum Progress */}
                     <section className="space-y-4">
-                        <h3 className="font-bold text-lg">Course Progress</h3>
+                        <h3 className="font-bold text-lg uppercase tracking-tight">Curriculum Journey</h3>
                         <div className="space-y-3">
                             {progressData.map((p: any) => (
                                 <div key={p.id} className="glass p-4 rounded-2xl border border-white/20">

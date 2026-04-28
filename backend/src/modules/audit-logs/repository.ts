@@ -10,4 +10,10 @@ export function listAuditLogs(limit: number) {
   });
 }
 
+export function createAuditLogRepo(userId: string | null, action: string, details: string) {
+  return prisma.auditLog.create({
+    data: { userId, action, details }
+  });
+}
+
 

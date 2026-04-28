@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
+import { useAuthStore } from "@/store/auth.store";
 import { motion, AnimatePresence } from "framer-motion";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -40,17 +41,40 @@ const VIEW_OPTIONS: { key: CalendarView; label: string; icon: React.FC<any> }[] 
 function CreateEventModal({
     isOpen, onClose, initialDate,
 }: { isOpen: boolean; onClose: () => void; initialDate?: string }) {
+    const { user } = useAuthStore();
     const { mutateAsync: createEvent, isPending } = useCreateCalendarEvent();
+    
+    // Set default to next hour if no initial date
+    const getDefaultDate = () => {
+        const d = new Date();
+        d.setHours(d.getHours() + 1, 0, 0, 0);
+        const offset = d.getTimezoneOffset() * 60000;
+        return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+    };
+
     const [form, setForm] = useState({
         title: "", type: "personal_reminder" as CalendarEventType,
-        startDate: initialDate ?? new Date().toISOString().slice(0, 16),
+        startDate: initialDate ?? getDefaultDate(),
         endDate: "", allDay: false, description: "", visibility: "personal" as const,
     });
     const [success, setSuccess] = useState(false);
     const [dateError, setDateError] = useState("");
 
     // Minimum datetime = now (no past events)
-    const nowISO = new Date().toISOString().slice(0, 16);
+    const getLocalISO = () => {
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        return new Date(now.getTime() - offset).toISOString().slice(0, 16);
+    };
+
+    const [nowISO, setNowISO] = useState(getLocalISO());
+    
+    useEffect(() => {
+        if (!isOpen) return;
+        setNowISO(getLocalISO());
+        const interval = setInterval(() => setNowISO(getLocalISO()), 60000);
+        return () => clearInterval(interval);
+    }, [isOpen]);
 
     const typeConfig = EVENT_TYPES.find(t => t.value === form.type)!;
 
@@ -70,6 +94,8 @@ function CreateEventModal({
         setSuccess(true);
         setTimeout(() => { setSuccess(false); onClose(); }, 1200);
     }
+
+    const canShare = user && ["super_admin", "school_admin", "teacher"].includes(user.role);
 
     const inputCls = "w-full bg-white/70 dark:bg-slate-800/70 text-slate-900 dark:text-white placeholder:text-slate-400 border border-slate-200 dark:border-slate-700 focus:border-primary/60 rounded-2xl px-4 py-3 text-sm font-medium outline-none transition-all";
     const labelCls = "text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 ml-1";
@@ -99,7 +125,7 @@ function CreateEventModal({
                         <div className="space-y-1.5">
                             <label className={labelCls}>Title</label>
                             <input required value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
-                                placeholder="Event title..." className={inputCls} />
+                                placeholder="What's happening?" className={inputCls} />
                         </div>
 
                         {/* Type pills */}
@@ -126,7 +152,7 @@ function CreateEventModal({
                         {/* Dates */}
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5">
-                                <label className={labelCls}>Start</label>
+                                <label className={labelCls}>Start Date & Time</label>
                                 <input type={form.allDay ? "date" : "datetime-local"} required
                                     min={nowISO}
                                     value={form.startDate} onChange={e => { setForm(p => ({ ...p, startDate: e.target.value })); setDateError(""); }}
@@ -156,7 +182,7 @@ function CreateEventModal({
                             <label className={labelCls}>Description (optional)</label>
                             <textarea rows={2} value={form.description}
                                 onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-                                placeholder="Add details..." className={cn(inputCls, "resize-none")} />
+                                placeholder="Add any extra details or instructions..." className={cn(inputCls, "resize-none")} />
                         </div>
 
                         {/* Visibility */}
@@ -165,9 +191,10 @@ function CreateEventModal({
                             <select value={form.visibility} onChange={e => setForm(p => ({ ...p, visibility: e.target.value as any }))}
                                 className={inputCls}>
                                 <option value="personal">Personal only</option>
-                                <option value="class">My classes</option>
-                                <option value="school">School-wide</option>
+                                {canShare && <option value="class">My classes</option>}
+                                {canShare && <option value="school">School-wide</option>}
                             </select>
+                            {!canShare && <p className="text-[9px] text-slate-400 italic ml-1">Shared events are managed by teachers and admins.</p>}
                         </div>
 
                         {success ? (

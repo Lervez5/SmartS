@@ -27,16 +27,27 @@ export class CalendarController {
 
     async createEvent(req: Request, res: Response) {
         try {
-            const userId = (req as any).user?.id;
+            const user = (req as any).user;
             const dto = req.body as CreateCalendarEventDto;
+            
             if (!dto.title || !dto.type || !dto.startDate) {
                 return res.status(400).json({ message: "title, type, and startDate are required." });
             }
+
+            // Role check for shared events
+            const isShared = dto.visibility === "class" || dto.visibility === "school";
+            const canShare = ["super_admin", "school_admin", "teacher"].includes(user.role);
+            
+            if (isShared && !canShare) {
+                return res.status(403).json({ message: "Only administrators and teachers can create shared events." });
+            }
+
             // Guard: cannot create events in the past
             if (new Date(dto.startDate) < new Date()) {
                 return res.status(400).json({ message: "Cannot create events for dates in the past." });
             }
-            const event = await calendarService.createEvent(userId, dto);
+
+            const event = await calendarService.createEvent(user.id, dto);
             return res.status(201).json(event);
         } catch (err: any) {
             return res.status(400).json({ message: err.message });
@@ -45,10 +56,24 @@ export class CalendarController {
 
     async updateEvent(req: Request, res: Response) {
         try {
-            const userId = (req as any).user?.id;
+            const user = (req as any).user;
             const { id } = req.params;
             const dto = req.body as UpdateCalendarEventDto;
-            const event = await calendarService.updateEvent(userId, id, dto);
+
+            // Role check for shared events
+            if (dto.visibility === "class" || dto.visibility === "school") {
+                const canShare = ["super_admin", "school_admin", "teacher"].includes(user.role);
+                if (!canShare) {
+                    return res.status(403).json({ message: "Only administrators and teachers can update shared events." });
+                }
+            }
+
+            // Guard: cannot update events to the past
+            if (dto.startDate && new Date(dto.startDate) < new Date()) {
+                return res.status(400).json({ message: "Cannot set event dates in the past." });
+            }
+
+            const event = await calendarService.updateEvent(user.id, id, dto);
             return res.json(event);
         } catch (err: any) {
             return res.status(400).json({ message: err.message });

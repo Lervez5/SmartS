@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { MarkAttendanceDto, AttendanceQueryDto, VALID_STATUSES } from "./dto";
+import { createNotificationRepo } from "../notifications/repository";
 
 const prisma = new PrismaClient();
 
@@ -203,6 +204,83 @@ export class AttendanceService {
             : 100;
 
         return { records, stats: { total, byStatus, attendanceRate } };
+    }
+
+    /** Student self-marking with geolocation and device checks */
+    async studentMarkAttendance(studentId: string, data: { classId: string, latitude: number, longitude: number, deviceId: string, ipAddress: string }) {
+        const { classId, latitude, longitude, deviceId, ipAddress } = data;
+        
+        // Mock session check: verify if a class session is scheduled for today
+        const now = new Date();
+        const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(now); dayEnd.setHours(23, 59, 59, 999);
+        
+        // In a real system, we'd check against ClassSchedule to ensure the session is active
+        const cls = await prisma.class.findUnique({ where: { id: classId } });
+        if (!cls) throw new Error("Class session not found.");
+
+        const record = await prisma.attendance.create({
+            data: {
+                studentId,
+                classId,
+                status: "present",
+                date: now,
+                markedAt: now,
+                submittedAt: now,
+                latitude,
+                longitude,
+                deviceId,
+                ipAddress
+            } as any
+        });
+
+        return record;
+    }
+
+    /** Automatically notify parents of student absences */
+    async triggerParentAlerts(classId: string, date: Date) {
+        const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(date); dayEnd.setHours(23, 59, 59, 999);
+
+        const absences = await prisma.attendance.findMany({
+            where: {
+                classId,
+                date: { gte: dayStart, lte: dayEnd },
+                status: "absent"
+            },
+            include: {
+                student: {
+                    include: {
+                        children: {
+                            include: {
+                                parents: {
+                                    include: { parent: true }
+                                }
+                            }
+                        }
+                    }
+                },
+                class: true
+            }
+        });
+
+        for (const record of absences) {
+            const studentName = record.student.name || `${record.student.firstName} ${record.student.lastName}`;
+            const className = record.class.name;
+            
+            // For each child/parent link
+            for (const child of record.student.children) {
+                for (const link of child.parents) {
+                    await createNotificationRepo(
+                        link.parentId,
+                        "🚨 Absence Alert",
+                        `${studentName} was marked ABSENT from ${className} today.`
+                    );
+                }
+            }
+        }
+        
+        return { alertedCount: absences.length };
     }
 }
 

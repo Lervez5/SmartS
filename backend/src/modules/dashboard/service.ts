@@ -1,11 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
+const db = prisma as any;
 
 export async function getStudentDashboardData(studentId: string) {
   const [upcomingClasses, pendingAssignments, recentGrades, notifications, progress] = await Promise.all([
     // Upcoming classes (next 7 days)
-    prisma.class.findMany({
+    db.class.findMany({
       where: {
         enrollments: { some: { studentId } },
         schedule: { gte: new Date() },
@@ -15,7 +16,7 @@ export async function getStudentDashboardData(studentId: string) {
       include: { teacher: { select: { name: true } }, subject: { select: { name: true } } },
     }),
     // Pending assignments
-    prisma.assignment.findMany({
+    db.assignment.findMany({
       where: {
         class: { enrollments: { some: { studentId } } },
         submissions: { none: { studentId } },
@@ -25,20 +26,20 @@ export async function getStudentDashboardData(studentId: string) {
       orderBy: { dueDate: "asc" },
     }),
     // Recent grades (last 5 attempts)
-    prisma.attempt.findMany({
+    db.attempt.findMany({
       where: { child: { userId: studentId } },
       take: 5,
       orderBy: { createdAt: "desc" },
       include: { exercise: { include: { lesson: true } } },
     }),
     // Unread notifications
-    prisma.notification.findMany({
+    db.notification.findMany({
       where: { userId: studentId, read: false },
       take: 5,
       orderBy: { createdAt: "desc" },
     }),
     // Subject progress
-    prisma.progress.findMany({
+    db.progress.findMany({
       where: { child: { userId: studentId } },
       include: { subject: true },
     }),
@@ -56,25 +57,25 @@ export async function getStudentDashboardData(studentId: string) {
 export async function getTeacherDashboardData(teacherId: string) {
   const [classesTaught, pendingGrading, recentSubmissions, attendanceSummary] = await Promise.all([
     // Classes taught
-    prisma.class.findMany({
+    db.class.findMany({
       where: { teacherId },
       include: { subject: true, _count: { select: { enrollments: true } } },
     }),
     // Pending grading
-    prisma.submission.findMany({
+    db.submission.findMany({
       where: { assignment: { class: { teacherId } }, status: "pending" },
       take: 10,
       include: { student: { select: { name: true, email: true } }, assignment: true },
     }),
     // Recent submissions
-    prisma.submission.findMany({
+    db.submission.findMany({
       where: { assignment: { class: { teacherId } } },
       take: 10,
       orderBy: { createdAt: "desc" },
       include: { student: { select: { name: true } }, assignment: true },
     }),
     // Attendance summary (last 7 days)
-    prisma.attendance.groupBy({
+    db.attendance.groupBy({
       by: ["status"],
       where: { class: { teacherId }, date: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
       _count: true,
@@ -90,28 +91,30 @@ export async function getTeacherDashboardData(teacherId: string) {
 }
 
 export async function getAdminDashboardData() {
-  const [stats, revenue, activity, recentUsers] = await Promise.all([
+  const [stats, revenue, activity, recentUsers, courseStats] = await Promise.all([
     // School statistics
-    prisma.user.groupBy({
+    db.user.groupBy({
       by: ["role"],
       _count: true,
     }),
     // Revenue reports (last 30 days)
-    prisma.payment.aggregate({
+    db.payment.aggregate({
       where: { status: "succeeded", createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
       _sum: { amountCents: true },
     }),
     // Recent system activity
-    prisma.auditLog.findMany({
+    db.auditLog.findMany({
       take: 20,
       orderBy: { createdAt: "desc" },
       include: { user: { select: { name: true, email: true, role: true } } },
     }),
     // Recent users
-    prisma.user.findMany({
+    db.user.findMany({
       take: 10,
       orderBy: { createdAt: "desc" },
     }),
+    // Course statistics
+    db.course?.count().catch(() => 0),
   ]);
 
   return {
@@ -119,5 +122,6 @@ export async function getAdminDashboardData() {
     revenue,
     activity,
     recentUsers,
+    courseCount: courseStats || 0
   };
 }

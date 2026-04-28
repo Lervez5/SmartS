@@ -15,26 +15,40 @@ import {
     ClipboardList,
     CalendarDays,
     Bell,
+    Play,
+    MessageCircle,
+    Users,
+    BarChart3,
+    Layers,
     X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth.store";
 
 const navigation = [
-    { name: "Student Dashboard", href: "/dashboard/student", icon: LayoutDashboard, roles: ["student"] },
-    { name: "Teacher Dashboard", href: "/dashboard/teacher", icon: LayoutDashboard, roles: ["teacher"] },
-    { name: "My Lessons", href: "/lessons", icon: BookOpen, roles: ["student"] },
-    { name: "My Attendance", href: "/dashboard/attendance/me", icon: ClipboardList, roles: ["student"] },
-    { name: "Calendar", href: "/dashboard/calendar", icon: CalendarDays, roles: ["student"] },
-    { name: "Reminders", href: "/dashboard/reminders", icon: Bell, roles: ["student"] },
-    { name: "Achievements", href: "/badges", icon: Trophy, roles: ["student"] },
+    { name: "Dashboard", href: "/dashboard/student", icon: LayoutDashboard, roles: ["student"] },
+    { name: "Cohorts (Classes)", href: "/dashboard/student/courses", icon: BookOpen, roles: ["student"] },
+    { name: "Class Sessions", href: "/dashboard/calendar", icon: CalendarDays, roles: ["student"] },
+    { name: "Submissions", href: "/dashboard/student/submissions", icon: FileText, roles: ["student"] },
+    { name: "Groups", href: "/dashboard/groups", icon: Users, roles: ["student"] },
+    { name: "Community", href: "/dashboard/community", icon: MessageCircle, roles: ["student"] },
+    { name: "Certificates", href: "/dashboard/certificates", icon: Trophy, roles: ["student"] },
+    
+    { name: "Teacher Station", href: "/dashboard/teacher", icon: LayoutDashboard, roles: ["teacher"] },
+    { name: "Curriculum Architect", href: "/dashboard/teacher/courses", icon: BookOpen, roles: ["teacher"] },
     { name: "Attendance", href: "/dashboard/attendance", icon: ClipboardList, roles: ["teacher"] },
     { name: "Calendar", href: "/dashboard/calendar", icon: CalendarDays, roles: ["teacher"] },
     { name: "Reminders", href: "/dashboard/reminders", icon: Bell, roles: ["teacher"] },
+    
     { name: "Parent Portal", href: "/parent", icon: UserCircle, roles: ["parent"] },
     { name: "Subscriptions", href: "/parent/subscriptions", icon: CreditCard, roles: ["parent"] },
+    
     { name: "Admin Center", href: "/admin", icon: ShieldCheck, roles: ["super_admin", "school_admin"] },
+    { name: "Cohort Manager", href: "/admin/cohorts", icon: Users, roles: ["super_admin", "school_admin"] },
+    { name: "Platform Metrics", href: "/admin/metrics", icon: FileText, roles: ["super_admin", "school_admin"] },
     { name: "Audit Logs", href: "/admin/logs", icon: FileText, roles: ["super_admin", "school_admin"] },
+    { name: "Platform Reports", href: "/admin/reporting", icon: BarChart3, roles: ["super_admin", "school_admin"] },
+    { name: "Module Management", href: "/admin/modules", icon: Layers, roles: ["super_admin", "school_admin"] },
     { name: "Timetable Import", href: "/admin/timetable/bulk", icon: CalendarDays, roles: ["super_admin", "school_admin"] },
 ];
 

@@ -19,7 +19,9 @@ import {
     KeyRound,
     UserX,
     UserCheck,
-    Trash2
+    Trash2,
+    BookOpen,
+    Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -138,6 +140,66 @@ export function AdminView() {
             </div>
 
             <div className="space-y-8 relative z-10">
+                {/* Course Portfolio Section */}
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between px-2">
+                        <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                            Course Portfolio
+                        </h3>
+                        <Link href="/dashboard/teacher/courses/new" className="text-xs font-black uppercase tracking-widest text-primary hover:bg-primary/5 px-4 py-2 rounded-xl transition-colors flex items-center gap-2">
+                            Deploy New Course
+                        </Link>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="md:col-span-1 glass p-8 rounded-[2.5rem] border border-white/20 space-y-4">
+                            <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                <BookOpen className="w-6 h-6 text-blue-600" />
+                            </div>
+                            <div>
+                                <h4 className="font-bold">Active Courses</h4>
+                                <p className="text-3xl font-black mt-2">{dashboardData?.courseCount || 0}</p>
+                                <p className="text-xs text-slate-500 mt-1 font-medium">
+                                    {dashboardData?.courseCount ? "Courses are live and accessible." : "No courses have been registered yet."}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="md:col-span-2 glass p-8 rounded-[2.5rem] border border-white/20 flex flex-col items-center justify-center text-center space-y-4 bg-slate-50/30 dark:bg-slate-900/30 border-dashed">
+                            {(dashboardData?.courseCount || 0) > 0 ? (
+                                <div className="space-y-4">
+                                    <div className="p-4 bg-emerald-500/10 rounded-full shadow-inner mx-auto w-16 h-16 flex items-center justify-center">
+                                        <ShieldCheck className="w-8 h-8 text-emerald-500" />
+                                    </div>
+                                    <div>
+                                        <h5 className="font-bold text-slate-900 dark:text-white">System Curriculum Active</h5>
+                                        <p className="text-xs text-slate-500 max-w-xs mx-auto">Platform learning modules are synchronized. You can monitor individual student progress in the Metrics section.</p>
+                                    </div>
+                                    <Link href="/admin/metrics" className="inline-block text-xs font-black uppercase tracking-widest text-primary hover:underline">
+                                        View Deep Analytics
+                                    </Link>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="p-4 bg-white dark:bg-slate-800 rounded-full shadow-inner">
+                                        <Sparkles className="w-8 h-8 text-primary/40" />
+                                    </div>
+                                    <div>
+                                        <h5 className="font-bold text-slate-400">Curriculum Engine Empty</h5>
+                                        <p className="text-xs text-slate-500 max-w-xs mx-auto">The platform's learning modules are currently offline. Start by creating a course to populate the student library.</p>
+                                    </div>
+                                    <Link 
+                                        href="/dashboard/teacher/courses/new"
+                                        className="bg-primary text-white px-6 py-2.5 rounded-2xl font-bold text-xs shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+                                    >
+                                        Initialize Curriculum
+                                    </Link>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
                 {/* Directory Section - Full Width */}
                 <div className="space-y-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">

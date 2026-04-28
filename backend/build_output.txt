@@ -1,0 +1,25 @@
+
+> @smartsprout/backend@0.1.0 build
+> tsc -p tsconfig.json
+
+src/modules/attendance/service.ts(269,31): error TS18047: 'record.class' is possibly 'null'.
+src/modules/children/children.test.ts(6,20): error TS2339: Property 'listChildrenService' does not exist on type 'typeof import("/home/lervez/Downloads/Download/Commercial/smart/backend/src/modules/children/service")'.
+src/modules/classes/repository.ts(82,5): error TS2322: Type 'CreateClassDto' is not assignable to type '(Without<ClassCreateInput, ClassUncheckedCreateInput> & ClassUncheckedCreateInput) | (Without<...> & ClassCreateInput)'.
+  Type 'CreateClassDto' is not assignable to type 'Without<ClassCreateInput, ClassUncheckedCreateInput> & ClassUncheckedCreateInput'.
+    Property 'schedule' is missing in type 'CreateClassDto' but required in type 'ClassUncheckedCreateInput'.
+src/modules/courses/service.ts(27,63): error TS18047: 'course' is possibly 'null'.
+src/modules/courses/service.ts(27,80): error TS18047: 'course' is possibly 'null'.
+src/modules/gamification/repository.ts(15,5): error TS2322: Type '{ studentId: string; code: string; awardedAt: Date; }' is not assignable to type '(Without<GamificationBadgeCreateInput, GamificationBadgeUncheckedCreateInput> & GamificationBadgeUncheckedCreateInput) | (Without<...> & GamificationBadgeCreateInput)'.
+  Type '{ studentId: string; code: string; awardedAt: Date; }' is not assignable to type 'Without<GamificationBadgeUncheckedCreateInput, GamificationBadgeCreateInput> & GamificationBadgeCreateInput'.
+    Property 'profile' is missing in type '{ studentId: string; code: string; awardedAt: Date; }' but required in type 'GamificationBadgeCreateInput'.
+src/modules/invitations/service.ts(37,5): error TS2353: Object literal may only specify known properties, and 'isActive' does not exist in type 'Partial<{ name: string; email: string; passwordHash: string; role: Role; firstName: string; lastName: string; avatar: string; }>'.
+src/modules/notifications/notifications.test.ts(6,20): error TS2551: Property 'listNotificationsService' does not exist on type 'typeof import("/home/lervez/Downloads/Download/Commercial/smart/backend/src/modules/notifications/service")'. Did you mean 'listMyNotificationsService'?
+src/modules/payments/repository.ts(22,5): error TS2322: Type '{ userId: any; }' is not assignable to type 'SubscriptionWhereUniqueInput'.
+  Type '{ userId: any; }' is not assignable to type '{ id: string; } & { id?: string | undefined; AND?: SubscriptionWhereInput | SubscriptionWhereInput[] | undefined; OR?: SubscriptionWhereInput[] | undefined; ... 6 more ...; user?: (Without<...> & UserWhereInput) | ... 1 more ... | undefined; }'.
+    Property 'id' is missing in type '{ userId: any; }' but required in type '{ id: string; }'.
+src/modules/payments/repository.ts(22,14): error TS18004: No value exists in scope for the shorthand property 'userId'. Either declare one or provide an initializer.
+src/modules/payments/repository.ts(40,43): error TS2322: Type '{ userId: string; }' is not assignable to type 'SubscriptionWhereUniqueInput'.
+  Type '{ userId: string; }' is not assignable to type '{ id: string; } & { id?: string | undefined; AND?: SubscriptionWhereInput | SubscriptionWhereInput[] | undefined; OR?: SubscriptionWhereInput[] | undefined; ... 6 more ...; user?: (Without<...> & UserWhereInput) | ... 1 more ... | undefined; }'.
+    Property 'id' is missing in type '{ userId: string; }' but required in type '{ id: string; }'.
+src/modules/subjects/subjects.test.ts(6,20): error TS2339: Property 'listSubjects' does not exist on type 'typeof import("/home/lervez/Downloads/Download/Commercial/smart/backend/src/modules/subjects/service")'.
+src/modules/users/repository.ts(42,5): error TS2322: Type 'true' is not assignable to type 'never'.

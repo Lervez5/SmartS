@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { Role } from "../../security/rbac";
 import { childProgressService, systemStatsService } from "./service";
+import { metricsService } from "./metrics.service";
 import { progressQuerySchema } from "./schema";
 import { ApiError } from "../../shared/errorHandler";
 
@@ -29,6 +29,15 @@ export async function systemStatsController(req: Request, res: Response) {
   }
   const stats = await systemStatsService();
   res.json({ stats });
+}
+
+export async function platformMetricsController(req: Request, res: Response) {
+  if (!req.user || !["super_admin", "school_admin"].includes(req.user.role)) {
+    throw new ApiError(403, "Admin role required");
+  }
+  const metrics = await metricsService.getPlatformMetrics();
+  const patterns = await metricsService.getAccessPatterns();
+  res.json({ metrics, patterns });
 }
 
 

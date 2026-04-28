@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { AuthUser } from "./rbac";
 
-const ACCESS_TOKEN_TTL = "15m";
+const ACCESS_TOKEN_TTL = "24h";
 const REFRESH_TOKEN_TTL = "7d";
 
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || "dev-access-secret";
@@ -49,7 +49,7 @@ export function setAuthCookies(res: Response, tokens: Tokens) {
     httpOnly: true,
     sameSite: "strict",
     secure: isProd,
-    maxAge: 15 * 60 * 1000,
+    maxAge: 24 * 60 * 60 * 1000,
   });
   res.cookie("refreshToken", tokens.refreshToken, {
     httpOnly: true,
