@@ -8,6 +8,12 @@ export function createNotificationRepo(userId: string, title: string, body: stri
   });
 }
 
+export function createManyNotificationsRepo(notifications: Array<{ userId: string; title: string; body: string }>) {
+  return prisma.notification.createMany({
+    data: notifications,
+  });
+}
+
 export function listNotificationsForUser(userId: string) {
   return prisma.notification.findMany({
     where: { userId },
