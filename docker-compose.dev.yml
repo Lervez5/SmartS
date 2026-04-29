@@ -27,7 +27,7 @@ services:
     build: ./backend
     command: ["pnpm", "dev"]
     environment:
-      DATABASE_URL: mongodb://root:example@mongodb:27017/smartsprout?authSource=admin
+      DATABASE_URL: mongodb://root:example@mongodb:27017/smartsprout2?authSource=admin
       NODE_ENV: development
     depends_on:
       - mongodb
