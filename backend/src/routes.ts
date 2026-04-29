@@ -20,6 +20,7 @@ import { router as remindersRouter } from "./modules/reminders";
 import { timetableRouter } from "./modules/timetable/router";
 import { router as reportingRouter } from "./modules/reporting";
 import { router as classRouter } from "./modules/classes/routes";
+import { router as assignmentsRouter } from "./modules/assignments";
 
 export const router = Router();
 
@@ -45,6 +46,4 @@ router.use("/reminders", remindersRouter);
 router.use("/timetable", timetableRouter);
 router.use("/reporting", reportingRouter);
 router.use("/classes", classRouter);
-
-
-
+router.use("/assignments", assignmentsRouter);

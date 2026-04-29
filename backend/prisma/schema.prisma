@@ -292,21 +292,25 @@ model Assignment {
   classId     String?  @db.ObjectId
   unit        Unit?    @relation(fields: [unitId], references: [id])
   unitId      String?  @db.ObjectId
+  rubric      String?  // JSON string of rubric criteria
+  maxScore    Float?
   submissions Submission[]
   createdAt   DateTime @default(now())
 }
 
 model Submission {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  assignment   Assignment @relation(fields: [assignmentId], references: [id])
-  assignmentId String   @db.ObjectId
-  student      User     @relation("StudentSubmissions", fields: [studentId], references: [id])
-  studentId    String   @db.ObjectId
-  content      String?
-  score        Float?
-  feedback     String?
-  status       String   @default("pending")
-  createdAt    DateTime @default(now())
+   id           String   @id @default(auto()) @map("_id") @db.ObjectId
+   assignment   Assignment @relation(fields: [assignmentId], references: [id])
+   assignmentId String   @db.ObjectId
+   student      User     @relation("StudentSubmissions", fields: [studentId], references: [id])
+   studentId    String   @db.ObjectId
+   content      String?
+   fileUrl      String?
+   score        Float?
+   feedback     String?
+   rubricScores Json?
+   status       String   @default("pending")  // pending | graded
+   createdAt    DateTime @default(now())
 }
 
 model Attendance {
