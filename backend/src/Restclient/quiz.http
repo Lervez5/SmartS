@@ -18,13 +18,8 @@ Content-Type: application/json
 @baseUrl = http://localhost:4000
 
 ### Teacher Token
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ZjIwOTEzNzlkODg3MTllOGZkZDYyZiIsImVtYWlsIjoidGVhY2hlcjFAZ21haWwuY29tIiwicm9sZSI6InRlYWNoZXIiLCJpYXQiOjE3Nzc2MjYzNzMsImV4cCI6MTc3NzcxMjc3M30.WQ8g6v4YajjxWyEf8bUJtjkMIZEnQI7lchM2r85htfo
-
-### Student Token
-@studentToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ZjIyMDEwNzlkODg3MTllOGZkZDczZCIsImVtYWlsIjoic3R1ZGVudDFAZ21haWwuY29tIiwicm9sZSI6InN0dWRlbnQiLCJpYXQiOjE3Nzc0NzEwNDMsImV4cCI6MTc3NzQ3MTk0M30.VGq9pXvE8qz6uvr1XG1oBU4jKNwFfN4e8qPf_EQ0MwM
-
-
-### ============================================
+@token = 
+@studentToken = 
 ### QUIZ MANAGEMENT (Teacher / Admin)
 ### ============================================
 

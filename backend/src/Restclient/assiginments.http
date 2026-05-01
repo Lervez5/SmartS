@@ -1,7 +1,7 @@
 @baseUrl = http://localhost:4000
 
 ### Teacher Token
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ZjIwOTEzNzlkODg3MTllOGZkZDYyZiIsImVtYWlsIjoidGVhY2hlcjFAZ21haWwuY29tIiwicm9sZSI6InRlYWNoZXIiLCJpYXQiOjE3Nzc2MjYzNzMsImV4cCI6MTc3NzcxMjc3M30.WQ8g6v4YajjxWyEf8bUJtjkMIZEnQI7lchM2r85htfo
+@token = 
 
 ### Login Admin
 
