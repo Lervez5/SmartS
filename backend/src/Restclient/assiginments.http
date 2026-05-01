@@ -1,8 +1,7 @@
 @baseUrl = http://localhost:4000
 
 ### Teacher Token
-@token =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ZjIwOTEzNzlkODg3MTllOGZkZDYyZiIsImVtYWlsIjoidGVhY2hlcjFAZ21haWwuY29tIiwicm9sZSI6InRlYWNoZXIiLCJpYXQiOjE3Nzc0NzA4NjcsImV4cCI6MTc3NzQ3MTc2N30.9gwQIlSLOrWJgOCnrJtAuDEvTbcw8v9GRMkl5BM_bgU
-
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ZjIwOTEzNzlkODg3MTllOGZkZDYyZiIsImVtYWlsIjoidGVhY2hlcjFAZ21haWwuY29tIiwicm9sZSI6InRlYWNoZXIiLCJpYXQiOjE3Nzc2MjYzNzMsImV4cCI6MTc3NzcxMjc3M30.WQ8g6v4YajjxWyEf8bUJtjkMIZEnQI7lchM2r85htfo
 
 ### Login Admin
 
@@ -45,5 +44,5 @@ Authorization: Bearer {{token}}
   "title": "Assignment 1",
   "description": "This is the first assignment.",
   "dueDate": "2024-07-01T23:59:59Z",
-  "courseId": "course123"
+  "classId": "course123"
 }

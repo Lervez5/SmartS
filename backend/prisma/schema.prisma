@@ -29,24 +29,27 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  children       Child[]           @relation("StudentUser")
-  parentChildren ParentChildLink[] @relation("ParentUser")
-  notifications  Notification[]
-  payments       Payment[]
-  subscriptions  Subscription[]
-  auditLogs      AuditLog[]
+   children       Child[]           @relation("StudentUser")
+   parentChildren ParentChildLink[] @relation("ParentUser")
+   notifications  Notification[]
+   payments       Payment[]
+   subscriptions  Subscription[]
+   auditLogs      AuditLog[]
 
-  // New relations
-  teacherClasses    Class[]            @relation("TeacherClasses")
-  teacherCourses    Course[]           @relation("TeacherCourses")
-  enrollments       Enrollment[]       @relation("StudentEnrollments")
-  courseEnrollments CourseEnrollment[] @relation("StudentCourseEnrollments")
-  submissions       Submission[]       @relation("StudentSubmissions")
-  attendance        Attendance[]       @relation("StudentAttendance")
-  lessonAccessLogs  LessonAccessLog[]
-  
-  isActive       Boolean      @default(false)
-  invitation     Invitation?
+   // New relations
+   teacherClasses    Class[]            @relation("TeacherClasses")
+   teacherCourses    Course[]           @relation("TeacherCourses")
+   enrollments       Enrollment[]       @relation("StudentEnrollments")
+   courseEnrollments CourseEnrollment[] @relation("StudentCourseEnrollments")
+   submissions       Submission[]       @relation("StudentSubmissions")
+   attendance        Attendance[]       @relation("StudentAttendance")
+   lessonAccessLogs  LessonAccessLog[]
+
+   // Quiz relations
+   quizAttempts       QuizAttempt[]       @relation("StudentQuizAttempts")
+
+   isActive       Boolean      @default(false)
+   invitation     Invitation?
 }
 
 model Invitation {
@@ -255,6 +258,7 @@ model Class {
   attendance  Attendance[]
   schedules   ClassSchedule[]
   schedule    DateTime
+  quizzes     Quiz[]   @relation("ClassQuizzes")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -410,7 +414,8 @@ model Unit {
   lessons     Lesson[]
   assignments Assignment[]
   attendance  Attendance[]
-  
+  quizzes     Quiz[]   @relation("UnitQuizzes")
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -457,4 +462,102 @@ model Reminder {
   snoozedUntil DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+
+model Quiz {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  type        String   // quiz | exam
+  duration    Int      // minutes
+
+  // NEW RELATION (connect to Unit or Class)
+  unit        Unit?    @relation("UnitQuizzes", fields: [unitId], references: [id])
+  unitId      String?  @db.ObjectId
+
+  class       Class?   @relation("ClassQuizzes", fields: [classId], references: [id])
+  classId     String?  @db.ObjectId
+
+  randomize   Boolean  @default(false)
+  showResults Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+
+
+  questions   QuizQuestion[]
+  attempts    QuizAttempt[]
+}
+
+
+model Question {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  type          String   // mcq | true_false | short | essay
+  prompt        String
+
+
+  options       Json?
+
+
+  correctAnswer Json?
+
+  explanation   String?
+
+  subjectId     String?  @db.ObjectId
+  difficulty    Float?
+
+  createdAt     DateTime @default(now())
+
+  quizLinks     QuizQuestion[]
+  quizAnswers   QuizAnswer[] @relation("QuestionAnswers")
+}
+
+
+model QuizQuestion {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+
+
+  quiz       Quiz     @relation(fields: [quizId], references: [id])
+  quizId     String   @db.ObjectId
+
+  question   Question @relation(fields: [questionId], references: [id])
+  questionId String   @db.ObjectId
+
+  order      Int
+  points     Float    @default(1)
+}
+
+
+model QuizAttempt {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  quiz        Quiz     @relation(fields: [quizId], references: [id])
+  quizId      String   @db.ObjectId
+
+  student     User     @relation("StudentQuizAttempts", fields: [studentId], references: [id])
+  studentId   String   @db.ObjectId
+
+  startedAt   DateTime @default(now())
+  submittedAt DateTime?
+
+  score       Float?
+
+  status      String   @default("in_progress") // in_progress | submitted | graded
+
+  answers     QuizAnswer[] @relation("AttemptAnswers")
+}
+
+model QuizAnswer {
+  id         String      @id @default(auto()) @map("_id") @db.ObjectId
+  attempt    QuizAttempt @relation("AttemptAnswers", fields: [attemptId], references: [id])
+  attemptId  String      @db.ObjectId
+  question   Question    @relation("QuestionAnswers", fields: [questionId], references: [id])
+  questionId String      @db.ObjectId
+  response   Json        // student's answer (string, array, etc.)
+  isCorrect  Boolean?    // for auto-graded questions
+  score      Float?      // points earned for this answer
+  feedback   String?
+
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 }

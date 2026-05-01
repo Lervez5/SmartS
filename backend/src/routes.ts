@@ -21,6 +21,7 @@ import { timetableRouter } from "./modules/timetable/router";
 import { router as reportingRouter } from "./modules/reporting";
 import { router as classRouter } from "./modules/classes/routes";
 import { router as assignmentsRouter } from "./modules/assignments";
+import { router as quizRouter } from "./modules/quiz";
 
 export const router = Router();
 
@@ -47,3 +48,4 @@ router.use("/timetable", timetableRouter);
 router.use("/reporting", reportingRouter);
 router.use("/classes", classRouter);
 router.use("/assignments", assignmentsRouter);
+router.use("/quiz", quizRouter);

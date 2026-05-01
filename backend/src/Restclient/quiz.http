@@ -1,0 +1,299 @@
+### Login Teacher
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "teacher1@gmail.com",
+  "password": "1234567890"
+}
+
+### Login Student
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "student1@gmail.com",
+  "password": "1234567890"
+}
+@baseUrl = http://localhost:4000
+
+### Teacher Token
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ZjIwOTEzNzlkODg3MTllOGZkZDYyZiIsImVtYWlsIjoidGVhY2hlcjFAZ21haWwuY29tIiwicm9sZSI6InRlYWNoZXIiLCJpYXQiOjE3Nzc2MjYzNzMsImV4cCI6MTc3NzcxMjc3M30.WQ8g6v4YajjxWyEf8bUJtjkMIZEnQI7lchM2r85htfo
+
+### Student Token
+@studentToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ZjIyMDEwNzlkODg3MTllOGZkZDczZCIsImVtYWlsIjoic3R1ZGVudDFAZ21haWwuY29tIiwicm9sZSI6InN0dWRlbnQiLCJpYXQiOjE3Nzc0NzEwNDMsImV4cCI6MTc3NzQ3MTk0M30.VGq9pXvE8qz6uvr1XG1oBU4jKNwFfN4e8qPf_EQ0MwM
+
+
+### ============================================
+### QUIZ MANAGEMENT (Teacher / Admin)
+### ============================================
+
+### Create Quiz with Questions (Unit-linked)
+POST {{baseUrl}}/api/quiz
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Math Quiz 1 - Addition",
+  "description": "Basic addition concepts",
+  "type": "quiz",
+  "duration": 30,
+  "unitId": "67f29209961e7dd18dcb24e4",
+  "randomize": false,
+  "showResults": true,
+  "questions": [
+    {
+      "order": 1,
+      "points": 2,
+      "question": {
+        "type": "mcq",
+        "prompt": "What is 2 + 2?",
+        "options": {
+          "A": "3",
+          "B": "4",
+          "C": "5",
+          "D": "6"
+        },
+        "correctAnswer": "B",
+        "explanation": "Basic arithmetic: 2 + 2 = 4"
+      }
+    },
+    {
+      "order": 2,
+      "points": 3,
+      "question": {
+        "type": "mcq",
+        "prompt": "What is 5 + 7?",
+        "options": {
+          "A": "10",
+          "B": "11",
+          "C": "12",
+          "D": "13"
+        },
+        "correctAnswer": "C",
+        "explanation": "5 + 7 = 12"
+      }
+    }
+  ]
+}
+
+### Create Quiz with Existing Questions (from Question Bank)
+POST {{baseUrl}}/api/quiz
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Science Quiz - Photosynthesis",
+  "description": "Chapter 4: Photosynthesis basics",
+  "type": "quiz",
+  "duration": 45,
+  "classId": "67f29209961e7dd18dcb24e5",
+  "randomize": true,
+  "showResults": false,
+  "questions": [
+    {
+      "questionId": "67f294ea0a5b9e3a70c72e49",
+      "order": 1,
+      "points": 2
+    },
+    {
+      "questionId": "67f294fd0a5b9e3a70c72e4a",
+      "order": 2,
+      "points": 2
+    }
+  ]
+}
+
+### Get Quiz by ID (with questions)
+GET {{baseUrl}}/api/quiz/67f295780c1e4a1b8c7e8f92
+Authorization: Bearer {{token}}
+
+### List Quizzes (filter by class)
+GET {{baseUrl}}/api/quiz?classId=67f29209961e7dd18dcb24e5
+Authorization: Bearer {{token}}
+
+### List Quizzes (filter by unit)
+GET {{baseUrl}}/api/quiz?unitId=67f29209961e7dd18dcb24e4
+Authorization: Bearer {{token}}
+
+### List Quizzes (filter by type)
+GET {{baseUrl}}/api/quiz?type=exam
+Authorization: Bearer {{token}}
+
+### Update Quiz
+PUT {{baseUrl}}/api/quiz/67f295780c1e4a1b8c7e8f92
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Updated Math Quiz",
+  "description": "Revised description",
+  "duration": 40,
+  "randomize": true
+}
+
+### Delete Quiz
+DELETE {{baseUrl}}/api/quiz/67f295780c1e4a1b8c7e8f92
+Authorization: Bearer {{token}}
+
+
+### ============================================
+### QUESTION BANK (Teacher / Admin)
+### ============================================
+
+### Create Question
+POST {{baseUrl}}/api/quiz/questions
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "type": "mcq",
+  "prompt": "What is the powerhouse of the cell?",
+  "options": {
+    "A": "Nucleus",
+    "B": "Mitochondria",
+    "C": "Ribosome",
+    "D": "Golgi Apparatus"
+  },
+  "correctAnswer": "B",
+  "explanation": "Mitochondria produce ATP through cellular respiration",
+  "subjectId": "67f2920a961e7dd18dcb24e6",
+  "difficulty": 2
+}
+
+### Create True/False Question
+POST {{baseUrl}}/api/quiz/questions
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "type": "true_false",
+  "prompt": "The sun rises in the west.",
+  "correctAnswer": false,
+  "explanation": "The sun rises in the east",
+  "subjectId": "67f2920a961e7dd18dcb24e6",
+  "difficulty": 1
+}
+
+### Create Short Answer Question
+POST {{baseUrl}}/api/quiz/questions
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "type": "short",
+  "prompt": "Define photosynthesis in one sentence.",
+  "correctAnswer": "The process by which green plants use sunlight to synthesize nutrients from carbon dioxide and water.",
+  "explanation": "Photosynthesis is the process of converting light energy to chemical energy.",
+  "subjectId": "67f2920a961e7dd18dcb24e6",
+  "difficulty": 3
+}
+
+### Get Question by ID
+GET {{baseUrl}}/api/quiz/questions/67f294ea0a5b9e3a70c72e49
+Authorization: Bearer {{token}}
+
+### List Questions (with filters)
+GET {{baseUrl}}/api/quiz/questions?type=mcq&difficultyMin=1&difficultyMax=5
+Authorization: Bearer {{token}}
+
+### Update Question
+PUT {{baseUrl}}/api/quiz/questions/67f294ea0a5b9e3a70c72e49
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "prompt": "What is 2 + 2? (updated)",
+  "explanation": "Updated explanation"
+}
+
+### Delete Question
+DELETE {{baseUrl}}/api/quiz/questions/67f294ea0a5b9e3a70c72e49
+Authorization: Bearer {{token}}
+
+
+### ============================================
+### STUDENT FLOW
+### ============================================
+
+### Start Quiz (creates attempt)
+POST {{baseUrl}}/api/quiz/67f295780c1e4a1b8c7e8f92/start
+Authorization: Bearer {{studentToken}}
+
+### Get Quiz Questions for Student (to display)
+GET {{baseUrl}}/api/quiz/67f295780c1e4a1b8c7e8f92
+Authorization: Bearer {{studentToken}}
+
+### Submit Quiz Attempt
+POST {{baseUrl}}/api/quiz/67f295780c1e4a1b8c7e8f92/submit
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "answers": [
+    {
+      "questionId": "67f294ea0a5b9e3a70c72e49",
+      "response": "B"
+    },
+    {
+      "questionId": "67f294fd0a5b9e3a70c72e4a",
+      "response": "C"
+    }
+  ]
+}
+
+### Get My Attempt Details
+GET {{baseUrl}}/api/quiz/attempt/67f296a2d4e5f1a2b3c4d5e6
+Authorization: Bearer {{studentToken}}
+
+### Get My Attempts for a Quiz
+GET {{baseUrl}}/api/quiz/67f295780c1e4a1b8c7e8f92/attempts/my
+Authorization: Bearer {{studentToken}}
+
+### Get All Attempts for Quiz (Teacher only)
+GET {{baseUrl}}/api/quiz/67f295780c1e4a1b8c7e8f92/attempts
+Authorization: Bearer {{token}}
+
+
+### ============================================
+### GRADING & ANALYTICS (Teacher / Admin)
+### ============================================
+
+### Auto-Grade Attempt (objective questions only)
+POST {{baseUrl}}/api/quiz/attempt/67f296a2d4e5f1a2b3c4d5e6/auto-grade
+Authorization: Bearer {{token}}
+
+### Manually Grade a Single Answer
+POST {{baseUrl}}/api/quiz/answer/67f296f5e7f8a9b1c2d3e4f5/grade
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "score": 2.5,
+  "feedback": "Good effort!",
+  "isCorrect": true
+}
+
+### Get Quiz Analytics
+GET {{baseUrl}}/api/quiz/67f295780c1e4a1b8c7e8f92/analytics
+Authorization: Bearer {{token}}
+
+### Get Attempt with Answers (detailed review)
+GET {{baseUrl}}/api/quiz/attempt/67f296a2d4e5f1a2b3c4d5e6/detail
+Authorization: Bearer {{token}}
+
+
+### ============================================
+### AUTH (for getting fresh tokens)
+### ============================================
+
+### Login Admin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@smartsprout.com",
+  "password": "Admn1234"
+}
+
+
