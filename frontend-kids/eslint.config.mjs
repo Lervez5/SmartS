@@ -11,6 +11,9 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      "tailwind.config.ts",
+      "postcss.config.mjs",
+      "next.config.mjs"
     ],
   },
 ];

@@ -1,13 +1,47 @@
 {
-    "name": "smartsprout-workspace",
-    "private": true,
-    "scripts": {
-        "dev": "concurrently \"pnpm --filter @smartsprout/backend dev\" \"pnpm --filter @smartsprout/frontend-kids dev\" \"cd ai_engine && ./.venv/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload\"",
-        "db:push": "pnpm --filter @smartsprout/backend exec prisma db push",
-        "backend:generate": "pnpm --filter @smartsprout/backend exec prisma generate"
-    },
-    "dependencies": {
-        "concurrently": "^9.2.1"
-    },
-    "packageManager": "pnpm@10.33.2+sha512.a90faf6feeab71ad6c6e57f94e0fe1a12f5dcc22cd754db40ae9593eb6a3e0b6b12e3540218bb37ae083404b1f2ce6db2a4121e979829b4aff94b99f49da1cf8"
+  "name": "smartsprout-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter @smartsprout/backend dev\" \"pnpm --filter @smartsprout/frontend-kids dev\" \"cd ai_engine && ./.venv/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload\"",
+    "db:push": "pnpm --filter @smartsprout/backend exec prisma db push",
+    "backend:generate": "pnpm --filter @smartsprout/backend exec prisma generate",
+    "prepare": "husky",
+    "commitlint": "commitlint",
+    "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run security:check",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "pnpm --filter @smartsprout/backend lint && pnpm --filter @smartsprout/frontend-kids lint && pnpm run python:lint",
+    "typecheck": "pnpm --filter @smartsprout/backend typecheck && pnpm --filter @smartsprout/frontend-kids typecheck",
+    "python:lint": "cd ai_engine && ./.venv/bin/ruff check app",
+    "python:format": "cd ai_engine && ./.venv/bin/ruff format app",
+    "python:format:check": "cd ai_engine && ./.venv/bin/ruff format --check app",
+    "security:check": "pnpm run secrets:check && pnpm run deps:audit",
+    "secrets:check": "node scripts/secret-scan.js",
+    "deps:audit": "pnpm audit --audit-level high"
+  },
+  "dependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
+    "@eslint/js": "^9.39.3",
+    "eslint": "^9.39.3",
+    "eslint-config-prettier": "^9.1.2",
+    "globals": "^17.11.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
+    "prettier": "^3.4.2",
+    "typescript-eslint": "^8.67.0"
+  },
+  "packageManager": "pnpm@10.33.2+sha512.a90faf6feeab71ad6c6e57f94e0fe1a12f5dcc22cd754db40ae9593eb6a3e0b6b12e3540218bb37ae083404b1f2ce6db2a4121e979829b4aff94b99f49da1cf8",
+  "husky": {
+    "hooks": {
+      "commit-msg": "commitlint --edit $1",
+      "pre-commit": "lint-staged",
+      "pre-push": "pnpm run typecheck && pnpm run lint"
+    }
+  }
 }
