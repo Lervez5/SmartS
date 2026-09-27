@@ -1,0 +1,15 @@
+{
+  "name": "@schoolos/tailwind",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./globals.css"
+    }
+  },
+  "files": [
+    "tailwind.config.js",
+    "globals.css"
+  ]
+}

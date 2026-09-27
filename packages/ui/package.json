@@ -1,0 +1,49 @@
+{
+  "name": "@schoolos/ui",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "module": "src/index.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*_/*.d.ts",
+      "import": "./dist/*_/*.js",
+      "require": "./dist/*_/*.js"
+    },
+    "./styles/globals.css": "./src/styles/globals.css",
+    "./src/styles/globals.css": "./src/styles/globals.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "@schoolos/auth": "workspace:*",
+    "@schoolos/utils": "workspace:*",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.48.0",
+    "next-themes": "^0.4.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.6.3"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "next": "^15.0.0"
+  }
+}

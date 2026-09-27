@@ -1,0 +1,59 @@
+import { Router } from "express";
+import { requireAuth } from "./middleware/auth";
+
+import { router as authRouter } from "./modules/auth";
+import { router as usersRouter } from "./modules/users";
+import { router as invitationsRouter } from "./modules/invitations";
+import { router as studentsRouter } from "./modules/students";
+import { router as parentsRouter } from "./modules/parents";
+import { router as teachersRouter } from "./modules/teachers";
+import { router as staffRouter } from "./modules/staff";
+import { router as admissionsRouter } from "./modules/admissions";
+import { router as academicsRouter } from "./modules/academics";
+import { router as classesRouter } from "./modules/classes";
+import { router as subjectsRouter } from "./modules/subjects";
+import { router as attendanceRouter } from "./modules/attendance";
+import { router as examinationsRouter } from "./modules/examinations";
+import { router as gradingRouter } from "./modules/grading";
+import { router as lmsRouter } from "./modules/lms";
+import { router as financeRouter } from "./modules/finance";
+import { router as expensesRouter } from "./modules/expenses";
+import { router as payrollRouter } from "./modules/payroll";
+import { router as transportRouter } from "./modules/transport";
+import { router as libraryRouter } from "./modules/library";
+import { router as inventoryRouter } from "./modules/inventory";
+import { router as communicationRouter } from "./modules/communication";
+import { router as notificationsRouter } from "./modules/notifications";
+import { router as documentsRouter } from "./modules/documents";
+import { router as reportsRouter } from "./modules/reports";
+
+export const router: Router = Router();
+
+router.use("/auth", authRouter);
+router.use("/invitations", invitationsRouter);
+
+router.use(requireAuth);
+
+router.use("/users", usersRouter);
+router.use("/students", studentsRouter);
+router.use("/parents", parentsRouter);
+router.use("/teachers", teachersRouter);
+router.use("/staff", staffRouter);
+router.use("/admissions", admissionsRouter);
+router.use("/academics", academicsRouter);
+router.use("/classes", classesRouter);
+router.use("/subjects", subjectsRouter);
+router.use("/attendance", attendanceRouter);
+router.use("/examinations", examinationsRouter);
+router.use("/grading", gradingRouter);
+router.use("/lms", lmsRouter);
+router.use("/finance", financeRouter);
+router.use("/expenses", expensesRouter);
+router.use("/payroll", payrollRouter);
+router.use("/transport", transportRouter);
+router.use("/library", libraryRouter);
+router.use("/inventory", inventoryRouter);
+router.use("/communication", communicationRouter);
+router.use("/notifications", notificationsRouter);
+router.use("/documents", documentsRouter);
+router.use("/reports", reportsRouter);

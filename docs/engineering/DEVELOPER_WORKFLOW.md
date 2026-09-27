@@ -103,14 +103,6 @@ pnpm --filter @smartsprout/frontend-kids lint
 
 Uses Next.js ESLint configuration (`frontend-kids/eslint.config.mjs`) with core-web-vitals and TypeScript rules.
 
-### Python (AI Engine)
-
-```bash
-pnpm run python:lint
-```
-
-Uses Ruff to lint the `ai_engine/app` directory.
-
 ## Formatting
 
 ### Check formatting
@@ -178,7 +170,7 @@ pnpm run verify
 This executes:
 
 1. Prettier format check
-2. ESLint for backend + frontend + Python lint
+2. ESLint for backend + frontend
 3. TypeScript type-check for backend + frontend
 4. Secret scanning
 5. Dependency audit
@@ -198,10 +190,6 @@ If any check fails, the command exits with a non-zero status.
 │   ├── src/
 │   ├── package.json
 │   └── tsconfig.json
-├── ai_engine/            # FastAPI + Python
-│   ├── app/
-│   ├── .venv/            # Local virtualenv (ignored)
-│   └── requirements.txt
 ├── docs/
 │   └── engineering/      # Engineering documentation
 ├── package.json          # Root workspace config + scripts
@@ -211,18 +199,6 @@ If any check fails, the command exits with a non-zero status.
 ├── .prettierrc           # Prettier configuration
 ├── .prettierignore       # Prettier ignore rules
 └── .husky/               # Git hooks
-```
-
-## Python Virtual Environment
-
-The `ai_engine/.venv` directory is local to each developer machine and is excluded from version control. If you need to recreate it:
-
-```bash
-cd ai_engine
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pip install ruff
 ```
 
 ## Troubleshooting

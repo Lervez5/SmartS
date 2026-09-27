@@ -1,0 +1,45 @@
+export * from "./auth.server";
+export type { AuthUser, AuthTokens, AuthResult } from "./auth.server";
+
+export const ROLES = {
+  SUPER_ADMIN: "super_admin",
+  SCHOOL_ADMIN: "school_admin",
+  TEACHER: "teacher",
+  PARENT: "parent",
+  STUDENT: "student",
+} as const;
+
+export const PERMISSIONS = {
+  USERS_READ: "users.read",
+  USERS_WRITE: "users.write",
+  USERS_DELETE: "users.delete",
+  ATTENDANCE_READ: "attendance.read",
+  ATTENDANCE_WRITE: "attendance.write",
+  ATTENDANCE_DELETE: "attendance.delete",
+  FINANCE_READ: "finance.read",
+  FINANCE_WRITE: "finance.write",
+  FINANCE_DELETE: "finance.delete",
+  CLASSES_READ: "classes.read",
+  CLASSES_WRITE: "classes.write",
+  CLASSES_DELETE: "classes.delete",
+  GRADES_READ: "grades.read",
+  GRADES_WRITE: "grades.write",
+  GRADES_DELETE: "grades.delete",
+  LMS_READ: "lms.read",
+  LMS_WRITE: "lms.write",
+  LMS_DELETE: "lms.delete",
+  REPORTS_READ: "reports.read",
+  REPORTS_WRITE: "reports.write",
+  SETTINGS_READ: "settings.read",
+  SETTINGS_WRITE: "settings.write",
+  ADMIN_READ: "admin.read",
+  ADMIN_WRITE: "admin.write",
+  CHILDREN_READ: "children.read",
+  FEES_READ: "fees.read",
+  ANNOUNCEMENTS_READ: "announcements.read",
+  MESSAGES_READ: "messages.read",
+  MESSAGES_WRITE: "messages.write",
+  ASSIGNMENTS_READ: "assignments.read",
+  ASSIGNMENTS_WRITE: "assignments.write",
+  STUDENTS_READ: "students.read",
+} as const;

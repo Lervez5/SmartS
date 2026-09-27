@@ -1,81 +1,72 @@
-# Dependencies
-node_modules/
-.pnpm-debug.log*
+node_modules
+dist
+.build
+dist-ssr
+.cache
+.next
+out
+.turbo
+.eslintcache
+*.tsbuildinfo
 
-# Environment variables
+# Environment files
 .env
 .env.*
 !.env.example
 **/.env
 **/.env.*
-!**/.env.example
+!.env.example
 
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
+*.egg-info
 .venv/
 venv/
-ENV/
-env/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
-# Next.js build output
-.next/
-out/
+# OS / editor
+.DS_Store
+.idea
+.vscode/
+*.suo
+*.njsproj
+*.sln
+*.swp
+*~
 
-# Debug logs
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# IDE / Editor
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Uploads
+# Uploads / local data
 backend/uploads/*
-!backend/uploads/.gitkeep
+uploads/*
+services/api/uploads/*
+!**/uploads/.gitkeep
 
-# Other build artifacts
-*.tsbuildinfo
-*.log
+# Docker bind-mount data (mongo/redis volumes)
+./data/
+data/
+
+# Test / coverage output
 coverage/
-.cache/
-.eslintcache
+*.lcov
+test-results/
+playwright-report/
+blob-report/
+.playwright/
 
-# Husky internal directory
+# Local scratch
+tmp/
+.temp/
+scratch/
+
+# Husky
 .husky/_/
 
-# Editor backup files
-*~
-*.swp
-*.swo
-
-# Temporary files
-tmp/
-temp/
+# Legacy sources kept on disk as migration reference, not tracked
+backend/
+frontend-kids/
