@@ -27,6 +27,12 @@ import { router as notificationsRouter } from "./modules/notifications";
 import { router as documentsRouter } from "./modules/documents";
 import { router as reportsRouter } from "./modules/reports";
 
+import { router as dashboardRouter } from "./modules/dashboard";
+import { router as coursesRouter } from "./modules/courses";
+import { router as cohortsRouter } from "./modules/cohorts";
+import { router as calendarRouter } from "./modules/calendar";
+import { router as reportingRouter } from "./modules/reporting";
+import { router as auditLogsRouter } from "./modules/audit-logs";
 export const router: Router = Router();
 
 router.use("/auth", authRouter);
@@ -56,4 +62,10 @@ router.use("/inventory", inventoryRouter);
 router.use("/communication", communicationRouter);
 router.use("/notifications", notificationsRouter);
 router.use("/documents", documentsRouter);
+router.use("/dashboard", dashboardRouter);
+router.use("/courses", coursesRouter);
+router.use("/cohorts", cohortsRouter);
+router.use("/calendar", calendarRouter);
+router.use("/reporting", reportingRouter);
+router.use("/audit-logs", auditLogsRouter);
 router.use("/reports", reportsRouter);
