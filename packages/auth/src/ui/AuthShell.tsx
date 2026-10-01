@@ -81,7 +81,7 @@ export function AuthShell({
             Capping the width matters: on a wide display a split screen gives
             each half the full viewport height and roughly half its width, so an
             uncapped column stretches inputs to ~900px. `mt-auto` alone is not
-            enough either — it pins the form to the bottom edge, which leaves a
+            enough either - it pins the form to the bottom edge, which leaves a
             dead band under the logo. Centre it instead.
           */}
           <AuthIdentity portalLabel={portalLabel} schoolName={schoolName} logoUrl={logoUrl} />
@@ -183,7 +183,7 @@ export function AuthIdentity({
  * A layered abstract composition rather than a stock photograph: the school and
  * CBC learning story is told with the platform's own brand tokens, so it cannot
  * look like an unrelated marketing site. Every value shown is either a real
- * configured value passed in by the caller or a fixed label — no invented
+ * configured value passed in by the caller or a fixed label - no invented
  * statistics.
  */
 export interface AuthVisualProps {

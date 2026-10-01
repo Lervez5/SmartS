@@ -19,7 +19,7 @@ import {
 } from '@schoolos/ui';
 
 /**
- * Enroll New — attach a learner profile to an existing account.
+ * Enroll New - attach a learner profile to an existing account.
  *
  * `POST /api/students` takes a `userId` and creates the StudentProfile; it
  * deliberately does not create accounts. Accounts are provisioned separately
@@ -88,7 +88,7 @@ export default function AdminEnrollLearnerPage() {
     {
       id: 'role',
       header: 'Role',
-      cell: (row) => (row.role ? <StatusPill label={roleLabel(row.role)} tone="neutral" /> : '—'),
+      cell: (row) => (row.role ? <StatusPill label={roleLabel(row.role)} tone="neutral" /> : '-'),
       hideBelow: 'sm',
     },
     {

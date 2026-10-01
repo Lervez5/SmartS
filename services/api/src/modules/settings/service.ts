@@ -207,7 +207,7 @@ export async function resolveFirstActiveSchool() {
  *
  * Read directly rather than through `getPublicBranding`, because that projection
  * is scoped by `requireSchoolScope` and does not include the academic session
- * the login badge shows. Kept to display values only — see the note in
+ * the login badge shows. Kept to display values only - see the note in
  * src/modules/public/index.ts before adding anything here.
  */
 export async function getSignInBranding(schoolId: string) {

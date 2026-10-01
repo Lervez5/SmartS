@@ -5,7 +5,7 @@
  *
  * `next-themes` is already a dependency of every portal but was never mounted,
  * so the `.dark` token block in `globals.css` had no way to be applied. The
- * class strategy is the one the stylesheet already implements — the tokens are
+ * class strategy is the one the stylesheet already implements - the tokens are
  * declared under `.dark { ... }`, not a `prefers-color-scheme` media query.
  *
  * `defaultTheme="system"` with `enableSystem` means a visitor without a stored

@@ -2,12 +2,12 @@
  * Public, unauthenticated display metadata.
  *
  * The sign-in screen runs before a user has a session, so it cannot read
- * `/api/settings/branding` — that route sits behind `requireSchoolScope` and
+ * `/api/settings/branding` - that route sits behind `requireSchoolScope` and
  * answers 401. This router exposes the same `getPublicBranding` projection with
  * no guard, because the login page needs the school's name, logo and curriculum
  * to render correctly.
  *
- * The projection is deliberately narrow. It returns display values only —
+ * The projection is deliberately narrow. It returns display values only -
  * name, logo, colours, portal naming, curriculum and the configured academic
  * session. It must never grow to include configuration, contact details, finance
  * policy, security policy or any user data. A change to `getPublicBranding` in

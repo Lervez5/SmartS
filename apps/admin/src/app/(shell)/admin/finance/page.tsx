@@ -16,12 +16,12 @@ import {
 } from '@schoolos/ui';
 
 /**
- * Balances Registry — who owes what.
+ * Balances Registry - who owes what.
  *
  * `GET /api/finance/invoices` is gated by `finance.view` and returns the
  * invoices the caller's school can read. A balance per learner is derived here
  * from that response: invoiced minus paid, grouped by `studentId`, with void
- * invoices excluded. The arithmetic is presentation only — the API stays the
+ * invoices excluded. The arithmetic is presentation only - the API stays the
  * authority on which invoices a caller may see at all.
  *
  * This is the accountant's landing route, so it leads with the position rather
@@ -61,10 +61,10 @@ function money(cents: number, currency = 'KES'): string {
 }
 
 function date(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
-    ? '—'
+    ? '-'
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 

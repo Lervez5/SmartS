@@ -112,7 +112,7 @@ export function LoginForm({ appId, schoolName, forgotPasswordHref }: LoginFormPr
       });
 
       // Land on the role's home, which is resolved from the session the backend
-      // just issued — not from anything the client supplied.
+      // just issued - not from anything the client supplied.
       const home = ROLE_HOME[role];
       router.push(home || '/');
     } catch (err) {

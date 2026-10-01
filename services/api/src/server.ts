@@ -25,7 +25,7 @@ function listen(server: http.Server, port: number): Promise<void> {
         reject(
           new Error(
             `Port ${port} is already in use, so the API cannot start.\n` +
-              `  Another copy of the API is probably still running — common after an ` +
+              `  Another copy of the API is probably still running - common after an ` +
               `interrupted run, or when a previous \`pnpm dev\` was not stopped.\n` +
               `  Find it:  lsof -ti:${port}          (macOS/Linux)\n` +
               `             netstat -ano | findstr :${port}   (Windows)\n` +
