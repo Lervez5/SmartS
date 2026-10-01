@@ -1,10 +1,10 @@
-import { Request, Response } from "express";
+import { Request, Response } from 'express';
 import {
   createCourseSchema,
   updateCourseSchema,
   createClassSchema,
   classScheduleSchema,
-} from "./schema";
+} from './schema';
 import {
   listCourses,
   getCourse,
@@ -18,18 +18,16 @@ import {
   createClass,
   addClassSchedule,
   removeClassSchedule,
-} from "./service";
+} from './service';
 
 export async function listCoursesController(req: Request, res: Response): Promise<void> {
   // Students only ever see published material.
-  if (req.user!.role === "student") {
+  if (req.user!.role === 'STUDENT') {
     const enrollments = await getStudentCourses(req.user!.id);
     res.json(enrollments.map((e) => e.course));
     return;
   }
-  const courses = await listCourses(
-    req.user!.role === "teacher" ? req.user!.id : undefined
-  );
+  const courses = await listCourses(req.user!.role === 'TEACHER' ? req.user!.id : undefined);
   res.json(courses);
 }
 
@@ -41,7 +39,7 @@ export async function createCourseController(req: Request, res: Response): Promi
   const dto = createCourseSchema.parse(req.body);
   const course = await createCourse({
     ...dto,
-    teacherId: dto.teacherId ?? (req.user!.role === "teacher" ? req.user!.id : undefined),
+    teacherId: dto.teacherId ?? (req.user!.role === 'TEACHER' ? req.user!.id : undefined),
   });
   res.status(201).json(course);
 }
@@ -53,7 +51,7 @@ export async function updateCourseController(req: Request, res: Response): Promi
 
 export async function deleteCourseController(req: Request, res: Response): Promise<void> {
   await deleteCourse(req.params.id);
-  res.json({ message: "Course deleted" });
+  res.json({ message: 'Course deleted' });
 }
 
 export async function myCoursesController(req: Request, res: Response): Promise<void> {
@@ -61,18 +59,14 @@ export async function myCoursesController(req: Request, res: Response): Promise<
 }
 
 export async function completeLessonController(req: Request, res: Response): Promise<void> {
-  const result = await completeLesson(
-    req.user!.id,
-    req.params.id,
-    req.params.lessonId
-  );
+  const result = await completeLesson(req.user!.id, req.params.id, req.params.lessonId);
   res.json(result);
 }
 
 export async function listClassesController(req: Request, res: Response): Promise<void> {
   res.json(
     await listClasses({
-      teacherId: req.user!.role === "teacher" ? req.user!.id : undefined,
+      teacherId: req.user!.role === 'TEACHER' ? req.user!.id : undefined,
       courseId: req.query.courseId ? String(req.query.courseId) : undefined,
     })
   );
@@ -94,5 +88,5 @@ export async function addScheduleController(req: Request, res: Response): Promis
 
 export async function removeScheduleController(req: Request, res: Response): Promise<void> {
   await removeClassSchedule(req.params.scheduleId);
-  res.json({ message: "Schedule removed" });
+  res.json({ message: 'Schedule removed' });
 }

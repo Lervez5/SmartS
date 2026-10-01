@@ -1,11 +1,11 @@
-import { Request, Response } from "express";
-import { requireRole } from "../../middleware/rbac";
+import { Request, Response } from 'express';
+import { requireRole, requirePermissions } from '../../middleware/rbac';
 import {
   createUserSchema,
   updateUserSchema,
   updateMeSchema,
   updateMyPasswordSchema,
-} from "./schema";
+} from './schema';
 import {
   createUserService,
   deleteUserService,
@@ -14,9 +14,12 @@ import {
   updateMeService,
   updateMyPasswordService,
   bulkCreateUsersService,
-} from "./service";
+} from './service';
 
-export const requireAdmin = requireRole("super_admin", "school_admin");
+export const requireUserManage = requirePermissions('users.manage');
+export const requireUserView = requirePermissions('users.view');
+export const requireUserCreate = requirePermissions('users.create');
+export const requireUserImport = requirePermissions('users.import');
 
 export async function listUsersController(_req: Request, res: Response) {
   const users = await listUsersService();
@@ -49,7 +52,7 @@ export async function updateMeController(req: Request, res: Response) {
 export async function updateMyPasswordController(req: Request, res: Response) {
   const parsed = updateMyPasswordSchema.parse(req.body);
   await updateMyPasswordService(req.user!.id, parsed);
-  res.json({ message: "Password updated successfully" });
+  res.json({ message: 'Password updated successfully' });
 }
 
 export async function bulkImportUsersController(req: Request, res: Response) {
@@ -57,7 +60,7 @@ export async function bulkImportUsersController(req: Request, res: Response) {
   const adminId = req.user!.id;
 
   if (!Array.isArray(users)) {
-    res.status(400).json({ message: "Invalid input: expected an array of users" });
+    res.status(400).json({ message: 'Invalid input: expected an array of users' });
     return;
   }
 

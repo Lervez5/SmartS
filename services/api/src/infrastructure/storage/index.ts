@@ -1,10 +1,10 @@
-import { config } from "../../config";
-import { logger } from "../../shared/logger";
-import { promises as fs } from "fs";
-import path from "path";
-import { v4 as uuidv4 } from "uuid";
+import { config } from '../../config';
+import { logger } from '../../shared/logger';
+import { promises as fs } from 'fs';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
-type SupportedProviders = "local" | "s3";
+type SupportedProviders = 'local' | 's3';
 
 export interface StoredFile {
   filename: string;
@@ -20,14 +20,22 @@ export class StorageProvider {
     this.provider = config.storage.provider;
   }
 
-  async upload(buffer: Buffer, filename: string, directory: string = "uploads"): Promise<StoredFile> {
-    if (this.provider === "s3") {
+  async upload(
+    buffer: Buffer,
+    filename: string,
+    directory: string = 'uploads'
+  ): Promise<StoredFile> {
+    if (this.provider === 's3') {
       return this.uploadS3(buffer, filename, directory);
     }
     return this.uploadLocal(buffer, filename, directory);
   }
 
-  private async uploadLocal(buffer: Buffer, filename: string, directory: string): Promise<StoredFile> {
+  private async uploadLocal(
+    buffer: Buffer,
+    filename: string,
+    directory: string
+  ): Promise<StoredFile> {
     const ext = path.extname(filename);
     const base = path.basename(filename, ext);
     const storedName = `${base}-${uuidv4()}${ext}`;
@@ -50,13 +58,13 @@ export class StorageProvider {
   }
 
   private async uploadS3(buffer: Buffer, filename: string, directory: string): Promise<StoredFile> {
-    const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+    const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
 
     const s3 = new S3Client({
       region: config.storage.s3Region,
       credentials: {
-        accessKeyId: config.storage.s3AccessKeyId || "",
-        secretAccessKey: config.storage.s3SecretAccessKey || "",
+        accessKeyId: config.storage.s3AccessKeyId || '',
+        secretAccessKey: config.storage.s3SecretAccessKey || '',
       },
     });
 
@@ -84,13 +92,13 @@ export class StorageProvider {
   }
 
   async delete(filepath: string): Promise<void> {
-    if (this.provider === "s3") {
-      const { S3Client, DeleteObjectCommand } = await import("@aws-sdk/client-s3");
+    if (this.provider === 's3') {
+      const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3');
       const s3 = new S3Client({
         region: config.storage.s3Region,
         credentials: {
-          accessKeyId: config.storage.s3AccessKeyId || "",
-          secretAccessKey: config.storage.s3SecretAccessKey || "",
+          accessKeyId: config.storage.s3AccessKeyId || '',
+          secretAccessKey: config.storage.s3SecretAccessKey || '',
         },
       });
       await s3.send(
@@ -104,7 +112,7 @@ export class StorageProvider {
       await fs.unlink(fullPath).catch(() => {});
     }
 
-    logger.info("File deleted", { event: "file_deleted", url: filepath });
+    logger.info('File deleted', { event: 'file_deleted', url: filepath });
   }
 }
 

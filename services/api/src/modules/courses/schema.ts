@@ -1,7 +1,7 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const createCourseSchema = z.object({
-  title: z.string().min(1, "Title is required"),
+  title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
   code: z.string().optional(),
   category: z.string().optional(),
@@ -11,11 +11,11 @@ export const createCourseSchema = z.object({
 });
 
 export const updateCourseSchema = createCourseSchema.partial().extend({
-  status: z.enum(["draft", "published", "archived"]).optional(),
+  status: z.enum(['draft', 'published', 'archived']).optional(),
 });
 
 export const createClassSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
   classCode: z.string().optional(),
   gradeLevel: z.string().optional(),
@@ -26,10 +26,10 @@ export const createClassSchema = z.object({
 
 export const classScheduleSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Expected HH:MM"),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/, "Expected HH:MM"),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Expected HH:MM'),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/, 'Expected HH:MM'),
   room: z.string().optional(),
-  recurrence: z.enum(["weekly", "biweekly", "daily"]).optional(),
+  recurrence: z.enum(['weekly', 'biweekly', 'daily']).optional(),
   validFrom: z.string(),
   validUntil: z.string().optional(),
 });

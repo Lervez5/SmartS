@@ -63,8 +63,19 @@ tmp/
 .temp/
 scratch/
 
+# Prisma
+# The generated client is a build artifact, never committed. The stamp records
+# which schema produced it so `pnpm db:check` can detect drift on a clean
+# checkout, where the client copy does not exist yet.
+services/api/prisma/.generated-stamp
+node_modules/.prisma/
+
 # Husky
 .husky/_/
 
-# Legacy source kept on disk as migration reference, not tracked
-frontend-kids/
+
+# Agent worktrees: scratch checkouts, not part of the project
+.kilo/
+
+# Local backup of removed frontend files
+_backup/

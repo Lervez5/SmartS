@@ -1,11 +1,11 @@
-import "dotenv/config";
-import http from "http";
-import app from "./app";
-import { logger } from "./shared/logger";
-import { connectDatabase, disconnectDatabase } from "./infrastructure/database";
-import { connectRedis, disconnectRedis } from "./infrastructure/redis";
-import { config } from "./config";
-import { initSocket } from "./shared/socket";
+import 'dotenv/config';
+import http from 'http';
+import app from './app';
+import { logger } from './shared/logger';
+import { connectDatabase, disconnectDatabase } from './infrastructure/database';
+import { connectRedis, disconnectRedis } from './infrastructure/redis';
+import { config } from './config';
+import { initSocket } from './shared/socket';
 
 async function main(): Promise<void> {
   await connectDatabase();
@@ -16,24 +16,28 @@ async function main(): Promise<void> {
 
   const PORT = config.port;
   server.listen(PORT, () => {
-    logger.info("API server listening", { event: "server_started", port: PORT, env: config.env });
+    logger.info('API server listening', {
+      event: 'server_started',
+      port: PORT,
+      env: config.env,
+    });
   });
 
   const shutdown = async (): Promise<void> => {
-    logger.info("Shutting down gracefully...");
+    logger.info('Shutting down gracefully...');
     server.close(() => {
-      logger.info("Server closed");
+      logger.info('Server closed');
     });
     await disconnectDatabase();
     await disconnectRedis();
     process.exit(0);
   };
 
-  process.on("SIGTERM", shutdown);
-  process.on("SIGINT", shutdown);
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 main().catch((err) => {
-  logger.error("Failed to start server", { error: err });
+  logger.error('Failed to start server', { error: err });
   process.exit(1);
 });

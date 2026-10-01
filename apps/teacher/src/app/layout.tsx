@@ -1,26 +1,25 @@
-import "@schoolos/ui/styles/globals.css";
-import type { ReactNode } from "react";
-import { LayoutWrapper } from "@schoolos/ui";
-import { RootProvider } from "@/providers/root-provider";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import '@/styles/globals.css';
+import { AuthSessionGate, AuthProvider } from '@schoolos/auth';
+import { ThemeProvider } from '@schoolos/auth/ui';
 
-export const metadata = {
-  title: "SmartSprout | Teacher Station",
-  description: "Manage your classes, cohorts, attendance and curriculum.",
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata: Metadata = {
+  title: 'Teacher Portal - School OS',
+  description: 'Teacher portal for the School Management Platform',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full" suppressHydrationWarning>
-      <body className="h-full bg-background text-foreground font-sans selection:bg-primary/20">
-        <RootProvider>
-          <LayoutWrapper
-            role="teacher"
-            navbarProps={{ showSearch: true }}
-            authRoutes={["/", "/login", "/register", "/forgot-password", "/reset-password", "/activate-account"]}
-          >
-            {children}
-          </LayoutWrapper>
-        </RootProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <ThemeProvider>
+          <AuthProvider>
+            <AuthSessionGate>{children}</AuthSessionGate>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

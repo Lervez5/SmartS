@@ -1,0 +1,19 @@
+'use client';
+
+import { Card, CardHeader, CardTitle, CardContent } from '@schoolos/ui';
+
+export default function AdminStudentsPage() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Active Learners</h1>
+      <Card>
+        <CardHeader>
+          <CardTitle>All Students</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Student management interface.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

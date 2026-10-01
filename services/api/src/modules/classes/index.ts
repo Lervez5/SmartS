@@ -1,12 +1,12 @@
-import { Router } from "express";
-import { prisma } from "../../infrastructure/database";
-import { requireRole } from "../../middleware/rbac";
-import { z } from "zod";
+import { Router } from 'express';
+import { prisma } from '../../infrastructure/database';
+import { requireRole, requirePermissions } from '../../middleware/rbac';
+import { z } from 'zod';
 
 export const router: Router = Router();
 
-const requireAdmin = requireRole("super_admin", "school_admin");
-const requireStaff = requireRole("super_admin", "school_admin", "teacher");
+const requireClassManage = requirePermissions('cohorts.manage');
+const requireClassView = requirePermissions('cohorts.view');
 
 const classInclude = {
   subject: { select: { id: true, name: true } },
@@ -25,12 +25,12 @@ const updateClassSchema = z.object({
   teacherId: z.string().optional(),
 });
 
-router.get("/teacher/my-cohorts", requireRole("teacher"), async (req, res, next) => {
+router.get('/teacher/my-cohorts', requireClassView, async (req, res, next) => {
   try {
     const classes = await prisma.class.findMany({
       where: { teacherId: req.user!.id },
       include: classInclude,
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
     res.json(classes);
   } catch (e) {
@@ -38,11 +38,11 @@ router.get("/teacher/my-cohorts", requireRole("teacher"), async (req, res, next)
   }
 });
 
-router.get("/admin/all-cohorts", requireAdmin, async (_req, res, next) => {
+router.get('/admin/all-cohorts', requireClassView, async (_req, res, next) => {
   try {
     const classes = await prisma.class.findMany({
       include: classInclude,
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
     res.json(classes);
   } catch (e) {
@@ -50,12 +50,12 @@ router.get("/admin/all-cohorts", requireAdmin, async (_req, res, next) => {
   }
 });
 
-router.get("/", requireStaff, async (req, res, next) => {
+router.get('/', requireClassView, async (req, res, next) => {
   try {
     const classes = await prisma.class.findMany({
-      where: req.user!.role === "teacher" ? { teacherId: req.user!.id } : undefined,
+      where: req.user!.role === 'TEACHER' ? { teacherId: req.user!.id } : undefined,
       include: classInclude,
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
     res.json(classes);
   } catch (e) {
@@ -63,19 +63,21 @@ router.get("/", requireStaff, async (req, res, next) => {
   }
 });
 
-router.get("/:id", async (req, res, next) => {
+router.get('/:id', async (req, res, next) => {
   try {
     const cls = await prisma.class.findUnique({
       where: { id: req.params.id },
       include: {
         ...classInclude,
         enrollments: {
-          include: { student: { select: { id: true, name: true, email: true } } },
+          include: {
+            student: { select: { id: true, name: true, email: true } },
+          },
         },
       },
     });
     if (!cls) {
-      res.status(404).json({ error: { message: "Class not found" } });
+      res.status(404).json({ error: { message: 'Class not found' } });
       return;
     }
     res.json(cls);
@@ -84,12 +86,14 @@ router.get("/:id", async (req, res, next) => {
   }
 });
 
-router.put("/:id", requireStaff, async (req, res, next) => {
+router.put('/:id', requireClassManage, async (req, res, next) => {
   try {
     const dto = updateClassSchema.parse(req.body);
-    const existing = await prisma.class.findUnique({ where: { id: req.params.id } });
+    const existing = await prisma.class.findUnique({
+      where: { id: req.params.id },
+    });
     if (!existing) {
-      res.status(404).json({ error: { message: "Class not found" } });
+      res.status(404).json({ error: { message: 'Class not found' } });
       return;
     }
     const updated = await prisma.class.update({

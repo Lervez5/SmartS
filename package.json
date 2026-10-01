@@ -10,18 +10,38 @@
     "pnpm": ">=9"
   },
   "scripts": {
-    "dev": "bash scripts/dev.sh",
-    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:api": "pnpm --filter school-os-api dev",
+    "dev:admin": "pnpm --filter school-os-admin dev",
+    "dev:student": "pnpm --filter school-os-student dev",
+    "dev:teacher": "pnpm --filter school-os-teacher dev",
+    "dev:parent": "pnpm --filter school-os-parent dev",
+    "build": "turbo run build --concurrency=2",
+    "build:admin": "pnpm --filter school-os-admin build",
+    "build:student": "pnpm --filter school-os-student build",
+    "build:teacher": "pnpm --filter school-os-teacher build",
+    "build:parent": "pnpm --filter school-os-parent build",
+    "build:api": "pnpm --filter school-os-api build",
+    "clean": "node scripts/clean.mjs",
     "start": "turbo run start",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:auth": "pnpm --filter school-os-api run test:auth",
+    "test:watch": "pnpm --filter school-os-api exec vitest watch",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "turbo run test",
+    "seed": "pnpm --filter school-os-api run seed",
+    "gen:gap-pages": "tsx scripts/generate-gap-pages.ts",
+    "db:push": "node scripts/prisma.mjs push",
+    "db:generate": "node scripts/prisma.mjs generate",
+    "db:validate": "node scripts/prisma.mjs validate",
+    "db:format": "node scripts/prisma.mjs format",
+    "db:check": "node scripts/prisma.mjs check",
+    "verify": "pnpm run db:check && pnpm run format:check && pnpm run lint && pnpm run typecheck",
+    "postinstall": "node scripts/prisma.mjs generate || echo 'prisma generate skipped — run pnpm db:generate once the database env is available'",
     "prepare": "husky",
-    "commitlint": "commitlint",
-    "verify": "pnpm run format:check && pnpm run lint && pnpm run typecheck",
-    "postinstall": "pnpm --filter school-os-api exec prisma generate 2>/dev/null || true"
+    "commitlint": "commitlint"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.6.1",
@@ -48,7 +68,13 @@
     "hooks": {
       "commit-msg": "commitlint --edit $1",
       "pre-commit": "lint-staged",
-      "pre-push": "pnpm run typecheck && pnpm run lint"
+      "pre-push": "pnpm run db:check && pnpm run typecheck && pnpm run lint"
     }
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }

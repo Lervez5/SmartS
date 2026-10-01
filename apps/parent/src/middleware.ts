@@ -1,79 +1,98 @@
+/**
+ * Next.js middleware for the Parent portal.
+ *
+ * Enforces:
+ * - Public routes are accessible without a session (login, activate, forgot-password, reset-password).
+ * - All other routes require authentication.
+ * - Portal eligibility: only PARENT role users may access the Parent portal.
+ *
+ * Note: the backend API is the final authority. This middleware is for UX only.
+ */
+
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+const PUBLIC_ROUTES = ['/login', '/activate-account', '/forgot-password', '/reset-password'];
+
+const PORTAL_ROLE = 'parent';
+
+const PORTAL_URLS: Record<string, string> = {
+  student: 'http://localhost:3000',
+  teacher: 'http://localhost:3001',
+  parent: 'http://localhost:3002',
+  admin: 'http://localhost:3003',
+};
+
+function roleToApp(role: string): string | null {
+  const r = role.toLowerCase();
+  if (r === 'super_admin' || r === 'super admin' || r === 'superadmin' || r === 'admin')
+    return 'admin';
+  if (r === 'accountant') return 'admin';
+  if (r === 'dean') return 'admin';
+  if (r === 'teacher') return 'teacher';
+  if (r === 'parent') return 'parent';
+  if (r === 'student') return 'student';
+  return null;
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const accessToken = request.cookies.get('accessToken')?.value;
-  let userRole = request.cookies.get('userRole')?.value;
-
-  if (accessToken) {
-    try {
-      const parts = accessToken.split('.');
-      if (parts.length === 3) {
-        const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-        const paddedBase64 = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=');
-        const payloadStr = atob(paddedBase64);
-        const payloadObj = JSON.parse(payloadStr);
-        if (payloadObj && payloadObj.role) {
-          userRole = payloadObj.role;
-        }
-      }
-    } catch (e) {
-      console.error("Failed to decode middleware JWT payload:", e);
-    }
-  }
-
-  // Public routes - Parent app: only auth pages
-  const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/activate-account'];
-  if (publicRoutes.some(route => pathname === route || pathname.startsWith('/activate-account'))) {
-    if (accessToken && (pathname === '/login' || pathname === '/register')) {
-      if (userRole === 'super_admin' || userRole === 'school_admin') {
-        return NextResponse.redirect(new URL('/admin', request.url));
-      }
-      if (userRole === 'parent') return NextResponse.redirect(new URL('/parent', request.url));
-      if (userRole === 'teacher') return NextResponse.redirect(new URL('/dashboard/teacher', request.url));
-      return NextResponse.redirect(new URL('/dashboard/student', request.url));
-    }
+  if (pathname.startsWith('/_next') || pathname.startsWith('/favicon.ico')) {
     return NextResponse.next();
   }
 
-  // Protected routes - require authentication
-  if (!accessToken) {
+  for (const publicRoute of PUBLIC_ROUTES) {
+    if (pathname.startsWith(publicRoute)) {
+      return NextResponse.next();
+    }
+  }
+
+  // Non-student portals have no landing page: redirect / to /login.
+  if (pathname === '/') {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Role-based protection for parent app - only parents allowed
-  if (pathname.startsWith('/parent')) {
-    if (userRole !== 'parent') {
-      if (userRole === 'teacher') return NextResponse.redirect(new URL('/dashboard/teacher', request.url));
-      if (userRole === 'super_admin' || userRole === 'school_admin') return NextResponse.redirect(new URL('/admin', request.url));
-      return NextResponse.redirect(new URL('/dashboard/student', request.url));
-    }
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}/auth/me`, {
+      credentials: 'include',
+      headers: {
+        cookie: request.headers.get('cookie') || '',
+      },
+    });
+  } catch {
     return NextResponse.next();
   }
 
-  // Block access to student dashboard
-  if (pathname.startsWith('/dashboard/student')) {
-    return NextResponse.redirect(new URL('/parent', request.url));
+  if (!response.ok) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    url.searchParams.set('callbackUrl', pathname);
+    return NextResponse.redirect(url);
   }
 
-  // Block access to teacher routes
-  if (pathname.startsWith('/dashboard/teacher')) {
-    return NextResponse.redirect(new URL('/parent', request.url));
+  const data = await response.json();
+  const user = data.user;
+
+  const userRole = (user?.role || '').toLowerCase();
+  if (userRole !== PORTAL_ROLE) {
+    const correctApp = roleToApp(user?.role || '');
+    if (correctApp) {
+      const targetUrl = PORTAL_URLS[correctApp];
+      if (targetUrl) {
+        return NextResponse.redirect(new URL(targetUrl));
+      }
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
   }
 
-  // Block access to admin routes
-  if (pathname.startsWith('/admin')) {
-    return NextResponse.redirect(new URL('/parent', request.url));
-  }
-
-  // Default redirect to parent dashboard
-  return NextResponse.redirect(new URL('/parent', request.url));
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ['/((?!api/|_next/static|_next/image|favicon.ico).*)'],
 };

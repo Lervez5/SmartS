@@ -1,5 +1,5 @@
-import { prisma } from "../../infrastructure/database";
-import { Prisma, UserStatus } from "@prisma/client";
+import { prisma } from '../../infrastructure/database';
+import { Prisma, UserStatus } from '@prisma/client';
 
 export interface User {
   id: string;
@@ -31,7 +31,14 @@ export interface UpdateUserDto {
   avatar?: string;
 }
 
-export async function createUser(email: string, passwordHash: string, role: string, firstName?: string, lastName?: string, avatar?: string) {
+export async function createUser(
+  email: string,
+  passwordHash: string,
+  role: string,
+  firstName?: string,
+  lastName?: string,
+  avatar?: string
+) {
   return prisma.user.create({
     data: {
       email: email.toLowerCase(),
@@ -51,7 +58,7 @@ export async function createUser(email: string, passwordHash: string, role: stri
 
 export async function listUsers() {
   return prisma.user.findMany({
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
     include: {
       roleMemberships: { include: { role: true } },
     },
@@ -67,11 +74,7 @@ export async function getUserById(id: string) {
   });
 }
 
-export async function updateUserRepo(
-  id: string,
-  data: Prisma.UserUpdateInput
-) {
-
+export async function updateUserRepo(id: string, data: Prisma.UserUpdateInput) {
   return prisma.user.update({
     where: { id },
     data,

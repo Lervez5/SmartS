@@ -1,11 +1,11 @@
-import { CalendarEventType, Prisma } from "@prisma/client";
-import { prisma } from "../../infrastructure/database";
-import { EVENT_COLORS, CreateEventDto, UpdateEventDto, ListEventsQuery } from "./schema";
-import { recordAuditLog } from "../audit-logs/service";
+import { CalendarEventType, Prisma } from '@prisma/client';
+import { prisma } from '../../infrastructure/database';
+import { EVENT_COLORS, CreateEventDto, UpdateEventDto, ListEventsQuery } from './schema';
+import { recordAuditLog } from '../audit-logs/service';
 
 function colorFor(type: string, fallback?: string | null): string {
   if (fallback) return fallback;
-  return (EVENT_COLORS as Record<string, string>)[type] ?? "#22c55e";
+  return (EVENT_COLORS as Record<string, string>)[type] ?? '#22c55e';
 }
 
 /** Class ids a student is enrolled in, used to scope class-visible events. */
@@ -17,30 +17,31 @@ async function classIdsForStudent(userId: string): Promise<string[]> {
   return enrollments.map((e) => e.classId);
 }
 
-export async function getEvents(
-  userId: string,
-  userRole: string,
-  query: ListEventsQuery
-) {
-  const studentClassIds =
-    userRole === "student" ? await classIdsForStudent(userId) : [];
+export async function getEvents(userId: string, userRole: string, query: ListEventsQuery) {
+  const studentClassIds = userRole === 'student' ? await classIdsForStudent(userId) : [];
 
   const visibilityFilter: Prisma.CalendarEventWhereInput[] = [
     { createdBy: userId },
-    { visibility: "school" },
+    { visibility: 'school' },
   ];
 
-  if (userRole === "student") {
-    visibilityFilter.push({ visibility: "class", classId: { in: studentClassIds } });
-  } else if (userRole === "teacher") {
+  if (userRole === 'student') {
+    visibilityFilter.push({
+      visibility: 'class',
+      classId: { in: studentClassIds },
+    });
+  } else if (userRole === 'teacher') {
     // Teachers also see events shared with any class they teach.
     const taught = await prisma.class.findMany({
       where: { teacherId: userId },
       select: { id: true },
     });
-    visibilityFilter.push({ visibility: "class", classId: { in: taught.map((c) => c.id) } });
+    visibilityFilter.push({
+      visibility: 'class',
+      classId: { in: taught.map((c) => c.id) },
+    });
   } else {
-    visibilityFilter.push({ visibility: "class" });
+    visibilityFilter.push({ visibility: 'class' });
   }
 
   const where: Prisma.CalendarEventWhereInput = {
@@ -59,7 +60,7 @@ export async function getEvents(
 
   const events = await prisma.calendarEvent.findMany({
     where,
-    orderBy: { startDate: "asc" },
+    orderBy: { startDate: 'asc' },
     take: 200,
   });
 
@@ -78,15 +79,15 @@ export async function createEvent(userId: string, dto: CreateEventDto) {
       classId: dto.classId,
       assignmentId: dto.assignmentId,
       createdBy: userId,
-      visibility: dto.visibility ?? "personal",
+      visibility: dto.visibility ?? 'personal',
       color: colorFor(dto.type, dto.color),
     },
   });
 
-  if (dto.visibility === "school" || dto.visibility === "class") {
+  if (dto.visibility === 'school' || dto.visibility === 'class') {
     await recordAuditLog(
       userId,
-      "CREATE_SHARED_EVENT",
+      'CREATE_SHARED_EVENT',
       `Created ${dto.visibility} event: ${event.title} (${event.id})`
     );
   }
@@ -95,9 +96,11 @@ export async function createEvent(userId: string, dto: CreateEventDto) {
 }
 
 export async function updateEvent(userId: string, eventId: string, dto: UpdateEventDto) {
-  const existing = await prisma.calendarEvent.findUnique({ where: { id: eventId } });
-  if (!existing) throw new Error("Event not found.");
-  if (existing.createdBy !== userId) throw new Error("Access denied.");
+  const existing = await prisma.calendarEvent.findUnique({
+    where: { id: eventId },
+  });
+  if (!existing) throw new Error('Event not found.');
+  if (existing.createdBy !== userId) throw new Error('Access denied.');
 
   const data: Prisma.CalendarEventUpdateInput = {};
   if (dto.title !== undefined) data.title = dto.title;
@@ -112,17 +115,20 @@ export async function updateEvent(userId: string, eventId: string, dto: UpdateEv
   if (dto.visibility !== undefined) data.visibility = dto.visibility;
   if (dto.color !== undefined) data.color = dto.color;
 
-  const event = await prisma.calendarEvent.update({ where: { id: eventId }, data });
+  const event = await prisma.calendarEvent.update({
+    where: { id: eventId },
+    data,
+  });
 
   const isShared =
-    existing.visibility === "school" ||
-    existing.visibility === "class" ||
-    dto.visibility === "school" ||
-    dto.visibility === "class";
+    existing.visibility === 'school' ||
+    existing.visibility === 'class' ||
+    dto.visibility === 'school' ||
+    dto.visibility === 'class';
   if (isShared) {
     await recordAuditLog(
       userId,
-      "UPDATE_SHARED_EVENT",
+      'UPDATE_SHARED_EVENT',
       `Updated shared event: ${event.title} (${event.id})`
     );
   }
@@ -131,9 +137,11 @@ export async function updateEvent(userId: string, eventId: string, dto: UpdateEv
 }
 
 export async function deleteEvent(userId: string, eventId: string) {
-  const existing = await prisma.calendarEvent.findUnique({ where: { id: eventId } });
-  if (!existing) throw new Error("Event not found.");
-  if (existing.createdBy !== userId) throw new Error("Access denied.");
+  const existing = await prisma.calendarEvent.findUnique({
+    where: { id: eventId },
+  });
+  if (!existing) throw new Error('Event not found.');
+  if (existing.createdBy !== userId) throw new Error('Access denied.');
   return prisma.calendarEvent.delete({ where: { id: eventId } });
 }
 
@@ -146,12 +154,16 @@ export async function getToday(userId: string, userRole: string) {
   const events = await prisma.calendarEvent.findMany({
     where: {
       startDate: { gte: dayStart, lte: dayEnd },
-      OR: [{ createdBy: userId }, { visibility: "school" }, { visibility: "class" }],
+      OR: [{ createdBy: userId }, { visibility: 'school' }, { visibility: 'class' }],
     },
-    orderBy: { startDate: "asc" },
+    orderBy: { startDate: 'asc' },
   });
 
-  return events.map((e) => ({ ...e, color: colorFor(e.type, e.color), userRole }));
+  return events.map((e) => ({
+    ...e,
+    color: colorFor(e.type, e.color),
+    userRole,
+  }));
 }
 
 /** Project a teacher's ClassSchedule rows into calendar events for a window. */
@@ -174,13 +186,13 @@ export async function getTimedSessions(teacherId: string, start: Date, end: Date
       events.push({
         id: `schedule-${cls.id}-${s.id}`,
         title: cls.subject?.name ?? cls.name,
-        type: "class_session",
+        type: 'class_session',
         startDate: s.validFrom,
         allDay: false,
         classId: cls.id,
         room: s.room,
         color: EVENT_COLORS.class_session,
-        visibility: "class",
+        visibility: 'class',
       });
     }
   }

@@ -1,6 +1,6 @@
-import { Queue, Worker, Job } from "bullmq";
-import { redisClient } from "../redis";
-import { logger } from "../../shared/logger";
+import { Queue, Worker, Job } from 'bullmq';
+import { redisClient } from '../redis';
+import { logger } from '../../shared/logger';
 
 export interface JobData {
   [key: string]: unknown;
@@ -13,28 +13,28 @@ export function createQueue(name: string): Queue {
 }
 
 export function createWorker(name: string, processor: (job: Job) => Promise<unknown>): Worker {
-  return new Worker(
-    name,
-    processor,
-    {
-      connection: redisClient,
-    }
-  );
+  return new Worker(name, processor, {
+    connection: redisClient,
+  });
 }
 
-export const emailQueue = createQueue("email-jobs");
+export const emailQueue = createQueue('email-jobs');
 
-export async function addEmailJob(to: string, template: string, payload: Record<string, unknown>): Promise<void> {
+export async function addEmailJob(
+  to: string,
+  template: string,
+  payload: Record<string, unknown>
+): Promise<void> {
   await emailQueue.add(
     template,
     { to, template, payload },
     {
       attempts: 3,
       backoff: {
-        type: "exponential",
+        type: 'exponential',
         delay: 5000,
       },
     }
   );
-  logger.info("Email job queued", { event: "email_queued", to, template });
+  logger.info('Email job queued', { event: 'email_queued', to, template });
 }

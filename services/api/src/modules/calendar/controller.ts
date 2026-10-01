@@ -1,9 +1,5 @@
-import { Request, Response } from "express";
-import {
-  createEventSchema,
-  updateEventSchema,
-  listEventsSchema,
-} from "./schema";
+import { Request, Response } from 'express';
+import { createEventSchema, updateEventSchema, listEventsSchema } from './schema';
 import {
   getEvents,
   createEvent,
@@ -11,7 +7,7 @@ import {
   deleteEvent,
   getToday,
   getTimedSessions,
-} from "./service";
+} from './service';
 
 export async function listEventsController(req: Request, res: Response): Promise<void> {
   const query = listEventsSchema.parse(req.query);
@@ -45,5 +41,5 @@ export async function updateEventController(req: Request, res: Response): Promis
 
 export async function deleteEventController(req: Request, res: Response): Promise<void> {
   await deleteEvent(req.user!.id, req.params.id);
-  res.json({ message: "Event deleted" });
+  res.json({ message: 'Event deleted' });
 }

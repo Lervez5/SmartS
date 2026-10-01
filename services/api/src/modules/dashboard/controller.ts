@@ -1,10 +1,10 @@
-import { Request, Response } from "express";
+import { Request, Response } from 'express';
 import {
   getStudentDashboardData,
   getTeacherDashboardData,
   getAdminDashboardData,
   getParentDashboardData,
-} from "./service";
+} from './service';
 
 export async function studentDashboardController(_req: Request, res: Response): Promise<void> {
   res.json(await getStudentDashboardData(_req.user!.id));

@@ -5,3 +5,7 @@ dist
 .eslintcache
 *.tsbuildinfo
 coverage
+
+# Agent worktrees are scratch checkouts, not project source
+.kilo
+prisma/.generated-stamp

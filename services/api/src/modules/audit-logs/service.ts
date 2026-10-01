@@ -1,4 +1,4 @@
-import { prisma } from "../../infrastructure/database";
+import { prisma } from '../../infrastructure/database';
 
 export interface ListAuditLogsOptions {
   search?: string;
@@ -24,13 +24,13 @@ export async function listAuditLogs(options: ListAuditLogsOptions = {}): Promise
       ...(options.search
         ? {
             OR: [
-              { action: { contains: options.search, mode: "insensitive" } },
-              { details: { contains: options.search, mode: "insensitive" } },
+              { action: { contains: options.search, mode: 'insensitive' } },
+              { details: { contains: options.search, mode: 'insensitive' } },
             ],
           }
         : {}),
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
     take: limit,
     select: {
       id: true,
