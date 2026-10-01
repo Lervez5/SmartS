@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useApi } from '@schoolos/hooks';
 import { useAuth } from '@schoolos/auth';
 import {
+  ActionMenu,
   ContextFilterBar,
   DataTable,
   DashboardCard,
@@ -319,22 +320,55 @@ export default function AdminActiveLearnersPage() {
               window.location.href = `/admin/students/${row.id}`;
             }}
             renderRowActions={(row) => (
-              <div className="flex items-center justify-end gap-1">
-                <a
-                  href={`/admin/students/${row.id}`}
-                  className="rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  View
-                </a>
-                {can('reports.view') ? (
-                  <a
-                    href="/admin/reports"
-                    className="rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    Reports
-                  </a>
-                ) : null}
-              </div>
+              <ActionMenu
+                label={`Actions for ${displayName(row) || row.email}`}
+                items={[
+                  {
+                    id: 'view',
+                    label: 'View profile',
+                    href: `/admin/students/${row.id}`,
+                    icon: 'eye',
+                  },
+                  // Only a holder of students.manage is offered editing, and
+                  // the endpoint enforces the same permission server-side.
+                  ...(can('students.manage')
+                    ? [
+                        {
+                          id: 'edit',
+                          label: 'Edit details',
+                          href: `/admin/students/${row.id}/edit`,
+                          icon: 'pencil',
+                        },
+                      ]
+                    : []),
+                  {
+                    id: 'id-card',
+                    label: 'ID card',
+                    href: `/admin/students/${row.id}/id-card`,
+                    icon: 'credit-card',
+                  },
+                  ...(can('reports.view')
+                    ? [
+                        {
+                          id: 'reports',
+                          label: 'Academic reports',
+                          href: '/admin/reports',
+                          icon: 'file-bar-chart',
+                        },
+                      ]
+                    : []),
+                  ...(can('reports.finance')
+                    ? [
+                        {
+                          id: 'finance',
+                          label: 'Fees and invoices',
+                          href: '/admin/finance',
+                          icon: 'receipt',
+                        },
+                      ]
+                    : []),
+                ]}
+              />
             )}
             toolbar={
               <ContextFilterBar

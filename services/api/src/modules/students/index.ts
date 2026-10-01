@@ -34,6 +34,23 @@ const createSchema = z.object({
 });
 
 /**
+ * Editable learner fields.
+ *
+ * Deliberately the same set the create route accepts, so a learner cannot be
+ * created with values it cannot later be corrected to. Every field is optional
+ * so a partial edit is expressible, and `null` is allowed where clearing a
+ * value is meaningful. Names live on User and are edited through the user
+ * routes, not here.
+ */
+const updateSchema = z.object({
+  gradeLevel: z.string().max(32).nullable().optional(),
+  admissionId: z.string().nullable().optional(),
+  dateOfBirth: z.string().nullable().optional(),
+  gender: z.enum(['male', 'female', 'other', 'unspecified']).nullable().optional(),
+  enrollmentDate: z.string().nullable().optional(),
+});
+
+/**
  * Whether a term is shaped like a Mongo ObjectId.
  *
  * Used to decide when it is safe to filter `admissionId`, which Prisma types as
@@ -178,5 +195,47 @@ router.post(
     });
 
     res.status(201).json(student);
+  })
+);
+
+/**
+ * Update a learner profile.
+ *
+ * `students.manage` is the same gate the create route uses. Grade placement is
+ * NOT editable here: a learner joins a class through Enrollment, so changing
+ * gradeLevel alone would leave the placement and the profile disagreeing.
+ * Class placement has no endpoint yet.
+ */
+router.patch(
+  '/:id',
+  requirePermissions('students.manage'),
+  asyncHandler(async (req: Request, res: Response) => {
+    const payload = updateSchema.parse(req.body);
+
+    const existing = await prisma.studentProfile.findUnique({ where: { id: req.params.id } });
+    if (!existing) throw new ApiError(404, 'Student profile not found');
+
+    const data: Record<string, unknown> = {};
+    if (payload.gradeLevel !== undefined) data.gradeLevel = payload.gradeLevel;
+    if (payload.admissionId !== undefined) data.admissionId = payload.admissionId;
+    if (payload.gender !== undefined) data.gender = payload.gender;
+    if (payload.dateOfBirth !== undefined) {
+      data.dateOfBirth = payload.dateOfBirth ? new Date(payload.dateOfBirth) : null;
+    }
+    if (payload.enrollmentDate !== undefined) {
+      data.enrollmentDate = payload.enrollmentDate ? new Date(payload.enrollmentDate) : null;
+    }
+
+    if (Object.keys(data).length === 0) {
+      throw new ApiError(400, 'No editable fields were supplied');
+    }
+
+    const updated = await prisma.studentProfile.update({
+      where: { id: req.params.id },
+      data,
+      include: { user: { select: { id: true, name: true, email: true, status: true } } },
+    });
+
+    res.json({ student: updated });
   })
 );

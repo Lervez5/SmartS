@@ -164,3 +164,69 @@
 .dark .calendar-container .fc-list-day-cushion {
   background: rgba(15, 23, 42, 0.6);
 }
+
+/* ---------------------------------------------------------------------------
+   Print
+   Learner records are printable: printing a profile produces the record itself,
+   with the application chrome removed rather than dumped onto the page.
+   --------------------------------------------------------------------------- */
+
+@media print {
+  /* Chrome that makes no sense on paper. */
+  header.sticky,
+  aside,
+  nav[aria-label='Main navigation'],
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  /* Let the document flow normally instead of scrolling inside a fixed shell. */
+  #__next,
+  main,
+  .overflow-y-auto {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  /* Force the light palette: a dark background wastes toner and reads badly. */
+  .dark .card,
+  .dark [class*='bg-card'] {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+  }
+
+  main * {
+    color: #0f172a !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /* Keep a record together and avoid splitting a row across two pages. */
+  table {
+    page-break-inside: auto;
+  }
+
+  tr,
+  section,
+  [data-print-block] {
+    page-break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  @page {
+    margin: 16mm;
+  }
+}

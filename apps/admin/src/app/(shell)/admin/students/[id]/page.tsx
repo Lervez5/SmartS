@@ -10,6 +10,7 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
+  NavIcon,
   SectionHeader,
   SettingsCard,
   StatusPill,
@@ -172,14 +173,41 @@ export default function AdminLearnerProfilePage() {
     <div className="space-y-6">
       <SectionHeader
         title={name || 'Learner'}
-        description="Learner record as held by the school. This is a read view: the API exposes no learner edit endpoint."
+        description="Learner record as held by the school."
         action={
-          <a
-            href="/admin/students"
-            className="rounded-md border border-input bg-background px-3.5 py-2 text-sm font-semibold transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Back to Active Learners
-          </a>
+          <div className="flex flex-wrap items-center gap-2">
+            {can('students.manage') ? (
+              <a
+                href={`/admin/students/${learner.id}/edit`}
+                className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3.5 text-sm font-semibold transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <NavIcon name="pencil" className="h-4 w-4" />
+                Edit
+              </a>
+            ) : null}
+            <a
+              href={`/admin/students/${learner.id}/id-card`}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3.5 text-sm font-semibold transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <NavIcon name="credit-card" className="h-4 w-4" />
+              ID card
+            </a>
+            <button
+              type="button"
+              data-print-hide
+              onClick={() => window.print()}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3.5 text-sm font-semibold transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <NavIcon name="printer" className="h-4 w-4" />
+              Print
+            </button>
+            <a
+              href="/admin/students"
+              className="rounded-md border border-input bg-background px-3.5 py-2 text-sm font-semibold transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Back to Active Learners
+            </a>
+          </div>
         }
       />
 
