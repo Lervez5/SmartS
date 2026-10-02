@@ -15,7 +15,7 @@ export * from './components/AcademicContext';
 export * from './components/AcademicSession';
 export * from './components/BrandMark';
 export * from './components/PrimaryActionButton';
-export * from './components/ActionMenu';
+export * from './components/ActionButtons';
 export * from './components/ThemeToggle';
 export * from './components/AppShell';
 export * from './components/SettingsForm';
