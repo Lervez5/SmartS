@@ -65,6 +65,7 @@ export async function listUsers() {
       // profile exists, and selecting the scalar avoids pulling the whole
       // profile for every account in the register.
       studentProfile: { select: { id: true } },
+      staffProfile: { select: { id: true } },
     },
   });
 }
