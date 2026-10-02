@@ -13,6 +13,7 @@ import {
   StatusPill,
   roleLabel,
   type DataTableColumn,
+  notify,
 } from '@schoolos/ui';
 
 /**
@@ -75,7 +76,6 @@ export default function AdminStaffAccessPage() {
 
   const [selected, setSelected] = React.useState<string>('');
   const [saving, setSaving] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
 
   /**
@@ -102,7 +102,6 @@ export default function AdminStaffAccessPage() {
     if (!target) return;
 
     setSaving(true);
-    setError(null);
     setSaved(false);
     try {
       const res = await fetch(`/api/roles/${target.id}/users/${member.userId}`, {
@@ -116,14 +115,14 @@ export default function AdminStaffAccessPage() {
         const body = (await res.json().catch(() => null)) as {
           error?: { message?: string };
         } | null;
-        setError(body?.error?.message ?? `The API refused the change (HTTP ${res.status}).`);
+        notify.error(body?.error?.message ?? `The API refused the change (HTTP ${res.status}).`);
         return;
       }
 
       setSaved(true);
       setSelected('');
     } catch {
-      setError('Could not reach the API. Check that it is running.');
+      notify.error('Could not reach the API. Check that it is running.');
     } finally {
       setSaving(false);
     }
@@ -279,15 +278,6 @@ export default function AdminStaffAccessPage() {
             </button>
           </div>
         )}
-
-        {error ? (
-          <div
-            role="alert"
-            className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-          >
-            {error}
-          </div>
-        ) : null}
 
         {saved ? (
           <p className="text-sm text-emerald-700 dark:text-emerald-300">

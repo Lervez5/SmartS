@@ -13,6 +13,7 @@ import {
   SettingsCard,
   TextArea,
   TextInput,
+  notify,
 } from '@schoolos/ui';
 
 /**
@@ -69,7 +70,6 @@ export default function AdminNewAssessmentPage() {
   const [maxScore, setMaxScore] = React.useState('100');
   const [status, setStatus] = React.useState('draft');
   const [saving, setSaving] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
 
   const activeSession = React.useMemo(
     () => sessions.data?.sessions?.find((s) => s.status === 'active') ?? null,
@@ -87,7 +87,6 @@ export default function AdminNewAssessmentPage() {
 
   async function submit() {
     setSaving(true);
-    setError(null);
     try {
       const res = await fetch('/api/examinations', {
         method: 'POST',
@@ -111,14 +110,16 @@ export default function AdminNewAssessmentPage() {
         const body = (await res.json().catch(() => null)) as {
           error?: { message?: string };
         } | null;
-        setError(body?.error?.message ?? `The API refused the assessment (HTTP ${res.status}).`);
+        notify.error(
+          body?.error?.message ?? `The API refused the assessment (HTTP ${res.status}).`
+        );
         return;
       }
 
       router.push('/admin/assessment/tests');
       router.refresh();
     } catch {
-      setError('Could not reach the API. Check that it is running.');
+      notify.error('Could not reach the API. Check that it is running.');
     } finally {
       setSaving(false);
     }
@@ -276,15 +277,6 @@ export default function AdminNewAssessmentPage() {
             />
           </Field>
         </div>
-
-        {error ? (
-          <div
-            role="alert"
-            className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-          >
-            {error}
-          </div>
-        ) : null}
 
         <div className="mt-5 flex items-center gap-2">
           <button

@@ -14,6 +14,7 @@ import {
   SettingsCard,
   StatusPill,
   TextInput,
+  notify,
 } from '@schoolos/ui';
 
 /**
@@ -66,8 +67,6 @@ export default function AdminEditAcademicSessionPage() {
   const [status, setStatus] = React.useState('planned');
   const [hydrated, setHydrated] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const [saveError, setSaveError] = React.useState<string | null>(null);
-  const [saved, setSaved] = React.useState(false);
 
   React.useEffect(() => {
     if (!session) return;
@@ -99,8 +98,6 @@ export default function AdminEditAcademicSessionPage() {
   async function save() {
     if (!session) return;
     setSaving(true);
-    setSaveError(null);
-    setSaved(false);
     try {
       const res = await fetch(`/api/academic-sessions/${session.id}`, {
         method: 'PATCH',
@@ -119,15 +116,15 @@ export default function AdminEditAcademicSessionPage() {
         const body = (await res.json().catch(() => null)) as {
           error?: { message?: string };
         } | null;
-        setSaveError(body?.error?.message ?? `The API refused the change (HTTP ${res.status}).`);
+        notify.error(body?.error?.message ?? `The API refused the change (HTTP ${res.status}).`);
         return;
       }
 
-      setSaved(true);
+      notify.success('Changes saved');
       setHydrated(false);
       router.refresh();
     } catch {
-      setSaveError('Could not reach the API. Check that it is running.');
+      notify.error('Could not reach the API. Check that it is running.');
     } finally {
       setSaving(false);
     }
@@ -247,21 +244,6 @@ export default function AdminEditAcademicSessionPage() {
             {status === 'active'
               ? 'Saving this as Active will complete whichever session is currently active, and every module will resolve this one as current.'
               : 'Saving this status removes it as the current session. No module will resolve a current period from it.'}
-          </div>
-        ) : null}
-
-        {saveError ? (
-          <div
-            role="alert"
-            className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-          >
-            {saveError}
-          </div>
-        ) : null}
-
-        {saved ? (
-          <div className="mt-4">
-            <StatusPill label="Saved" tone="success" />
           </div>
         ) : null}
 

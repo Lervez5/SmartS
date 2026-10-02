@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import '@/styles/globals.css';
 import { AuthSessionGate, AuthProvider } from '@schoolos/auth';
 import { ThemeProvider } from '@schoolos/auth/ui';
+import { Toaster } from '@schoolos/ui';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthProvider>
             <AuthSessionGate>{children}</AuthSessionGate>
           </AuthProvider>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

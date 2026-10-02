@@ -12,6 +12,7 @@ import {
   StatusPill,
   roleLabel as formatRole,
   type DataTableColumn,
+  notify,
 } from '@schoolos/ui';
 
 /**
@@ -50,7 +51,6 @@ export default function AdminAddParentPage() {
   const [selected, setSelected] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [done, setDone] = React.useState<string | null>(null);
 
   const {
     data,
@@ -104,8 +104,6 @@ export default function AdminAddParentPage() {
           type="button"
           onClick={() => {
             setSelected(row.id);
-            setDone(null);
-            setError(null);
           }}
           className={[
             'rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors',
@@ -127,7 +125,6 @@ export default function AdminAddParentPage() {
       return;
     }
     setSaving(true);
-    setError(null);
     try {
       const res = await fetch('/api/parents', {
         method: 'POST',
@@ -140,15 +137,15 @@ export default function AdminAddParentPage() {
         const body = (await res.json().catch(() => null)) as {
           error?: { message?: string };
         } | null;
-        setError(body?.error?.message ?? `The API refused the request (HTTP ${res.status}).`);
+        notify.error(body?.error?.message ?? `The API refused the request (HTTP ${res.status}).`);
         return;
       }
 
       const created = (await res.json()) as { parent?: { name?: string | null; email?: string } };
-      setDone(created.parent?.name ?? created.parent?.email ?? 'Guardian added');
+      notify.success(created.parent?.name ?? created.parent?.email ?? 'Guardian added');
       setSelected(null);
     } catch {
-      setError('Could not reach the API. Check that it is running.');
+      notify.error('Could not reach the API. Check that it is running.');
     } finally {
       setSaving(false);
     }
@@ -213,12 +210,6 @@ export default function AdminAddParentPage() {
               className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
             >
               {error}
-            </div>
-          ) : null}
-
-          {done ? (
-            <div className="mt-4 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
-              {done} is now a guardian and appears in the Parents directory.
             </div>
           ) : null}
 

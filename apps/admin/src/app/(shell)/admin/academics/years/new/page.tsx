@@ -3,7 +3,15 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@schoolos/auth';
-import { ErrorState, Field, SectionHeader, Select, SettingsCard, TextInput } from '@schoolos/ui';
+import {
+  ErrorState,
+  Field,
+  SectionHeader,
+  Select,
+  SettingsCard,
+  TextInput,
+  notify,
+} from '@schoolos/ui';
 
 /**
  * Create an academic session.
@@ -24,14 +32,12 @@ export default function AdminCreateAcademicSessionPage() {
   const [endDate, setEndDate] = React.useState('');
   const [status, setStatus] = React.useState('planned');
   const [saving, setSaving] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
 
   const rangeInvalid =
     Boolean(startDate) && Boolean(endDate) && new Date(endDate) <= new Date(startDate);
 
   async function submit() {
     setSaving(true);
-    setError(null);
     try {
       const res = await fetch('/api/academic-sessions', {
         method: 'POST',
@@ -53,7 +59,7 @@ export default function AdminCreateAcademicSessionPage() {
         const fieldErrors = (body?.error?.details as { fieldErrors?: Record<string, string[]> })
           ?.fieldErrors;
         const firstFieldError = fieldErrors ? Object.values(fieldErrors).flat()[0] : undefined;
-        setError(
+        notify.error(
           firstFieldError ??
             body?.error?.message ??
             `The API refused the session (HTTP ${res.status}).`
@@ -64,7 +70,7 @@ export default function AdminCreateAcademicSessionPage() {
       router.push('/admin/academics/years');
       router.refresh();
     } catch {
-      setError('Could not reach the API. Check that it is running.');
+      notify.error('Could not reach the API. Check that it is running.');
     } finally {
       setSaving(false);
     }
@@ -106,7 +112,9 @@ export default function AdminCreateAcademicSessionPage() {
             label="Session identifier"
             required
             hint="Unique, e.g. 2026"
-            error={error && name.trim().length < 2 ? 'At least two characters' : undefined}
+            error={
+              name.length > 0 && name.trim().length < 2 ? 'At least two characters' : undefined
+            }
           >
             <TextInput
               value={name}
@@ -153,15 +161,6 @@ export default function AdminCreateAcademicSessionPage() {
             </Select>
           </Field>
         </div>
-
-        {error && name.trim().length >= 2 ? (
-          <div
-            role="alert"
-            className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-          >
-            {error}
-          </div>
-        ) : null}
 
         <div className="mt-5 flex items-center gap-2">
           <button

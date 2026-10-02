@@ -19,6 +19,7 @@ import {
   TextInput,
   initialsOf,
   type DataTableColumn,
+  notify,
 } from '@schoolos/ui';
 
 /**
@@ -108,7 +109,6 @@ export default function AdminAcademicSessionDetailPage() {
   const [endDate, setEndDate] = React.useState('');
   const [saving, setSaving] = React.useState(false);
   const [termError, setTermError] = React.useState<string | null>(null);
-  const [done, setDone] = React.useState<string | null>(null);
 
   const router = useRouter();
 
@@ -125,7 +125,6 @@ export default function AdminAcademicSessionDetailPage() {
     if (!session) return;
     setSaving(true);
     setTermError(null);
-    setDone(null);
     try {
       const res = await fetch(`/api/academic-sessions/${session.id}/terms`, {
         method: 'POST',
@@ -147,7 +146,7 @@ export default function AdminAcademicSessionDetailPage() {
         return;
       }
 
-      setDone(`Term ${termNumber} added to ${session.name}.`);
+      notify.success(`Term ${termNumber} added to ${session.name}.`);
       setName('');
       setStartDate('');
       setEndDate('');
@@ -399,21 +398,6 @@ export default function AdminAcademicSessionDetailPage() {
               />
             </Field>
           </div>
-
-          {termError ? (
-            <div
-              role="alert"
-              className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-            >
-              {termError}
-            </div>
-          ) : null}
-
-          {done ? (
-            <div className="mt-4 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
-              {done}
-            </div>
-          ) : null}
 
           <button
             type="button"

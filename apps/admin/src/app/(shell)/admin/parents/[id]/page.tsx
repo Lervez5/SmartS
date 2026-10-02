@@ -16,6 +16,7 @@ import {
   StatusPill,
   initialsOf,
   type DataTableColumn,
+  notify,
 } from '@schoolos/ui';
 
 /**
@@ -313,14 +314,6 @@ export default function AdminGuardianProfilePage() {
 
       <section className="space-y-3" id="linked-learners">
         <h2 className="text-base font-semibold text-foreground">Linked learners</h2>
-        {actionError ? (
-          <div
-            role="alert"
-            className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-          >
-            {actionError}
-          </div>
-        ) : null}
 
         <DataTable
           caption="Learners this guardian is linked to"

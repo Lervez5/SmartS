@@ -14,6 +14,7 @@ import {
   SettingsCard,
   StatusPill,
   TextInput,
+  notify,
 } from '@schoolos/ui';
 
 /**
@@ -65,8 +66,6 @@ export default function AdminEditStaffPage() {
   const [status, setStatus] = React.useState('active');
   const [hydrated, setHydrated] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const [saveError, setSaveError] = React.useState<string | null>(null);
-  const [saved, setSaved] = React.useState(false);
 
   React.useEffect(() => {
     if (!member || hydrated) return;
@@ -91,8 +90,6 @@ export default function AdminEditStaffPage() {
   async function save() {
     if (!member) return;
     setSaving(true);
-    setSaveError(null);
-    setSaved(false);
     try {
       const res = await fetch(`/api/staff/${member.id}`, {
         method: 'PUT',
@@ -109,15 +106,15 @@ export default function AdminEditStaffPage() {
         const body = (await res.json().catch(() => null)) as {
           error?: { message?: string };
         } | null;
-        setSaveError(body?.error?.message ?? `The API refused the change (HTTP ${res.status}).`);
+        notify.error(body?.error?.message ?? `The API refused the change (HTTP ${res.status}).`);
         return;
       }
 
-      setSaved(true);
+      notify.success('Changes saved');
       setHydrated(false);
       router.refresh();
     } catch {
-      setSaveError('Could not reach the API. Check that it is running.');
+      notify.error('Could not reach the API. Check that it is running.');
     } finally {
       setSaving(false);
     }
@@ -219,21 +216,6 @@ export default function AdminEditStaffPage() {
           </p>
         ) : null}
 
-        {saveError ? (
-          <div
-            role="alert"
-            className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-          >
-            {saveError}
-          </div>
-        ) : null}
-
-        {saved ? (
-          <div className="mt-4">
-            <StatusPill label="Saved" tone="success" />
-          </div>
-        ) : null}
-
         <div className="mt-5 flex items-center gap-2">
           <button
             type="button"
@@ -252,8 +234,6 @@ export default function AdminEditStaffPage() {
                 setPosition(member.position ?? '');
                 setDepartment(member.department ?? '');
                 setStatus(member.status);
-                setSaveError(null);
-                setSaved(false);
               }}
               variant="outline"
               size="md"
