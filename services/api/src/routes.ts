@@ -5,6 +5,7 @@ import { router as authRouter } from './modules/auth';
 import { router as usersRouter } from './modules/users';
 import { router as invitationsRouter } from './modules/invitations';
 import { router as studentsRouter } from './modules/students';
+import { router as alumniRouter } from './modules/alumni';
 import { router as parentsRouter } from './modules/parents';
 import { router as teachersRouter } from './modules/teachers';
 import { router as staffRouter } from './modules/staff';
@@ -50,6 +51,7 @@ router.use(requireAuth);
 
 router.use('/users', usersRouter);
 router.use('/students', studentsRouter);
+router.use('/alumni', alumniRouter);
 router.use('/parents', parentsRouter);
 router.use('/teachers', teachersRouter);
 router.use('/staff', staffRouter);

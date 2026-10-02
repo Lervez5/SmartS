@@ -214,6 +214,8 @@ model User {
 
   // Auth / sessions
   auditLogs     AuditLog[]
+  exitsRecorded LearnerExit[]  @relation("ExitRecordedBy")
+  exitsRestored LearnerExit[]  @relation("ExitRestoredBy")
   notifications Notification[]
 
   // Back-references for relations from other models
@@ -244,6 +246,7 @@ model StudentProfile {
   updatedAt            DateTime              @updatedAt
   parentLinks          ParentChildLink[]
   admissionApplication AdmissionApplication?
+  exits                LearnerExit[]
 }
 
 model StaffProfile {
@@ -387,6 +390,12 @@ enum TermStatus {
   completed
 }
 
+enum LearnerExitReason {
+  completed
+  transferred
+  withdrawn
+}
+
 enum AssessmentStatus {
   draft
   published
@@ -406,6 +415,7 @@ model AcademicYear {
   examinations Examination[]
   createdAt    DateTime              @default(now())
   updatedAt    DateTime              @updatedAt
+  learnerExits LearnerExit[]
 
   @@index([status])
 }
@@ -614,6 +624,56 @@ model ExamAttempt {
   graded        Boolean     @default(false)
   submittedAt   DateTime?
   createdAt     DateTime    @default(now())
+}
+
+/// A record that a learner has left the school.
+///
+/// Kept on StudentProfile rather than as a separate entity so the learner keeps
+/// one identity: their attendance, grades, attempts, documents, invoices and
+/// parent links stay attached to the same record the Alumni Office reads.
+/// A restore never deletes a row, it stamps restoredAt, so the archive and its
+/// reversal both remain auditable.
+model LearnerExit {
+  id        String            @id @default(auto()) @map("_id") @db.ObjectId
+  student   StudentProfile    @relation(fields: [studentId], references: [id])
+  studentId String            @db.ObjectId
+  reason    LearnerExitReason
+  exitDate  DateTime          @default(now())
+
+  /// Level and stream the learner was in when they left. Stream is free text
+  /// because the schema has no Stream model; it is null when none was assigned.
+  lastGradeLevel String?
+  lastStream     String?
+
+  /// The academic session the exit falls in, so the archive is scoped the same
+  /// way every other academic record is.
+  academicYearId String?       @db.ObjectId
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id])
+
+  /// Where they went, for a transfer.
+  destination String?
+  notes       String?
+
+  recordedBy   User?    @relation("ExitRecordedBy", fields: [recordedById], references: [id])
+  recordedById String?  @db.ObjectId
+  recordedAt   DateTime @default(now())
+
+  /// Set when the learner is re-enrolled. An exit with no restoredAt is the
+  /// learner's current state, which is what the Alumni Office lists.
+  ///
+  /// Note: the field must be written explicitly as null on create rather than
+  /// omitted. MongoDB's `$eq: null` matches an explicit null but not a missing
+  /// key, so an omitted field would make the unresolved-exit filter — and
+  /// therefore the whole Alumni list — come back empty.
+  restoredAt   DateTime?
+  restoredBy   User?     @relation("ExitRestoredBy", fields: [restoredById], references: [id])
+  restoredById String?   @db.ObjectId
+
+  createdAt DateTime @default(now())
+
+  @@index([reason])
+  @@index([academicYearId])
+  @@index([restoredAt])
 }
 
 model Grade {
