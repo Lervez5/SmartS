@@ -17,9 +17,22 @@ import {
  * area: the shell only needs a name and a logo, and pulling the whole set on
  * each navigation is what made the sidebar feel slow to settle.
  */
+/**
+ * Branding, for a signed-in administrator.
+ *
+ * Returns the full branding area in the same `{ settings }` envelope every
+ * other area uses, so the settings screens can treat all eight uniformly.
+ *
+ * It previously returned the narrower `getPublicBranding` projection directly,
+ * which made this the only area answering with a flat object — and the
+ * `SettingsSection` component, which reads `body.settings`, rendered the whole
+ * Branding screen empty even though values were saved. The shell and the
+ * sign-in screens, which only need a name and a logo, read `/api/public/branding`
+ * or unwrap `settings` themselves.
+ */
 export async function getBrandingController(req: Request, res: Response): Promise<void> {
   const scope = schoolScopeOf(req);
-  res.json(await getPublicBranding(scope.schoolId));
+  res.json(await getSettings('branding', scope.schoolId));
 }
 
 export async function getAllController(req: Request, res: Response): Promise<void> {

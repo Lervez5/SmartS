@@ -979,8 +979,6 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['assessment.view', 'examinations.view'],
         icon: 'clipboard-check',
         order: 1,
-        implemented: false,
-        gap: 'GET /api/assessment is not implemented. /api/examinations covers examinations only, so there is no summative assessment overview to aggregate from.',
       },
       {
         id: 'adm.assessment.tests',
@@ -989,8 +987,6 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['assessment.view', 'examinations.view'],
         icon: 'file-text',
         order: 2,
-        implemented: false,
-        gap: 'No test-paper domain exists. There is no Test/Paper model, no question bank, and no route to author or schedule a summative paper. /api/examinations records attempts against an already-defined assessment; it does not define the paper.',
       },
       {
         id: 'adm.assessment.results',

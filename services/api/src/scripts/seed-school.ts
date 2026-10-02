@@ -2,6 +2,7 @@ import argon2 from 'argon2';
 import { config } from '../config';
 import { logger } from '../shared/logger';
 import { prisma } from '../infrastructure/database';
+import { provisionSchoolSettings } from '../modules/settings/service';
 
 /**
  * Provisions the school every platform record is scoped to, and attaches each
@@ -36,6 +37,16 @@ async function main() {
     logger.info('School created', { id: school.id, name: school.name });
   } else {
     logger.info('School already exists', { id: school.id, name: school.name });
+  }
+
+  // Provision every configuration area so a freshly seeded school is complete
+  // and administrable, not just falling back to defaults on read.
+  const provisioned = await provisionSchoolSettings(school.id);
+  if (provisioned.created.length > 0) {
+    logger.info('School settings provisioned', {
+      created: provisioned.created,
+      kept: provisioned.skipped,
+    });
   }
 
   for (const email of EMAIL) {

@@ -30,12 +30,13 @@ interface Learner {
   class: { name: string; classCode?: string | null; gradeLevel?: string | null } | null;
 }
 
-interface Branding {
-  schoolId?: string;
-  name?: string | null;
-  displayName?: string | null;
-  logoUrl?: string | null;
-  primaryColor?: string | null;
+interface BrandingEnvelope {
+  settings?: {
+    name?: string | null;
+    displayName?: string | null;
+    logoUrl?: string | null;
+    primaryColor?: string | null;
+  } | null;
 }
 
 function displayName(learner: Learner): string {
@@ -51,17 +52,18 @@ export default function AdminLearnerIdCardPage() {
   const learners = useApi<{ students?: Learner[] }>(
     allowed ? '/api/students?limit=200' : '/api/students?denied=1'
   );
-  const branding = useApi<Branding>(
+  const brandingEnvelope = useApi<BrandingEnvelope>(
     allowed ? '/api/settings/branding' : '/api/settings/branding?denied=1'
   );
+  const branding = brandingEnvelope.data?.settings ?? null;
 
   const learner = React.useMemo(
     () => (learners.data?.students ?? []).find((row) => row.id === learnerId),
     [learners.data, learnerId]
   );
 
-  const schoolName = branding.data?.displayName ?? branding.data?.name ?? null;
-  const accent = branding.data?.primaryColor || undefined;
+  const schoolName = branding?.displayName ?? branding?.name ?? null;
+  const accent = branding?.primaryColor || undefined;
 
   if (!allowed) {
     return (
@@ -75,11 +77,11 @@ export default function AdminLearnerIdCardPage() {
     );
   }
 
-  if (learners.loading || branding.loading) {
+  if (learners.loading || brandingEnvelope.loading) {
     return <LoadingState label="Preparing the ID card" />;
   }
 
-  if (learners.error || branding.error) {
+  if (learners.error || brandingEnvelope.error) {
     return (
       <ErrorState
         title="Could not prepare the ID card"
@@ -147,12 +149,12 @@ export default function AdminLearnerIdCardPage() {
             style={{ backgroundColor: accent ?? 'hsl(var(--primary))' }}
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/20 text-sm font-bold">
-              {branding.data?.logoUrl ? (
+              {branding?.logoUrl ? (
                 <span
                   role="img"
                   aria-label=""
                   className="h-full w-full bg-cover bg-center"
-                  style={{ backgroundImage: `url(${branding.data.logoUrl})` }}
+                  style={{ backgroundImage: `url(${branding.logoUrl})` }}
                 />
               ) : (
                 initialsOf(schoolName)
