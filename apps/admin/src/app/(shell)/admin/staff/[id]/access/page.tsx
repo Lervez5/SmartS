@@ -16,14 +16,14 @@ import {
 } from '@schoolos/ui';
 
 /**
- * Portal access — which application and role a staff member signs into.
+ * Portal access - which application and role a staff member signs into.
  *
  * Central Auth owns the identity; this changes the role on it through
  * `PUT /api/roles/:id/users/:userId`, which replaces the member's role
  * memberships with the chosen one.
  *
  * The endpoint refuses to assign a role the actor does not themselves hold, so
- * an administrator cannot escalate anyone — including themselves — above their
+ * an administrator cannot escalate anyone - including themselves - above their
  * own level. That check lives in the service, not here: this screen only
  * reflects the roles the API will allow, and says so rather than presenting an
  * option that would be rejected on submit.
@@ -145,7 +145,7 @@ export default function AdminStaffAccessPage() {
       id: 'app',
       header: 'Can enter',
       cell: (row) => (
-        <span className="text-sm text-muted-foreground">{APP_FOR_ROLE[row.name] ?? '—'}</span>
+        <span className="text-sm text-muted-foreground">{APP_FOR_ROLE[row.name] ?? '-'}</span>
       ),
       sortValue: (row) => APP_FOR_ROLE[row.name] ?? '',
     },
@@ -197,7 +197,7 @@ export default function AdminStaffAccessPage() {
     <div className="space-y-6">
       <SectionHeader
         title="Portal Access"
-        description={`${member.name ?? member.email} — which application and role this account signs into.`}
+        description={`${member.name ?? member.email} - which application and role this account signs into.`}
         action={
           <a
             href={`/admin/staff/${member.id}`}
@@ -219,7 +219,7 @@ export default function AdminStaffAccessPage() {
                 member.roles.map((r) => (
                   <StatusPill
                     key={r.id}
-                    label={`${roleLabel(r.name)} · ${APP_FOR_ROLE[r.name] ?? '—'}`}
+                    label={`${roleLabel(r.name)} · ${APP_FOR_ROLE[r.name] ?? '-'}`}
                     tone="brand"
                   />
                 ))
@@ -264,7 +264,7 @@ export default function AdminStaffAccessPage() {
                 <option value="">Choose a role…</option>
                 {assignable.map((role) => (
                   <option key={role.id} value={role.name}>
-                    {roleLabel(role.name)} — {APP_FOR_ROLE[role.name] ?? '—'}
+                    {roleLabel(role.name)} - {APP_FOR_ROLE[role.name] ?? '-'}
                   </option>
                 ))}
               </select>
@@ -315,7 +315,7 @@ export default function AdminStaffAccessPage() {
 
       <p className="text-xs text-muted-foreground">
         You hold {permissions.length} permissions. Role assignment is recorded in the audit log, and
-        deactivating an account is not possible from this screen because no endpoint exists for it —
+        deactivating an account is not possible from this screen because no endpoint exists for it -
         employment status is edited on the staff record.
       </p>
     </div>

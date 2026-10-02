@@ -64,10 +64,10 @@ const ACCOUNT_TONE: Record<string, StatusTone> = {
 };
 
 function formatDate(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
-    ? '—'
+    ? '-'
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -137,12 +137,12 @@ export default function AdminStaffProfilePage() {
   const name = displayName(member);
 
   const detailRows = [
-    { field: 'Full name', value: name || '—' },
+    { field: 'Full name', value: name || '-' },
     { field: 'Email', value: member.email },
-    { field: 'Phone', value: member.phone || '—' },
-    { field: 'Employee ID', value: member.employeeId || '—', mono: Boolean(member.employeeId) },
-    { field: 'Position', value: member.position || '—' },
-    { field: 'Department', value: member.department || '—' },
+    { field: 'Phone', value: member.phone || '-' },
+    { field: 'Employee ID', value: member.employeeId || '-', mono: Boolean(member.employeeId) },
+    { field: 'Position', value: member.position || '-' },
+    { field: 'Department', value: member.department || '-' },
     { field: 'Hire date', value: formatDate(member.hireDate) },
     { field: 'Employment status', value: member.status.replace(/_/g, ' ') },
     { field: 'Account access', value: member.userStatus },
@@ -232,8 +232,8 @@ export default function AdminStaffProfilePage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <DashboardCard title="Position" value={member.position ?? '—'} icon="user-round" />
-        <DashboardCard title="Department" value={member.department ?? '—'} icon="layers" />
+        <DashboardCard title="Position" value={member.position ?? '-'} icon="user-round" />
+        <DashboardCard title="Department" value={member.department ?? '-'} icon="layers" />
         <DashboardCard
           title="Can sign in"
           value={member.userStatus === 'active' ? 'Yes' : 'No'}

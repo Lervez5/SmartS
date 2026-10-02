@@ -2,7 +2,7 @@
  * Shared React hooks used across the school platform.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export interface UseApiOptions<T> {
   onSuccess?: (data: T) => void;
@@ -11,11 +11,18 @@ export interface UseApiOptions<T> {
 
 /**
  * Generic data fetching hook for API endpoints.
+ *
+ * Exposes `refetch` so a screen that mutates through its own `fetch` call can
+ * re-read the list afterwards, rather than duplicating the fetch logic to keep
+ * two copies of the same data in step.
  */
 export function useApi<T>(url: string, options?: UseApiOptions<T>) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
+  const [nonce, setNonce] = useState(0);
+
+  const refetch = useCallback(() => setNonce((n) => n + 1), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,6 +39,7 @@ export function useApi<T>(url: string, options?: UseApiOptions<T>) {
         const result = (await res.json()) as T;
         if (!cancelled) {
           setData(result);
+          setError(null);
           options?.onSuccess?.(result);
         }
       } catch (err) {
@@ -49,7 +57,9 @@ export function useApi<T>(url: string, options?: UseApiOptions<T>) {
       cancelled = true;
       controller.abort();
     };
-  }, [url]);
+    // `options` is deliberately not a dependency: callers pass an inline
+    // object, so including it would refetch on every render.
+  }, [url, nonce]);
 
-  return { data, loading, error };
+  return { data, loading, error, refetch };
 }

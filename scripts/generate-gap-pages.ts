@@ -56,6 +56,7 @@ const IMPLEMENTED: Record<string, Set<string>> = {
     'adm.transport',
     'adm.users',
     'adm.roles',
+    'adm.academic-sessions',
     'adm.finance.balances',
     'adm.invitations',
     'adm.settings',

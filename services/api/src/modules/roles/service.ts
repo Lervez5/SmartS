@@ -227,8 +227,8 @@ export async function assignUserRole(actorId: string, userId: string, roleName: 
    *
    * Holding `roles.manage` is not permission to mint any role. The rule is
    * precise rather than blunt: an actor may not grant a permission they do not
-   * themselves hold, so an administrator can never hand anyone — including
-   * themselves — authority above their own level.
+   * themselves hold, so an administrator can never hand anyone - including
+   * themselves - authority above their own level.
    *
    * Deliberately not "you may only assign a role you hold". A super admin holds
    * SUPER_ADMIN and nothing else, so that rule would stop them assigning a

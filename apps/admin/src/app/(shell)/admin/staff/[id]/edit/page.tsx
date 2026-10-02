@@ -19,7 +19,7 @@ import {
 /**
  * Edit a staff record.
  *
- * `PUT /api/staff/:id` accepts position, department and employment status —
+ * `PUT /api/staff/:id` accepts position, department and employment status -
  * exactly what the route's update schema declares, so the form cannot send a
  * field the API would reject. Name, email and phone belong to the Central Auth
  * account and are not editable here; portal access is changed through the role,
@@ -215,7 +215,7 @@ export default function AdminEditStaffPage() {
             className="mt-4 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300"
           >
             This marks the staff record as {status}. It does not deactivate the account, so the
-            member can still sign in — account access is managed separately.
+            member can still sign in - account access is managed separately.
           </p>
         ) : null}
 
