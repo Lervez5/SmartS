@@ -56,6 +56,9 @@ export async function listUsersService() {
     // Same reasoning for staff: enrolment-style flows need to know which
     // accounts are still eligible without fetching every profile.
     hasStaffProfile: Boolean(u.staffProfile),
+    // Same reasoning for guardians: Add Parent needs to know which accounts can
+    // still be attached without fetching every profile.
+    hasParentProfile: Boolean(u.parentProfile),
   }));
 }
 

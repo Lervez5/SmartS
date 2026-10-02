@@ -16,7 +16,7 @@ export interface UseApiOptions<T> {
  * re-read the list afterwards, rather than duplicating the fetch logic to keep
  * two copies of the same data in step.
  */
-export function useApi<T>(url: string, options?: UseApiOptions<T>) {
+export function useApi<T>(url: string | null, options?: UseApiOptions<T>) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -25,13 +25,26 @@ export function useApi<T>(url: string, options?: UseApiOptions<T>) {
   const refetch = useCallback(() => setNonce((n) => n + 1), []);
 
   useEffect(() => {
+    // A null url skips the request entirely, so a screen can gate a fetch on a
+    // permission without pointing at an endpoint that would answer 403.
+    if (url === null) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    // Captured in a local: TypeScript does not carry the null narrowing above
+    // into the nested function below.
+    const endpoint = url;
+
     let cancelled = false;
     const controller = new AbortController();
 
     async function fetchData() {
       try {
         setLoading(true);
-        const res = await fetch(url, {
+        const res = await fetch(endpoint, {
           credentials: 'include',
           signal: controller.signal,
         });
