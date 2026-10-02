@@ -64,6 +64,7 @@ export function SubscriptionSettingsSection() {
                   <TextInput
                     value={str(v.billingCycle)}
                     onChange={(e) => set('billingCycle', e.target.value)}
+                    placeholder="annual"
                   />
                 </Field>
                 <Field label="Seats" hint="Licensed user count">
@@ -74,6 +75,7 @@ export function SubscriptionSettingsSection() {
                     onChange={(e) =>
                       set('seats', e.target.value ? Number(e.target.value) : undefined)
                     }
+                    placeholder="120"
                   />
                 </Field>
                 <Field label="Renews At" hint="Date">
@@ -81,6 +83,7 @@ export function SubscriptionSettingsSection() {
                     type="date"
                     value={str(v.renewsAt)}
                     onChange={(e) => set('renewsAt', e.target.value)}
+                    placeholder="renews at"
                   />
                 </Field>
                 <Field label="Status">
@@ -94,6 +97,7 @@ export function SubscriptionSettingsSection() {
                   <TextInput
                     value={str(v.providerReference)}
                     onChange={(e) => set('providerReference', e.target.value)}
+                    placeholder="provider reference"
                   />
                 </Field>
               </div>

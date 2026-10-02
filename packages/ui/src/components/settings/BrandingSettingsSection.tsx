@@ -166,6 +166,7 @@ export function BrandingSettingsSection() {
                     rows={2}
                     value={str(v.reportFooter)}
                     onChange={(e) => set('reportFooter', e.target.value)}
+                    placeholder="Greenfield Academy · Confidential"
                   />
                 </Field>
                 <Field label="Email Footer">
@@ -173,6 +174,7 @@ export function BrandingSettingsSection() {
                     rows={2}
                     value={str(v.emailFooter)}
                     onChange={(e) => set('emailFooter', e.target.value)}
+                    placeholder="Greenfield Academy · Do not reply to this message"
                   />
                 </Field>
                 <Field label="Invoice Footer">
@@ -180,6 +182,7 @@ export function BrandingSettingsSection() {
                     rows={2}
                     value={str(v.invoiceFooter)}
                     onChange={(e) => set('invoiceFooter', e.target.value)}
+                    placeholder="Thank you. Payment is due within 30 days."
                   />
                 </Field>
                 <Field label="Receipt Footer">
@@ -187,6 +190,7 @@ export function BrandingSettingsSection() {
                     rows={2}
                     value={str(v.receiptFooter)}
                     onChange={(e) => set('receiptFooter', e.target.value)}
+                    placeholder="Received with thanks."
                   />
                 </Field>
               </div>

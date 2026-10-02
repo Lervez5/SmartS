@@ -100,6 +100,7 @@ export function FinanceSettingsSection() {
                     max={4}
                     value={str(v.decimalPlaces)}
                     onChange={(e) => set('decimalPlaces', Number(e.target.value))}
+                    placeholder="2"
                   />
                 </Field>
                 <Field label="Fiscal Year Starts" hint="Month">
@@ -171,6 +172,7 @@ export function FinanceSettingsSection() {
                     rows={2}
                     value={str(v.receiptFooter)}
                     onChange={(e) => set('receiptFooter', e.target.value)}
+                    placeholder="Received with thanks."
                   />
                 </Field>
                 <Field label="Terms and Conditions">
@@ -178,6 +180,7 @@ export function FinanceSettingsSection() {
                     rows={4}
                     value={str(v.termsAndConditions)}
                     onChange={(e) => set('termsAndConditions', e.target.value)}
+                    placeholder="terms and conditions"
                   />
                 </Field>
               </div>
@@ -215,6 +218,7 @@ export function FinanceSettingsSection() {
                     onChange={(e) =>
                       set('latePaymentPenalty', e.target.value ? Number(e.target.value) : undefined)
                     }
+                    placeholder="2.5"
                   />
                 </Field>
               </div>
@@ -268,6 +272,7 @@ export function FinanceSettingsSection() {
                     min={0}
                     value={str(v.arrearsGraceDays)}
                     onChange={(e) => set('arrearsGraceDays', Number(e.target.value))}
+                    placeholder="14"
                   />
                 </Field>
               </div>

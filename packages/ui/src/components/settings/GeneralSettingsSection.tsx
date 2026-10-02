@@ -83,6 +83,7 @@ export function GeneralSettingsSection() {
                   <TextInput
                     value={str(v.registrationNumber)}
                     onChange={(e) => set('registrationNumber', e.target.value)}
+                    placeholder="REG/2021/0456"
                   />
                 </Field>
                 <Field label="School Code" hint="Used on invoices and admissions">
@@ -136,6 +137,7 @@ export function GeneralSettingsSection() {
                   <TextInput
                     value={str(v.principalName)}
                     onChange={(e) => set('principalName', e.target.value)}
+                    placeholder="Grace Wanjiku"
                   />
                 </Field>
                 <Field label="Principal Email">
@@ -143,12 +145,14 @@ export function GeneralSettingsSection() {
                     type="email"
                     value={str(v.principalEmail)}
                     onChange={(e) => set('principalEmail', e.target.value)}
+                    placeholder="principal@school.edu"
                   />
                 </Field>
                 <Field label="Principal Phone">
                   <TextInput
                     value={str(v.principalPhone)}
                     onChange={(e) => set('principalPhone', e.target.value)}
+                    placeholder="+254700000001"
                   />
                 </Field>
               </div>
@@ -179,6 +183,7 @@ export function GeneralSettingsSection() {
                   <TextInput
                     value={str(v.altPhone)}
                     onChange={(e) => set('altPhone', e.target.value)}
+                    placeholder="+254700000009"
                   />
                 </Field>
                 <Field label="Alternative Email">
@@ -186,6 +191,7 @@ export function GeneralSettingsSection() {
                     type="email"
                     value={str(v.altEmail)}
                     onChange={(e) => set('altEmail', e.target.value)}
+                    placeholder="contact@school.edu"
                   />
                 </Field>
                 <Field label="Admissions Email">
@@ -193,12 +199,14 @@ export function GeneralSettingsSection() {
                     type="email"
                     value={str(v.admissionsEmail)}
                     onChange={(e) => set('admissionsEmail', e.target.value)}
+                    placeholder="admissions@school.edu"
                   />
                 </Field>
                 <Field label="Admissions Phone">
                   <TextInput
                     value={str(v.admissionsPhone)}
                     onChange={(e) => set('admissionsPhone', e.target.value)}
+                    placeholder="+254700000002"
                   />
                 </Field>
                 <Field label="Finance / Billing Email">
@@ -206,12 +214,14 @@ export function GeneralSettingsSection() {
                     type="email"
                     value={str(v.financeEmail)}
                     onChange={(e) => set('financeEmail', e.target.value)}
+                    placeholder="finance@school.edu"
                   />
                 </Field>
                 <Field label="Finance / Billing Phone">
                   <TextInput
                     value={str(v.financePhone)}
                     onChange={(e) => set('financePhone', e.target.value)}
+                    placeholder="+254700000003"
                   />
                 </Field>
                 <Field label="Website">
@@ -248,6 +258,7 @@ export function GeneralSettingsSection() {
                   <TextInput
                     value={str(v.subCounty)}
                     onChange={(e) => set('subCounty', e.target.value)}
+                    placeholder="Nairobi"
                   />
                 </Field>
                 <Field label="Town / City">
@@ -261,12 +272,14 @@ export function GeneralSettingsSection() {
                   <TextInput
                     value={str(v.postalCode)}
                     onChange={(e) => set('postalCode', e.target.value)}
+                    placeholder="00100"
                   />
                 </Field>
                 <Field label="Postal Address">
                   <TextInput
                     value={str(v.postalAddress)}
                     onChange={(e) => set('postalAddress', e.target.value)}
+                    placeholder="postal address"
                   />
                 </Field>
                 <div className="md:col-span-2">
@@ -274,6 +287,7 @@ export function GeneralSettingsSection() {
                     <TextInput
                       value={str(v.physicalAddress)}
                       onChange={(e) => set('physicalAddress', e.target.value)}
+                      placeholder="physical address"
                     />
                   </Field>
                 </div>
@@ -322,6 +336,7 @@ export function GeneralSettingsSection() {
                     rows={3}
                     value={str(v.vision)}
                     onChange={(e) => set('vision', e.target.value)}
+                    placeholder="The future the school aspires to create."
                   />
                 </Field>
                 <Field label="Mission">
@@ -329,6 +344,7 @@ export function GeneralSettingsSection() {
                     rows={3}
                     value={str(v.mission)}
                     onChange={(e) => set('mission', e.target.value)}
+                    placeholder="What the school does today, and for whom."
                   />
                 </Field>
                 <Field label="Description">
@@ -336,6 +352,7 @@ export function GeneralSettingsSection() {
                     rows={4}
                     value={str(v.description)}
                     onChange={(e) => set('description', e.target.value)}
+                    placeholder="A short introduction, used on reports and the website."
                   />
                 </Field>
               </div>

@@ -168,6 +168,7 @@ export function LoginForm({ appId, schoolName, forgotPasswordHref }: LoginFormPr
             id={`${appId}-password`}
             name="password"
             type={showPassword ? 'text' : 'password'}
+            placeholder="Your password"
             required
             autoComplete="current-password"
             className="h-11 w-full rounded-lg border border-input bg-background px-3.5 pr-11 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60"

@@ -218,6 +218,7 @@ export function NotificationsSettingsSection() {
                     type="email"
                     value={str(v.senderEmail)}
                     onChange={(e) => set('senderEmail', e.target.value)}
+                    placeholder="notifications@school.edu"
                   />
                 </Field>
                 <Field label="Email Provider">
@@ -241,6 +242,7 @@ export function NotificationsSettingsSection() {
                   <TextInput
                     value={str(v.smsSenderId)}
                     onChange={(e) => set('smsSenderId', e.target.value)}
+                    placeholder="SCHOOL"
                   />
                 </Field>
               </div>
@@ -285,6 +287,7 @@ export function NotificationsSettingsSection() {
                     type="time"
                     value={str(v.quietHoursStart)}
                     onChange={(e) => set('quietHoursStart', e.target.value)}
+                    placeholder="start"
                   />
                 </Field>
                 <Field label="End" hint="HH:MM">
@@ -292,6 +295,7 @@ export function NotificationsSettingsSection() {
                     type="time"
                     value={str(v.quietHoursEnd)}
                     onChange={(e) => set('quietHoursEnd', e.target.value)}
+                    placeholder="end"
                   />
                 </Field>
               </div>

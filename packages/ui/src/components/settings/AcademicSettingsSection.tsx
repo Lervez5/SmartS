@@ -120,6 +120,7 @@ export function AcademicSettingsSection() {
                     max={28}
                     value={str(v.termStartDay)}
                     onChange={(e) => set('termStartDay', Number(e.target.value))}
+                    placeholder="5"
                   />
                 </Field>
                 <Field label="Week Starts On">
@@ -167,6 +168,7 @@ export function AcademicSettingsSection() {
                     min={0}
                     value={str(v.attendanceGraceMinutes)}
                     onChange={(e) => set('attendanceGraceMinutes', Number(e.target.value))}
+                    placeholder="10"
                   />
                 </Field>
               </div>
@@ -198,6 +200,7 @@ export function AcademicSettingsSection() {
                     max={100}
                     value={str(v.endOfTermExamWeight)}
                     onChange={(e) => set('endOfTermExamWeight', Number(e.target.value))}
+                    placeholder="70"
                   />
                 </Field>
                 <Field
@@ -214,6 +217,7 @@ export function AcademicSettingsSection() {
                     max={100}
                     value={str(v.continuousAssessmentWeight)}
                     onChange={(e) => set('continuousAssessmentWeight', Number(e.target.value))}
+                    placeholder="30"
                   />
                 </Field>
               </div>
@@ -236,6 +240,7 @@ export function AcademicSettingsSection() {
                   <TextInput
                     value={str(v.gradeScaleId)}
                     onChange={(e) => set('gradeScaleId', e.target.value)}
+                    placeholder="Default scale"
                   />
                 </Field>
                 <Field
@@ -245,12 +250,14 @@ export function AcademicSettingsSection() {
                   <TextInput
                     value={str(v.minimumCompetencyLevel)}
                     onChange={(e) => set('minimumCompetencyLevel', e.target.value)}
+                    placeholder="Proficient"
                   />
                 </Field>
                 <Field label="Promotion Rule">
                   <TextInput
                     value={str(v.promotionRule)}
                     onChange={(e) => set('promotionRule', e.target.value)}
+                    placeholder="promotion rule"
                   />
                 </Field>
               </div>
@@ -333,6 +340,7 @@ export function AcademicSettingsSection() {
                     max={20}
                     value={str(v.timetablePeriodsPerDay)}
                     onChange={(e) => set('timetablePeriodsPerDay', Number(e.target.value))}
+                    placeholder="8"
                   />
                 </Field>
                 <Field label="Start Time" hint="HH:MM">
@@ -340,6 +348,7 @@ export function AcademicSettingsSection() {
                     type="time"
                     value={str(v.timetableStartTime)}
                     onChange={(e) => set('timetableStartTime', e.target.value)}
+                    placeholder="08:00"
                   />
                 </Field>
                 <Field label="End Time" hint="HH:MM">
@@ -347,6 +356,7 @@ export function AcademicSettingsSection() {
                     type="time"
                     value={str(v.timetableEndTime)}
                     onChange={(e) => set('timetableEndTime', e.target.value)}
+                    placeholder="16:00"
                   />
                 </Field>
               </div>

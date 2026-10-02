@@ -56,6 +56,7 @@ export function GlowSettingsSection() {
                   <TextInput
                     value={str(v.headline)}
                     onChange={(e) => set('headline', e.target.value)}
+                    placeholder="A short daily line for the school community"
                   />
                 </Field>
                 <Field label="Message">
@@ -63,6 +64,7 @@ export function GlowSettingsSection() {
                     rows={3}
                     value={str(v.message)}
                     onChange={(e) => set('message', e.target.value)}
+                    placeholder="message"
                   />
                 </Field>
                 <Field label="Audience" hint="Free text; no audience model exists">
@@ -83,6 +85,7 @@ export function GlowSettingsSection() {
                   <TextInput
                     value={str(v.contentSources)}
                     onChange={(e) => set('contentSources', e.target.value)}
+                    placeholder="announcements, upcoming events"
                   />
                 </Field>
               </div>

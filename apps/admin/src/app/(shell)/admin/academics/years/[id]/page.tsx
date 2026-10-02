@@ -379,6 +379,7 @@ export default function AdminAcademicSessionDetailPage() {
                 max={12}
                 value={termNumber}
                 onChange={(event) => setTermNumber(event.target.value)}
+                placeholder="1"
               />
             </Field>
             <Field label="Start date">
@@ -386,6 +387,7 @@ export default function AdminAcademicSessionDetailPage() {
                 type="date"
                 value={startDate}
                 onChange={(event) => setStartDate(event.target.value)}
+                placeholder="mm/dd/yyyy"
               />
             </Field>
             <Field label="End date">
@@ -393,6 +395,7 @@ export default function AdminAcademicSessionDetailPage() {
                 type="date"
                 value={endDate}
                 onChange={(event) => setEndDate(event.target.value)}
+                placeholder="mm/dd/yyyy"
               />
             </Field>
           </div>

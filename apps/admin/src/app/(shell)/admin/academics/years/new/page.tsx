@@ -126,6 +126,7 @@ export default function AdminCreateAcademicSessionPage() {
               type="date"
               value={startDate}
               onChange={(event) => setStartDate(event.target.value)}
+              placeholder="mm/dd/yyyy"
             />
           </Field>
           <Field
@@ -137,6 +138,7 @@ export default function AdminCreateAcademicSessionPage() {
               type="date"
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
+              placeholder="mm/dd/yyyy"
             />
           </Field>
           <Field

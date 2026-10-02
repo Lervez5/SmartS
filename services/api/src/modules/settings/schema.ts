@@ -225,6 +225,11 @@ export const subscriptionSettingsSchema = z
       .or(z.literal('').transform(() => undefined)),
     status: z.enum(['trial', 'active', 'past_due', 'cancelled']).optional(),
     providerReference: z.string().trim().max(120).optional().or(z.literal('')),
+    /**
+     * A column on SchoolSubscriptionSettings and toggled by the subscription
+     * section. It was missing here, so the toggle could never be saved.
+     */
+    providerConfigured: z.coerce.boolean().optional(),
   })
   .strict();
 
@@ -284,6 +289,11 @@ export const glowSettingsSchema = z
     audience: z.enum(['all', 'students', 'staff', 'parents']).optional(),
     cadence: z.enum(['daily', 'weekly', 'termly']).optional(),
     contentSources: z.string().optional(),
+    /**
+     * A column on SchoolGlowSettings and shown by the glow section. It was
+     * missing here, so the flag could never be saved.
+     */
+    implemented: z.coerce.boolean().optional(),
   })
   .strict();
 
