@@ -9,8 +9,13 @@ import {
   removeStudentController,
 } from './controller';
 import { requireRole, requirePermissions } from '../../middleware/rbac';
+import { requireSchoolScope } from '../settings/scope';
 
 export const router: Router = Router();
+
+// A cohort is a class in one school, so the scope is resolved before any route
+// and the school is applied to every read and write.
+router.use(requireSchoolScope());
 
 const requireCohortManage = requirePermissions('cohorts.manage');
 const requireCohortView = requirePermissions('cohorts.view');

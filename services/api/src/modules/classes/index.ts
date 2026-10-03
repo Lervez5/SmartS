@@ -1,9 +1,13 @@
 import { Router } from 'express';
 import { prisma } from '../../infrastructure/database';
 import { requireRole, requirePermissions } from '../../middleware/rbac';
+import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
 import { z } from 'zod';
 
 export const router: Router = Router();
+
+// A class belongs to one school, and its class teacher is that school's staff.
+router.use(requireSchoolScope());
 
 const requireClassManage = requirePermissions('cohorts.manage');
 const requireClassView = requirePermissions('cohorts.view');
@@ -11,6 +15,9 @@ const requireClassView = requirePermissions('cohorts.view');
 const classInclude = {
   subject: { select: { id: true, name: true } },
   teacher: { select: { id: true, name: true, email: true } },
+  // The assistant class teacher is a separate role from the class teacher, so
+  // both are returned rather than collapsed into one field.
+  assistantTeacher: { select: { id: true, name: true, email: true } },
   schedules: true,
   _count: { select: { enrollments: true } },
 } as const;
@@ -28,7 +35,7 @@ const updateClassSchema = z.object({
 router.get('/teacher/my-cohorts', requireClassView, async (req, res, next) => {
   try {
     const classes = await prisma.class.findMany({
-      where: { teacherId: req.user!.id },
+      where: { schoolId: schoolScopeOf(req).schoolId, teacherId: req.user!.id },
       include: classInclude,
       orderBy: { createdAt: 'desc' },
     });
@@ -38,9 +45,10 @@ router.get('/teacher/my-cohorts', requireClassView, async (req, res, next) => {
   }
 });
 
-router.get('/admin/all-cohorts', requireClassView, async (_req, res, next) => {
+router.get('/admin/all-cohorts', requireClassView, async (req, res, next) => {
   try {
     const classes = await prisma.class.findMany({
+      where: { schoolId: schoolScopeOf(req).schoolId },
       include: classInclude,
       orderBy: { createdAt: 'desc' },
     });
@@ -53,7 +61,11 @@ router.get('/admin/all-cohorts', requireClassView, async (_req, res, next) => {
 router.get('/', requireClassView, async (req, res, next) => {
   try {
     const classes = await prisma.class.findMany({
-      where: req.user!.role === 'TEACHER' ? { teacherId: req.user!.id } : undefined,
+      where: {
+        schoolId: schoolScopeOf(req).schoolId,
+        // A teacher sees the classes they teach; other roles see the school's.
+        ...(req.user!.role === 'TEACHER' ? { teacherId: req.user!.id } : {}),
+      },
       include: classInclude,
       orderBy: { createdAt: 'desc' },
     });
@@ -65,8 +77,8 @@ router.get('/', requireClassView, async (req, res, next) => {
 
 router.get('/:id', async (req, res, next) => {
   try {
-    const cls = await prisma.class.findUnique({
-      where: { id: req.params.id },
+    const cls = await prisma.class.findFirst({
+      where: { id: req.params.id, schoolId: schoolScopeOf(req).schoolId },
       include: {
         ...classInclude,
         enrollments: {

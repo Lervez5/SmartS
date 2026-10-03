@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { schoolScopeOf } from '../settings/scope';
 import { createCohortSchema, updateCohortSchema, addStudentSchema } from './schema';
 import {
   listCohorts,
@@ -15,16 +16,21 @@ export async function listCohortsController(req: Request, res: Response): Promis
   // roles see the whole school.
   const isStaff = ['SUPER_ADMIN', 'DEAN', 'ACCOUNTANT'].includes(req.user!.role);
   const scopeToSelf = req.query.mine === '1' || req.user!.role === 'TEACHER' || !isStaff;
-  res.json(await listCohorts({ teacherId: scopeToSelf ? req.user!.id : undefined }));
+  res.json(
+    await listCohorts({
+      schoolId: schoolScopeOf(req).schoolId,
+      teacherId: scopeToSelf ? req.user!.id : undefined,
+    })
+  );
 }
 
 export async function getCohortController(req: Request, res: Response): Promise<void> {
-  res.json(await getCohort(req.params.id));
+  res.json(await getCohort(req.params.id, schoolScopeOf(req).schoolId));
 }
 
 export async function createCohortController(req: Request, res: Response): Promise<void> {
   const dto = createCohortSchema.parse(req.body);
-  res.status(201).json(await createCohort(dto));
+  res.status(201).json(await createCohort(dto, schoolScopeOf(req).schoolId));
 }
 
 export async function updateCohortController(req: Request, res: Response): Promise<void> {

@@ -7,6 +7,7 @@ import { prisma } from '../../infrastructure/database';
  * the first class schedule's validFrom (falling back to the class schedule).
  */
 const cohortSelect = {
+  schoolId: true,
   id: true,
   name: true,
   description: true,
@@ -15,6 +16,8 @@ const cohortSelect = {
   schedule: true,
   subject: { select: { id: true, name: true } },
   teacher: { select: { id: true, name: true, email: true } },
+  // Distinct from the class teacher, so the two are not collapsed.
+  assistantTeacher: { select: { id: true, name: true, email: true } },
   course: { select: { id: true, title: true } },
   schedules: {
     select: {
@@ -30,6 +33,7 @@ const cohortSelect = {
 
 type CohortRow = {
   id: string;
+  schoolId: string;
   name: string;
   description: string | null;
   classCode: string | null;
@@ -37,6 +41,7 @@ type CohortRow = {
   schedule: Date | null;
   subject: { id: string; name: string } | null;
   teacher: { id: string; name: string | null; email: string } | null;
+  assistantTeacher: { id: string; name: string | null; email: string } | null;
   course: { id: string; title: string } | null;
   schedules: Array<{
     id: string;
@@ -61,16 +66,21 @@ function present(row: CohortRow) {
   };
 }
 
-export async function listCohorts(options: { teacherId?: string } = {}) {
+export async function listCohorts(
+  options: { teacherId?: string; schoolId: string } = { schoolId: '' }
+) {
   const rows = await prisma.class.findMany({
-    where: options.teacherId ? { teacherId: options.teacherId } : undefined,
+    where: {
+      schoolId: options.schoolId,
+      ...(options.teacherId ? { teacherId: options.teacherId } : {}),
+    },
     select: cohortSelect,
     orderBy: { createdAt: 'desc' },
   });
   return rows.map(present);
 }
 
-export async function getCohort(id: string) {
+export async function getCohort(id: string, schoolId: string) {
   const row = await prisma.class.findUnique({
     where: { id },
     select: {
@@ -95,18 +105,23 @@ export async function getCohort(id: string) {
   };
 }
 
-export async function createCohort(dto: {
-  name: string;
-  description?: string;
-  classCode?: string;
-  gradeLevel?: string;
-  subjectId?: string;
-  courseId?: string;
-  teacherId?: string;
-  schedule?: string;
-}) {
+export async function createCohort(
+  dto: {
+    name: string;
+    description?: string;
+    classCode?: string;
+    gradeLevel?: string;
+    subjectId?: string;
+    courseId?: string;
+    teacherId?: string;
+    schedule?: string;
+  },
+  /** The school the class belongs to, resolved from the caller's membership. */
+  schoolId: string
+) {
   const row = await prisma.class.create({
     data: {
+      schoolId,
       name: dto.name,
       description: dto.description,
       classCode: dto.classCode,
