@@ -16,7 +16,7 @@ import {
 } from '@schoolos/ui';
 
 /**
- * My Children — the linked learners for the signed-in parent.
+ * My Children - the linked learners for the signed-in parent.
  *
  * Reads `GET /api/dashboard/parent`, which is gated by `requireRole('PARENT')`
  * and resolves the caller's own ParentProfile server-side. There is no client
@@ -62,10 +62,10 @@ const ATTENDANCE_TONE: Record<string, 'success' | 'warning' | 'danger' | 'neutra
 };
 
 function formatDate(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
-    ? '—'
+    ? '-'
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -97,7 +97,7 @@ export default function ParentChildrenPage() {
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-foreground">{name}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {row.user?.email ?? row.email ?? '—'}
+                {row.user?.email ?? row.email ?? '-'}
               </p>
             </div>
           </div>
@@ -172,7 +172,7 @@ export default function ParentChildrenPage() {
             />
             <DashboardCard
               title="Attendance"
-              value={marked > 0 ? `${Math.round((present / marked) * 100)}%` : '—'}
+              value={marked > 0 ? `${Math.round((present / marked) * 100)}%` : '-'}
               icon="calendar-check"
               description={
                 marked > 0 ? `${present} present of ${marked} marked` : 'Nothing marked yet'

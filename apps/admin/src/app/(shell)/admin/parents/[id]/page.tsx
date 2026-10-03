@@ -24,7 +24,7 @@ import {
  *
  * The relationship between a guardian and a learner is the link itself, so
  * linking and unlinking happen here. `ParentChildLink` has no relationship-type
- * field, so no mother/father/guardian label is offered or shown — the model
+ * field, so no mother/father/guardian label is offered or shown - the model
  * records which learners a guardian looks after and nothing finer.
  *
  * Name, email, phone and sign-in status belong to the Central Auth account; the
@@ -61,10 +61,10 @@ function displayName(guardian: Guardian): string {
 }
 
 function formatDate(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
-    ? '—'
+    ? '-'
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -227,9 +227,9 @@ export default function AdminGuardianProfilePage() {
   const name = displayName(guardian);
 
   const detailRows = [
-    { field: 'Full name', value: name || '—' },
+    { field: 'Full name', value: name || '-' },
     { field: 'Email', value: guardian.email },
-    { field: 'Phone', value: guardian.phone || '—' },
+    { field: 'Phone', value: guardian.phone || '-' },
     { field: 'Account access', value: guardian.accountStatus },
     { field: 'Guardian since', value: formatDate(guardian.createdAt) },
     { field: 'Linked learners', value: String(guardian.children.length) },
@@ -298,7 +298,7 @@ export default function AdminGuardianProfilePage() {
           value={guardian.children.length}
           icon="graduation-cap"
         />
-        <DashboardCard title="Phone on file" value={guardian.phone ?? '—'} icon="phone" />
+        <DashboardCard title="Phone on file" value={guardian.phone ?? '-'} icon="phone" />
         <DashboardCard
           title="Can sign in"
           value={guardian.accountStatus === 'active' ? 'Yes' : 'No'}
@@ -359,7 +359,7 @@ export default function AdminGuardianProfilePage() {
                   {linkable.map((student) => (
                     <option key={student.id} value={student.id}>
                       {student.name ?? student.email}
-                      {student.gradeLevel ? ` — ${student.gradeLevel}` : ''}
+                      {student.gradeLevel ? ` - ${student.gradeLevel}` : ''}
                     </option>
                   ))}
                 </select>

@@ -16,7 +16,7 @@ import {
 } from '@schoolos/ui';
 
 /**
- * Add Parent — attach a guardian profile to an existing account.
+ * Add Parent - attach a guardian profile to an existing account.
  *
  * `POST /api/parents` takes a `userId` and creates the ParentProfile; it does
  * not create accounts, exactly as enrolment and Add Staff attach profiles to
@@ -79,7 +79,7 @@ export default function AdminAddParentPage() {
     {
       id: 'role',
       header: 'Current role',
-      cell: (row) => (row.role ? <StatusPill label={formatRole(row.role)} tone="neutral" /> : '—'),
+      cell: (row) => (row.role ? <StatusPill label={formatRole(row.role)} tone="neutral" /> : '-'),
       hideBelow: 'sm',
     },
     {

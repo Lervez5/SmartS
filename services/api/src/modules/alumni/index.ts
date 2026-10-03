@@ -1,5 +1,5 @@
 /**
- * Alumni Office — learners who have left the school.
+ * Alumni Office - learners who have left the school.
  *
  * An exit is recorded against the existing StudentProfile rather than in a
  * separate alumni entity, so the former learner keeps one identity: their
@@ -193,7 +193,7 @@ router.get(
 
     // One clause feeds both the rows and the count. Building them separately is
     // how the header came to report an unfiltered total while the table showed a
-    // filtered one — `?search=zzz` reported 1 over an empty table.
+    // filtered one - `?search=zzz` reported 1 over an empty table.
     const where: Prisma.LearnerExitWhereInput = {
       ...(query.reason ? { reason: query.reason } : {}),
       ...(query.academicYearId ? { academicYearId: optionalId(query.academicYearId) } : {}),

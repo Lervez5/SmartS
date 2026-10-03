@@ -22,8 +22,14 @@ import { prisma } from '../../infrastructure/database';
 import { requirePermissions } from '../../middleware/rbac';
 import { asyncHandler } from '../../shared/asyncHandler';
 import { ApiError } from '../../shared/logger';
+import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
 
 export const router: Router = Router();
+
+// A session belongs to one school, so the scope is resolved once for the module
+// and the caller's school is applied to every query and write. A school cannot
+// read, create or activate another school's sessions.
+router.use(requireSchoolScope());
 
 const sessionStatus = z.nativeEnum(AcademicSessionStatus);
 const termStatus = z.nativeEnum(TermStatus);
@@ -172,8 +178,10 @@ router.get(
             ? { name: 'desc' }
             : { startDate: 'desc' };
 
+    const { schoolId } = schoolScopeOf(req);
     const sessions = await prisma.academicYear.findMany({
       where: {
+        schoolId,
         ...(query.status ? { status: query.status } : {}),
         ...(query.search
           ? {
@@ -211,9 +219,10 @@ router.get(
 router.get(
   '/current',
   requirePermissions('academics.view'),
-  asyncHandler(async (_req: Request, res: Response) => {
+  asyncHandler(async (req: Request, res: Response) => {
+    const { schoolId } = schoolScopeOf(req);
     const session = await prisma.academicYear.findFirst({
-      where: { status: 'active' },
+      where: { schoolId, status: 'active' },
       include: {
         terms: { select: { id: true, name: true, termNumber: true, status: true } },
       },
@@ -233,8 +242,9 @@ router.get(
   '/:id',
   requirePermissions('academics.view'),
   asyncHandler(async (req: Request, res: Response) => {
-    const session = await prisma.academicYear.findUnique({
-      where: { id: req.params.id },
+    const { schoolId } = schoolScopeOf(req);
+    const session = await prisma.academicYear.findFirst({
+      where: { id: req.params.id, schoolId },
       include: { terms: true },
     });
     if (!session) throw new ApiError(404, 'Academic session not found');
@@ -248,8 +258,11 @@ router.post(
   requirePermissions('academics.manage'),
   asyncHandler(async (req: Request, res: Response) => {
     const payload = createSessionSchema.parse(req.body);
+    const { schoolId } = schoolScopeOf(req);
 
-    const existing = await prisma.academicYear.findUnique({ where: { name: payload.name } });
+    const existing = await prisma.academicYear.findFirst({
+      where: { schoolId, name: payload.name },
+    });
     if (existing) {
       throw new ApiError(409, `An academic session named "${payload.name}" already exists`);
     }
@@ -265,6 +278,7 @@ router.post(
       }
       return tx.academicYear.create({
         data: {
+          schoolId,
           name: payload.name,
           label: payload.label || null,
           startDate: new Date(payload.startDate),
@@ -288,7 +302,10 @@ router.patch(
   requirePermissions('academics.manage'),
   asyncHandler(async (req: Request, res: Response) => {
     const payload = updateSessionSchema.parse(req.body);
-    const existing = await prisma.academicYear.findUnique({ where: { id: req.params.id } });
+    const { schoolId } = schoolScopeOf(req);
+    const existing = await prisma.academicYear.findFirst({
+      where: { id: req.params.id, schoolId },
+    });
     if (!existing) throw new ApiError(404, 'Academic session not found');
 
     // Validate the resulting range, not just the submitted one: a partial edit
@@ -300,7 +317,9 @@ router.patch(
     }
 
     if (payload.name && payload.name !== existing.name) {
-      const clash = await prisma.academicYear.findUnique({ where: { name: payload.name } });
+      const clash = await prisma.academicYear.findFirst({
+        where: { schoolId, name: payload.name },
+      });
       if (clash) {
         throw new ApiError(409, `An academic session named "${payload.name}" already exists`);
       }

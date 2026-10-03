@@ -5,6 +5,7 @@ import { prisma } from '../infrastructure/database';
 import { PERMISSIONS, ROLE_PERMISSIONS } from '@schoolos/auth/permissions';
 import { ROLES, type UserRole } from '@schoolos/auth/roles';
 import { provisionSchoolSettings } from '../modules/settings/service';
+import { ensureCompetencyBands } from '../modules/academics/grading';
 
 /**
  * Seeds the canonical role/permission catalogue into MongoDB and creates one
@@ -183,7 +184,7 @@ async function seedUsers() {
  * Provision every configuration area for the provisioned school.
  *
  * A read already falls back to defaults, so this is not about making the pages
- * render — it is about the school actually being complete. Without it the two
+ * render - it is about the school actually being complete. Without it the two
  * areas nobody opens, subscription and glow, never get a record, and there is
  * nothing for an administrator to administer.
  *
@@ -196,6 +197,12 @@ async function seedSchoolSettings(): Promise<void> {
     logger.warn('No school provisioned yet; skipping school settings.');
     return;
   }
+  const bands = await ensureCompetencyBands(school.id);
+  logger.info('CBC competency bands ready', {
+    school: school.name,
+    bands: bands.length,
+  });
+
   const result = await provisionSchoolSettings(school.id);
   if (result.created.length > 0) {
     logger.info('School settings provisioned', {

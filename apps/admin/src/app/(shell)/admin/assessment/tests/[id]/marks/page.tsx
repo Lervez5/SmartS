@@ -216,7 +216,7 @@ export default function AdminAssessmentMarksPage() {
   return (
     <div className="space-y-6">
       <SectionHeader
-        title={`Marks — ${assessment.title}`}
+        title={`Marks - ${assessment.title}`}
         description={[
           assessment.class?.name,
           assessment.subject?.name,
@@ -291,7 +291,7 @@ export default function AdminAssessmentMarksPage() {
         />
         <DashboardCard
           title="Average"
-          value={assessment.averagePercent !== null ? `${assessment.averagePercent}%` : '—'}
+          value={assessment.averagePercent !== null ? `${assessment.averagePercent}%` : '-'}
           icon="trending-up"
           description={assessment.maxScore ? `out of ${assessment.maxScore}` : undefined}
         />
@@ -378,7 +378,7 @@ export default function AdminAssessmentMarksPage() {
                           className="h-9 w-24 rounded-md border border-input bg-background px-2.5 text-right text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         />
                       ) : (
-                        <span className="text-foreground">{value ?? '—'}</span>
+                        <span className="text-foreground">{value ?? '-'}</span>
                       )}
                       {assessment.maxScore ? (
                         <span className="ml-2 text-xs text-muted-foreground">

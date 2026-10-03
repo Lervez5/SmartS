@@ -981,7 +981,6 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['assessment.view', 'examinations.view'],
         icon: 'clipboard-check',
         order: 1,
-        implemented: false,
       },
       {
         id: 'adm.assessment.tests',
@@ -1580,8 +1579,6 @@ export const PRIMARY_ACTIONS: Record<string, PrimaryAction> = {
     href: '/admin/assessment/new',
     permissions: ['assessment.create'],
     icon: 'clipboard-check',
-    implemented: false,
-    gap: 'No Assessment model or create route exists.',
   },
   '/admin/finance': {
     id: 'pa.finance',

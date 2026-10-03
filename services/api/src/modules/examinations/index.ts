@@ -5,12 +5,14 @@ import { prisma } from '../../infrastructure/database';
 import { requirePermissions } from '../../middleware/rbac';
 import { asyncHandler } from '../../shared/asyncHandler';
 import { ApiError } from '../../shared/logger';
+import { assertGradingPolicyExists, resolveCompetencyForScore } from '../academics/grading';
+import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
 
 /**
  * Summative assessments.
  *
- * An examination is tied to the authoritative academic context — the AcademicYear
- * and Term the navbar selects — so the same session and term resolve here as
+ * An examination is tied to the authoritative academic context - the AcademicYear
+ * and Term the navbar selects - so the same session and term resolve here as
  * everywhere else in the admin portal. Grade comes from the class it is set
  * against, and the subject is the learning-area analogue the schema carries.
  *
@@ -21,6 +23,11 @@ import { ApiError } from '../../shared/logger';
  */
 
 const router: Router = Router();
+
+// School data, and grading needs the scope regardless: a competency level is
+// resolved against the school's own bands, never a global table.
+router.use(requireSchoolScope());
+
 export { router };
 
 const assessmentStatus = z.nativeEnum(AssessmentStatus);
@@ -241,7 +248,7 @@ router.get(
       if (!row.class) continue;
       gradeMap.set(row.class.id, {
         value: row.class.id,
-        label: [row.class.name, row.class.gradeLevel].filter(Boolean).join(' — '),
+        label: [row.class.name, row.class.gradeLevel].filter(Boolean).join(' - '),
         classId: row.class.id,
       });
     }
@@ -424,7 +431,7 @@ router.patch(
  * Seed attempts from the class enrolment.
  *
  * Marks can only be recorded against an attempt, and an attempt should only
- * exist for a learner who was actually sitting the assessment — so attempts are
+ * exist for a learner who was actually sitting the assessment - so attempts are
  * derived from Enrollment rather than typed in by hand.
  */
 router.post(
@@ -528,19 +535,65 @@ router.put(
       throw new ApiError(400, 'A learner cannot be marked graded without a score.');
     }
 
-    const updated = await prisma.$transaction(
-      payload.records.map((record) =>
-        prisma.examAttempt.update({
-          where: { id: byStudent.get(record.studentId)! },
-          data: {
-            score: record.score,
-            graded: record.graded ?? false,
-            ...(payload.submit && record.graded !== false ? { submittedAt: new Date() } : {}),
-          },
-        })
-      )
-    );
+    // Marks are only placeable on the CBC scale when the school has a grading
+    // policy, so the bands are required rather than results being recorded with
+    // no way to interpret them.
+    if (graded.length > 0) {
+      await assertGradingPolicyExists(schoolScopeOf(req).schoolId);
+    }
 
-    res.json({ saved: updated.length });
+    // An interactive transaction rather than the array form: each write depends
+    // on the one before it — update the attempt, resolve the band, write the
+    // grade — and the array form only accepts a flat list of Prisma promises.
+    await prisma.$transaction(async (tx) => {
+      for (const record of payload.records) {
+        const attemptId = byStudent.get(record.studentId);
+        if (!attemptId) continue;
+
+        const score = record.score;
+        const isGraded = record.graded !== false && score !== null;
+
+        await tx.examAttempt.update({
+          where: { id: attemptId },
+          data: {
+            score,
+            graded: record.graded ?? false,
+            ...(payload.submit && isGraded ? { submittedAt: new Date() } : {}),
+          },
+        });
+
+        // Rewritten on every save, so the grade always reflects the current score
+        // instead of accumulating stale rows.
+        await tx.grade.deleteMany({
+          where: { examinationId: exam.id, studentId: record.studentId },
+        });
+
+        if (!isGraded || score === null) continue;
+
+        // Derived, never typed by hand: the level follows from the score and the
+        // school's configured bands.
+        const resolved = await resolveCompetencyForScore(
+          schoolScopeOf(req).schoolId,
+          score,
+          exam.maxScore
+        );
+
+        await tx.grade.create({
+          data: {
+            examinationId: exam.id,
+            studentId: record.studentId,
+            classId: exam.classId,
+            subjectId: exam.subjectId,
+            scale: 'percentage',
+            value: exam.maxScore && exam.maxScore > 0 ? (score / exam.maxScore) * 100 : score,
+            competencyLevel: resolved?.level ?? null,
+            competencyBandId: resolved?.bandId ?? null,
+            gradedBy: req.user!.id,
+          },
+        });
+      }
+    });
+
+    res.json({ saved: payload.records.length });
   })
 );

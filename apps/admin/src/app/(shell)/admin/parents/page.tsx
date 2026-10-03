@@ -26,7 +26,7 @@ import {
  *
  * Affiliation shows the linked learners because that is the relationship
  * information the model holds. `ParentChildLink` carries no relationship-type
- * field, so there is no mother/father/guardian label to show — inventing one
+ * field, so there is no mother/father/guardian label to show - inventing one
  * would be a fiction the database cannot back up.
  */
 interface LinkedLearner {
@@ -60,10 +60,10 @@ function displayName(guardian: Guardian): string {
 }
 
 function formatDate(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
-    ? '—'
+    ? '-'
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 

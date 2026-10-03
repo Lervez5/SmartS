@@ -19,7 +19,7 @@ import {
 } from '@schoolos/ui';
 
 /**
- * Summative Tests — the assessment directory.
+ * Summative Tests - the assessment directory.
  *
  * Reads `GET /api/examinations`, which returns examinations joined to the
  * authoritative academic context: the AcademicYear and Term the navbar selects,
@@ -75,10 +75,10 @@ const LIFECYCLE_LABEL: Record<string, string> = {
 };
 
 function formatDate(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
-    ? '—'
+    ? '-'
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -183,7 +183,7 @@ export default function AdminTestsPage() {
         row.assessmentType ? (
           <StatusPill label={row.assessmentType} tone="neutral" />
         ) : (
-          <span className="text-muted-foreground">—</span>
+          <span className="text-muted-foreground">-</span>
         ),
     },
     {

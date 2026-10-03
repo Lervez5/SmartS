@@ -24,7 +24,7 @@ import {
  * other area uses, so the settings screens can treat all eight uniformly.
  *
  * It previously returned the narrower `getPublicBranding` projection directly,
- * which made this the only area answering with a flat object — and the
+ * which made this the only area answering with a flat object - and the
  * `SettingsSection` component, which reads `body.settings`, rendered the whole
  * Branding screen empty even though values were saved. The shell and the
  * sign-in screens, which only need a name and a logo, read `/api/public/branding`

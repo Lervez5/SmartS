@@ -396,6 +396,22 @@ enum LearnerExitReason {
   withdrawn
 }
 
+/// The Kenyan CBC performance levels.
+///
+/// These are the four levels the curriculum defines, ordered from strongest.
+/// The boundaries between them are school configuration, not a constant: see
+/// CompetencyBand.
+enum CompetencyLevel {
+  /// Exceeds Expectation
+  EE
+  /// Meets Expectation
+  ME
+  /// Approaches Expectation
+  AE
+  /// Below Expectation
+  BE
+}
+
 enum AssessmentStatus {
   draft
   published
@@ -404,8 +420,17 @@ enum AssessmentStatus {
 }
 
 model AcademicYear {
-  id           String                @id @default(auto()) @map("_id") @db.ObjectId
-  name         String                @unique // e.g. 2026
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  /// The school this session belongs to. An academic session is
+  /// per-institution: without its own scope, every school's "current session"
+  /// would resolve to whichever record happened to be written last.
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId String @db.ObjectId
+
+  /// Unique per school rather than globally, since two schools both running a
+  /// "2026" session is normal and one must not block the other.
+  name         String // e.g. 2026
   label        String? // display label, e.g. "2026 Academic Session"
   startDate    DateTime
   endDate      DateTime
@@ -417,7 +442,9 @@ model AcademicYear {
   updatedAt    DateTime              @updatedAt
   learnerExits LearnerExit[]
 
+  @@unique([schoolId, name])
   @@index([status])
+  @@index([schoolId])
 }
 
 model Term {
@@ -663,8 +690,8 @@ model LearnerExit {
   ///
   /// Note: the field must be written explicitly as null on create rather than
   /// omitted. MongoDB's `$eq: null` matches an explicit null but not a missing
-  /// key, so an omitted field would make the unresolved-exit filter — and
-  /// therefore the whole Alumni list — come back empty.
+  /// key, so an omitted field would make the unresolved-exit filter - and
+  /// therefore the whole Alumni list - come back empty.
   restoredAt   DateTime?
   restoredBy   User?     @relation("ExitRestoredBy", fields: [restoredById], references: [id])
   restoredById String?   @db.ObjectId
@@ -676,23 +703,58 @@ model LearnerExit {
   @@index([restoredAt])
 }
 
+/// Where one CBC competency level begins and ends, as a share of the
+/// assessment's maximum score.
+///
+/// Configured per school rather than hardcoded, because the curriculum sets the
+/// levels but not the cut-offs a school chooses between them. Ordered by
+/// `minPercent`; the lowest band is open-ended downwards and the highest
+/// open-ended upwards.
+model CompetencyBand {
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  school      School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId    String          @db.ObjectId
+  level       CompetencyLevel
+  /// Human label, so the interface never has to expand the enum.
+  label       String
+  /// Inclusive lower bound, 0-100. Bands are matched on the learner's score as a
+  /// percentage of the assessment maximum.
+  minPercent  Float
+  /// Inclusive upper bound. Null on the highest band, which runs to 100.
+  maxPercent  Float?
+  /// Short note shown where a band is explained, e.g. on a report.
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  grades Grade[]
+
+  @@unique([schoolId, level])
+  @@index([schoolId])
+}
+
 model Grade {
-  id            String       @id @default(auto()) @map("_id") @db.ObjectId
-  student       User?        @relation("StudentGrades", fields: [studentId], references: [id])
-  studentId     String?      @db.ObjectId
-  subject       Subject?     @relation("SubjectGrades", fields: [subjectId], references: [id])
-  subjectId     String?      @db.ObjectId
-  class         Class?       @relation("ClassGrades", fields: [classId], references: [id])
-  classId       String?      @db.ObjectId
-  exam          Examination? @relation("ExamGrades", fields: [examinationId], references: [id])
-  examinationId String?      @db.ObjectId
-  assignment    Assignment?  @relation(fields: [assignmentId], references: [id])
-  assignmentId  String?      @db.ObjectId
-  scale         GradeScale
-  value         Float
-  comment       String?
-  gradedAt      DateTime     @default(now())
-  gradedBy      String?      @db.ObjectId
+  id               String           @id @default(auto()) @map("_id") @db.ObjectId
+  student          User?            @relation("StudentGrades", fields: [studentId], references: [id])
+  studentId        String?          @db.ObjectId
+  subject          Subject?         @relation("SubjectGrades", fields: [subjectId], references: [id])
+  subjectId        String?          @db.ObjectId
+  class            Class?           @relation("ClassGrades", fields: [classId], references: [id])
+  classId          String?          @db.ObjectId
+  exam             Examination?     @relation("ExamGrades", fields: [examinationId], references: [id])
+  examinationId    String?          @db.ObjectId
+  assignment       Assignment?      @relation(fields: [assignmentId], references: [id])
+  assignmentId     String?          @db.ObjectId
+  scale            GradeScale
+  value            Float
+  /// The CBC competency level this score falls into, resolved against the
+  /// school's CompetencyBand boundaries when the grade was recorded.
+  competencyLevel  CompetencyLevel?
+  competencyBand   CompetencyBand?  @relation(fields: [competencyBandId], references: [id])
+  competencyBandId String?          @db.ObjectId
+  comment          String?
+  gradedAt         DateTime         @default(now())
+  gradedBy         String?          @db.ObjectId
 }
 
 model LessonAccessLog {
@@ -1128,6 +1190,8 @@ model School {
   notificationSettings SchoolNotificationSettings?
   securitySettings     SchoolSecuritySettings?
   glowSettings         SchoolGlowSettings?
+  competencyBands      CompetencyBand[]
+  academicYears        AcademicYear[]
 
   @@index([status])
 }
