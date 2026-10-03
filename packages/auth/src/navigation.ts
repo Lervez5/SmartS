@@ -610,8 +610,6 @@ const PARENT_NAV: NavSection[] = [
         href: '/dashboard/children',
         permissions: ['students.view'],
         icon: 'graduation-cap',
-        implemented: false,
-        gap: 'No page exists at this route yet, so the link resolves to nothing.',
         order: 1,
       },
       {
@@ -1421,8 +1419,6 @@ export const QUICK_ACTIONS: Record<AppId, QuickAction[]> = {
       href: '/dashboard/children',
       permissions: ['students.view'],
       icon: 'graduation-cap',
-      implemented: false,
-      gap: 'No page exists at this route yet, so the action resolves to nothing.',
       group: 'review',
     },
     {

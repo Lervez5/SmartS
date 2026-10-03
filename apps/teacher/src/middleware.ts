@@ -73,8 +73,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const data = await response.json();
-  const user = data.user;
+  // Parsed defensively: an identity we cannot read is an identity we do not
+  // have, so it redirects like any other unauthenticated request rather than
+  // throwing and returning a 500 error page.
+  let user: { role?: string } | undefined;
+  try {
+    const data = (await response.json()) as { user?: { role?: string } };
+    user = data?.user;
+  } catch {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    url.searchParams.set('callbackUrl', pathname);
+    return NextResponse.redirect(url);
+  }
 
   const userRole = (user?.role || '').toLowerCase();
   if (userRole !== PORTAL_ROLE) {
