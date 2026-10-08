@@ -8,7 +8,18 @@
  * issues them as httpOnly cookies, so the browser cannot read them.
  */
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+/**
+ * Base path for API calls from the browser.
+ *
+ * Relative by default, so requests go through this app's own origin and Next's
+ * `/api/:path*` rewrite. That keeps the session cookie first-party on every
+ * request.
+ *
+ * An absolute URL is still honoured when one is supplied, because a deployed
+ * portal may genuinely need to talk to a different host — but it must be a host
+ * the browser will attach the session cookie to, or every call is unauthenticated.
+ */
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 export interface SessionUser {
   id: string;

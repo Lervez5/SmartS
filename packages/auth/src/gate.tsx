@@ -24,15 +24,25 @@ import type { User } from './store';
  */
 export function AuthSessionGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    // Adopt any persisted identity first, so a returning user is not asked to
-    // sign in again while the network call is in flight.
-    useAuthStore.persist.rehydrate();
-
-    if (useAuthStore.getState().isAuthenticated) return;
-
     let cancelled = false;
 
     (async () => {
+      // Awaited, not fired and forgotten. Reading the store on the next line
+      // instead would race the read, and a rehydration landing after
+      // `/auth/me` resolved would overwrite the fresh session with the stored
+      // snapshot — which presented as being signed out on the next render.
+      try {
+        await useAuthStore.persist.rehydrate();
+      } catch {
+        // A missing or unreadable snapshot simply leaves the store empty.
+      }
+
+      if (cancelled) return;
+
+      // Adopt the persisted identity without a network round trip, so a
+      // returning user is never briefly rendered as signed out.
+      if (useAuthStore.getState().isAuthenticated) return;
+
       try {
         const data = await authClient.me();
         if (cancelled) return;
