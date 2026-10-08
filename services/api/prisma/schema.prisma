@@ -221,6 +221,7 @@ model User {
   // Back-references for relations from other models
   teacherClasses       Class[]               @relation("TeacherClasses")
   classAssistants      ClassAssistant[]      @relation("ClassAssistants")
+  teachingAssignments  TeachingAssignment[]  @relation("TeachingAssignments")
   teacherCourses       Course[]              @relation("TeacherCourses")
   enrollments          Enrollment[]          @relation("StudentEnrollments")
   courseEnrollments    CourseEnrollment[]    @relation("StudentCourseEnrollments")
@@ -313,20 +314,25 @@ model AdmissionDocument {
 // ====================================================================
 
 model Subject {
-  id           String        @id @default(auto()) @map("_id") @db.ObjectId
-  name         String        @unique
-  code         String?       @unique
-  description  String?
-  topics       Topic[]
-  lessons      Lesson[]
-  courses      Course[]
-  classes      Class[]       @relation("SubjectClasses")
-  examinations Examination[] @relation("SubjectExams")
-  grades       Grade[]       @relation("SubjectGrades")
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  school       School?       @relation(fields: [schoolId], references: [id])
-  schoolId     String?       @db.ObjectId
+  id                  String               @id @default(auto()) @map("_id") @db.ObjectId
+  name                String
+  code                String?
+  description         String?
+  topics              Topic[]
+  lessons             Lesson[]
+  classes             Class[]              @relation("SubjectClasses")
+  courses             Course[]
+  examinations        Examination[]        @relation("SubjectExams")
+  grades              Grade[]              @relation("SubjectGrades")
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  school              School               @relation(fields: [schoolId], references: [id])
+  schoolId            String               @db.ObjectId
+  examinationSubjects ExaminationSubject[]
+  teachingAssignments TeachingAssignment[]
+
+  @@unique([schoolId, name])
+  @@unique([schoolId, code])
 }
 
 model Topic {
@@ -439,17 +445,18 @@ model AcademicYear {
 
   /// Unique per school rather than globally, since two schools both running a
   /// "2026" session is normal and one must not block the other.
-  name         String // e.g. 2026
-  label        String? // display label, e.g. "2026 Academic Session"
-  startDate    DateTime
-  endDate      DateTime
+  name                String // e.g. 2026
+  label               String? // display label, e.g. "2026 Academic Session"
+  startDate           DateTime
+  endDate             DateTime
   /// Only one session is `active` at a time; the service enforces it.
-  status       AcademicSessionStatus @default(planned)
-  terms        Term[]
-  examinations Examination[]
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
-  learnerExits LearnerExit[]
+  status              AcademicSessionStatus @default(planned)
+  terms               Term[]
+  examinations        Examination[]
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  learnerExits        LearnerExit[]
+  teachingAssignments TeachingAssignment[]
 
   @@unique([schoolId, name])
   @@index([status])
@@ -530,6 +537,58 @@ model CourseEnrollment {
 // CLASSES, ENROLLMENTS, SCHEDULE
 // ====================================================================
 
+/// The learning areas a summative assessment covers.
+///
+/// Results are entered per learning area, so the applicable areas are a property
+/// of the assessment rather than a single subject: a paper that assesses
+/// Mathematics and Science is one assessment with two areas, not two
+/// assessments.
+model ExaminationSubject {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  examination   Examination @relation(fields: [examinationId], references: [id], onDelete: Cascade)
+  examinationId String      @db.ObjectId
+  subject       Subject     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subjectId     String      @db.ObjectId
+
+  @@unique([examinationId, subjectId])
+  @@index([subjectId])
+}
+
+/// Who teaches which learning area to which class.
+///
+/// This is the real allocation unit. A class offers many learning areas, and a
+/// teacher is responsible for a subset of them in a given class — the maths
+/// teacher of 7 Blue is not automatically entitled to enter English marks there.
+/// Recording that per pairing is also what makes result entry accountable: a
+/// mark is attributable to the teacher allocated to that learning area, rather
+/// than to whoever holds a TEACHER role.
+model TeachingAssignment {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId String @db.ObjectId
+
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subjectId String  @db.ObjectId
+
+  teacher   User   @relation("TeachingAssignments", fields: [teacherId], references: [id])
+  teacherId String @db.ObjectId
+
+  /// Whether this teacher may enter results for the pairing. Allocation and
+  /// entry rights are separate: a school can allocate a teacher to a class for a
+  /// term without letting them finalise marks.
+  canEnterResults Boolean       @default(true)
+  /// The session the allocation applies to, when it is term-specific.
+  academicYearId  String?       @db.ObjectId
+  academicYear    AcademicYear? @relation(fields: [academicYearId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([classId, subjectId, teacherId])
+  @@index([teacherId])
+  @@index([subjectId])
+}
+
 model Class {
   id String @id @default(auto()) @map("_id") @db.ObjectId
 
@@ -541,30 +600,40 @@ model Class {
 
   name        String
   description String?
-  classCode   String? @unique
-  gradeLevel  String?
-  teacher     User?   @relation("TeacherClasses", fields: [teacherId], references: [id])
-  teacherId   String? @db.ObjectId
+
+  /// The class's primary or home learning area.
+  ///
+  /// A class offers several learning areas and each is taught by an assigned
+  /// teacher, which TeachingAssignment records. This is the single area a class
+  /// is named or timetabled against, so a shortcut rather than the allocation
+  /// model. Two schools can both teach Mathematics: the subject is scoped to a
+  /// school and unique within it.
+  subject   Subject? @relation("SubjectClasses", fields: [subjectId], references: [id])
+  subjectId String?  @db.ObjectId
+
+  classCode  String? @unique
+  gradeLevel String?
+  teacher    User?   @relation("TeacherClasses", fields: [teacherId], references: [id])
+  teacherId  String? @db.ObjectId
 
   /// Assistant class teachers. A class has one main teacher and any number of
   /// assistants, so this is a join rather than a second scalar: an assistant is
   /// responsible for the same class as the main teacher, and which of them may
   /// manage it is recorded per assignment.
-  assistants   ClassAssistant[]
-  subject      Subject?         @relation("SubjectClasses", fields: [subjectId], references: [id])
-  subjectId    String?          @db.ObjectId
-  courseId     String?          @db.ObjectId
-  course       Course?          @relation(fields: [courseId], references: [id])
-  enrollments  Enrollment[]
-  assignments  Assignment[]     @relation("ClassAssignments")
-  attendance   Attendance[]     @relation("ClassAttendance")
-  schedules    ClassSchedule[]
-  streams      Stream[]
-  examinations Examination[]    @relation("ClassExams")
-  grades       Grade[]          @relation("ClassGrades")
-  schedule     DateTime?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  assistants          ClassAssistant[]
+  courseId            String?              @db.ObjectId
+  course              Course?              @relation(fields: [courseId], references: [id])
+  enrollments         Enrollment[]
+  assignments         Assignment[]         @relation("ClassAssignments")
+  attendance          Attendance[]         @relation("ClassAttendance")
+  schedules           ClassSchedule[]
+  streams             Stream[]
+  examinations        Examination[]        @relation("ClassExams")
+  grades              Grade[]              @relation("ClassGrades")
+  schedule            DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  teachingAssignments TeachingAssignment[]
 }
 
 model Enrollment {
@@ -632,34 +701,35 @@ model Submission {
 }
 
 model Examination {
-  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  id             String               @id @default(auto()) @map("_id") @db.ObjectId
   title          String
   /// Lifecycle state. `draft` is not visible to learners; `published` opens the
   /// assessment; `completed` locks marks entry.
-  status         AssessmentStatus @default(draft)
+  status         AssessmentStatus     @default(draft)
   /// Free text rather than an enum because the permitted values are school
   /// policy: SchoolAcademicSettings.assessmentTypes lists what the school uses.
   assessmentType String?
   /// The authoritative academic context, so a summative assessment belongs to
   /// the same session and term the navbar selects rather than to loose dates.
-  academicYearId String?          @db.ObjectId
-  academicYear   AcademicYear?    @relation(fields: [academicYearId], references: [id])
-  termId         String?          @db.ObjectId
-  term           Term?            @relation(fields: [termId], references: [id])
+  academicYearId String?              @db.ObjectId
+  academicYear   AcademicYear?        @relation(fields: [academicYearId], references: [id])
+  termId         String?              @db.ObjectId
+  term           Term?                @relation(fields: [termId], references: [id])
   description    String?
-  class          Class?           @relation("ClassExams", fields: [classId], references: [id])
-  classId        String?          @db.ObjectId
+  class          Class?               @relation("ClassExams", fields: [classId], references: [id])
+  classId        String?              @db.ObjectId
   /// Subject is the learning-area analogue the platform currently carries.
-  subject        Subject?         @relation("SubjectExams", fields: [subjectId], references: [id])
-  subjectId      String?          @db.ObjectId
+  subject        Subject?             @relation("SubjectExams", fields: [subjectId], references: [id])
+  subjectId      String?              @db.ObjectId
   startDate      DateTime
   endDate        DateTime?
   duration       Int? // minutes
   maxScore       Float?
   examAttempts   ExamAttempt[]
-  grades         Grade[]          @relation("ExamGrades")
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  grades         Grade[]              @relation("ExamGrades")
+  learningAreas  ExaminationSubject[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 
   @@index([academicYearId])
   @@index([termId])
