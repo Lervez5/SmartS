@@ -53,6 +53,9 @@ export async function listUsersService() {
     // rejects one that already has it, so a caller needs to know which
     // accounts are still eligible without fetching every profile first.
     hasStudentProfile: Boolean(u.studentProfile),
+    // Same reasoning for staff: enrolment-style flows need to know which
+    // accounts are still eligible without fetching every profile.
+    hasStaffProfile: Boolean(u.staffProfile),
   }));
 }
 

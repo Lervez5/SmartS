@@ -222,6 +222,48 @@ export async function assignUserRole(actorId: string, userId: string, roleName: 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error('User not found.');
 
+  /**
+   * Privilege-escalation guard.
+   *
+   * Holding `roles.manage` is not permission to mint any role. The rule is
+   * precise rather than blunt: an actor may not grant a permission they do not
+   * themselves hold, so an administrator can never hand anyone — including
+   * themselves — authority above their own level.
+   *
+   * Deliberately not "you may only assign a role you hold". A super admin holds
+   * SUPER_ADMIN and nothing else, so that rule would stop them assigning a
+   * teacher, which is their job. Comparing permissions lets them administer
+   * every role they are already fully entitled to.
+   */
+  const [actorRolePermissions, targetRolePermissions] = await Promise.all([
+    prisma.userRoleMembership.findMany({
+      where: { userId: actorId },
+      select: {
+        role: {
+          select: { rolePermissions: { select: { permission: { select: { key: true } } } } },
+        },
+      },
+    }),
+    prisma.rolePermission.findMany({
+      where: { roleId: role.id },
+      select: { permission: { select: { key: true } } },
+    }),
+  ]);
+
+  const actorPermissions = new Set(
+    actorRolePermissions.flatMap((m) => m.role.rolePermissions.map((rp) => rp.permission.key))
+  );
+  const excessive = targetRolePermissions
+    .map((rp) => rp.permission.key)
+    .filter((key) => !actorPermissions.has(key));
+
+  if (excessive.length > 0) {
+    throw new Error(
+      `You cannot assign ${canonical} because it grants permissions you do not hold: ` +
+        `${excessive.slice(0, 5).join(', ')}${excessive.length > 5 ? `, +${excessive.length - 5} more` : ''}.`
+    );
+  }
+
   await prisma.$transaction([
     prisma.userRoleMembership.deleteMany({ where: { userId } }),
     prisma.userRoleMembership.create({ data: { userId, roleId: role.id } }),

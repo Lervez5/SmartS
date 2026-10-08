@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { StaffStatus } from '@prisma/client';
+import { Prisma, StaffStatus, UserStatus } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../infrastructure/database';
 import { requirePermissions } from '../../middleware/rbac';
@@ -9,8 +9,21 @@ import { ApiError } from '../../shared/logger';
 /** Staff directory, backed by StaffProfile. */
 
 const listSchema = z.object({
+  /** Employment state, from StaffProfile.status. */
   status: z.nativeEnum(StaffStatus).optional(),
+  /**
+   * Account / login state, from User.status.
+   *
+   * Deliberately separate from `status`: a staff member can be employed and
+   * still unable to sign in (suspended), or hold an account and be employed on
+   * leave. Collapsing them would hide a real distinction.
+   */
+  accountStatus: z.nativeEnum(UserStatus).optional(),
+  /** Filter by assigned role name, e.g. TEACHER. */
+  role: z.string().optional(),
   search: z.string().optional(),
+  sort: z.enum(['name_asc', 'name_desc', 'newest', 'oldest', 'hired_asc', 'hired_desc']).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 
 const createSchema = z.object({
@@ -35,24 +48,43 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     const query = listSchema.parse(req.query);
 
+    /**
+     * Sorting is explicit rather than fixed, because a staff directory is read
+     * by name far more often than by creation time. Declared as a
+     * `StaffProfileOrderByWithRelationInput` so the relation key stays typed.
+     */
+    const orderBy: Prisma.StaffProfileOrderByWithRelationInput =
+      query.sort === 'name_desc'
+        ? { user: { name: 'desc' } }
+        : query.sort === 'newest'
+          ? { createdAt: 'desc' }
+          : query.sort === 'oldest'
+            ? { createdAt: 'asc' }
+            : query.sort === 'hired_asc'
+              ? { hireDate: 'asc' }
+              : query.sort === 'hired_desc'
+                ? { hireDate: 'desc' }
+                : { user: { name: 'asc' } };
+
     const staff = await prisma.staffProfile.findMany({
       where: {
         ...(query.status ? { status: query.status } : {}),
+        ...(query.accountStatus ? { user: { status: query.accountStatus } } : {}),
+        ...(query.role
+          ? { user: { roleMemberships: { some: { role: { name: query.role } } } } }
+          : {}),
         ...(query.search
           ? {
               OR: [
                 { position: { contains: query.search, mode: 'insensitive' } },
                 { department: { contains: query.search, mode: 'insensitive' } },
-                {
-                  user: {
-                    name: { contains: query.search, mode: 'insensitive' },
-                  },
-                },
-                {
-                  user: {
-                    email: { contains: query.search, mode: 'insensitive' },
-                  },
-                },
+                // employeeId is a plain String, so a substring match is valid.
+                { employeeId: { contains: query.search, mode: 'insensitive' } },
+                { user: { name: { contains: query.search, mode: 'insensitive' } } },
+                { user: { firstName: { contains: query.search, mode: 'insensitive' } } },
+                { user: { lastName: { contains: query.search, mode: 'insensitive' } } },
+                { user: { email: { contains: query.search, mode: 'insensitive' } } },
+                { user: { phone: { contains: query.search, mode: 'insensitive' } } },
               ],
             }
           : {}),
@@ -62,14 +94,18 @@ router.get(
           select: {
             id: true,
             name: true,
+            firstName: true,
+            lastName: true,
             email: true,
+            phone: true,
             status: true,
             avatar: true,
-            roleMemberships: { select: { role: { select: { name: true } } } },
+            roleMemberships: { select: { role: { select: { id: true, name: true } } } },
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy,
+      ...(query.limit ? { take: query.limit } : {}),
     });
 
     res.json({
@@ -77,10 +113,14 @@ router.get(
         id: s.id,
         userId: s.userId,
         name: s.user.name,
+        firstName: s.user.firstName,
+        lastName: s.user.lastName,
         email: s.user.email,
+        phone: s.user.phone,
         avatar: s.user.avatar,
+        // Account / login state, distinct from employment status below.
         userStatus: s.user.status,
-        role: s.user.roleMemberships[0]?.role.name ?? null,
+        roles: s.user.roleMemberships.map((m) => m.role),
         position: s.position,
         department: s.department,
         employeeId: s.employeeId,
