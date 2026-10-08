@@ -31,6 +31,7 @@ export const PERMISSION_DOMAINS = [
   'courses',
   'cohorts',
   'timetable',
+  'teaching',
   'calendar',
   'communications',
   'announcements',
@@ -75,6 +76,16 @@ export const PERMISSIONS = [
   'cohorts.manage',
   'timetable.view',
   'timetable.manage',
+
+  /*
+   * Teaching allocation: who is responsible for a stream, and for which
+   * learning area, within an academic session. Managing this changes who can
+   * reach learners, attendance registers and results, so it is a distinct
+   * grant rather than being folded into `academics.manage`, which also covers
+   * sessions, streams and curriculum.
+   */
+  'teaching.view',
+  'teaching.manage',
 
   // CBC curriculum: learning areas, strands, sub-strands, outcomes, coverage
   'learningAreas.view',
@@ -181,6 +192,8 @@ const ACADEMIC_STAFF: Permission[] = [
   'cohorts.manage',
   'timetable.view',
   'timetable.manage',
+  'teaching.view',
+  'teaching.manage',
   'attendance.view',
   'attendance.mark',
   'attendance.correct',

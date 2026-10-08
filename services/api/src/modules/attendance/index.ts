@@ -4,6 +4,11 @@ import { z } from 'zod';
 import { prisma } from '../../infrastructure/database';
 import { requireRole, requirePermissions } from '../../middleware/rbac';
 import { resolveClassResponsibility } from '../classes/scope';
+import {
+  currentSessionId,
+  loadAllocations,
+  summariseResponsibility,
+} from '../academics/allocation/scope';
 import { recordAuditLog } from '../audit-logs/service';
 
 export const router: Router = Router();
@@ -113,7 +118,7 @@ router.post('/mark', requireMark, async (req, res, next) => {
 
     const cls = await prisma.class.findUnique({
       where: { id: payload.classId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, schoolId: true },
     });
     if (!cls) {
       res.status(404).json({ error: { message: 'Class not found' } });
@@ -121,16 +126,61 @@ router.post('/mark', requireMark, async (req, res, next) => {
     }
 
     /*
-     * Marking is scoped to an assignment, not to a role.
+     * Marking is scoped to a teaching allocation, not to a role.
      *
-     * The previous check was `role === 'TEACHER' && cls.teacherId && ...`, which
-     * did three wrong things: it keyed on the role rather than on an
-     * assignment, it ignored assistant class teachers entirely, and it failed
-     * open whenever a class had no main teacher set, letting any teacher mark
-     * any class. An administrative capability opens any class in the school; a
-     * teacher needs the class teacher or assistant class teacher assignment.
+     * A class divided into streams has one teaching team per stream, so the
+     * question is not "are you responsible for this class" but "which of its
+     * streams may you mark". Authority therefore comes from the allocation for
+     * the current academic session, and the learners a teacher may mark are
+     * narrowed to the streams they hold `canManage` on. Being a TEACHER grants
+     * nothing by itself, and an assistant granted management on one stream does
+     * not thereby gain the other streams.
+     *
+     * Classes that have no stream allocations in this session fall back to the
+     * class-level assignment, so a school that has not yet allocated by stream
+     * keeps working rather than losing access outright. Once any stream in the
+     * class is allocated, the allocation is authoritative for the whole class.
      */
+    let streamScope: Set<string> | null = null;
+
     if (req.user!.role !== 'SUPER_ADMIN') {
+      const sessionId = await currentSessionId(cls.schoolId);
+      const streams = await prisma.stream.findMany({
+        where: { classId: cls.id },
+        select: { id: true },
+      });
+
+      if (sessionId && streams.length > 0) {
+        const allocations = await loadAllocations(
+          streams.map((row) => row.id),
+          sessionId
+        );
+
+        if (allocations.length > 0) {
+          const summary = summariseResponsibility(
+            req.user!.id,
+            allocations,
+            streams.map((row) => row.id)
+          );
+          const manageable = [...summary.values()]
+            .filter((entry) => entry.managesStream)
+            .map((entry) => entry.streamId);
+
+          if (manageable.length === 0) {
+            res.status(403).json({
+              error: {
+                message:
+                  'You have no active teaching allocation with management rights on any stream of this class for this academic session.',
+              },
+            });
+            return;
+          }
+          streamScope = new Set(manageable);
+        }
+      }
+    }
+
+    if (streamScope === null && req.user!.role !== 'SUPER_ADMIN') {
       const responsibility = await resolveClassResponsibility(req.user!.id, cls.id);
       if (!responsibility) {
         res.status(404).json({ error: { message: 'Class not found' } });
@@ -140,7 +190,7 @@ router.post('/mark', requireMark, async (req, res, next) => {
         res.status(403).json({
           error: {
             message:
-              'You are not assigned to this class. Marking attendance requires the class teacher or assistant class teacher assignment, not the TEACHER role.',
+              'You are not assigned to this class. Marking attendance requires a teaching allocation, not the TEACHER role.',
           },
         });
         return;
@@ -157,7 +207,12 @@ router.post('/mark', requireMark, async (req, res, next) => {
     }
 
     const enrolled = await prisma.enrollment.findMany({
-      where: { classId: payload.classId },
+      where: {
+        classId: payload.classId,
+        // Narrowed to the caller's streams, so a teacher responsible for one
+        // stream of a five-stream class cannot mark the other four.
+        ...(streamScope ? { streamId: { in: [...streamScope] } } : {}),
+      },
       select: { studentId: true },
     });
     const allowed = new Set(enrolled.map((e) => e.studentId));

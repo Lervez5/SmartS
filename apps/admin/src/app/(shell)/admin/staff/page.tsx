@@ -35,6 +35,10 @@ import {
  *
  * Collapsing these into one status would hide exactly the distinction an
  * administrator needs when someone "cannot log in".
+ *
+ * When `include=assignments` is requested, the API also returns each member's
+ * current academic allocations from the authoritative StreamAllocation model,
+ * so the directory can show who is teaching what without inventing data.
  */
 interface StaffRoleRef {
   id: string;
@@ -59,6 +63,13 @@ interface StaffMember {
   hireDate?: string | null;
   /** Employment state. */
   status: 'active' | 'on_leave' | 'terminated' | 'archived';
+  assignmentsSummary?: {
+    total: number;
+    mainTeacherStreams: number;
+    assistantTeacherStreams: number;
+    subjectTeacherStreams: number;
+    learningAreas: number;
+  };
 }
 
 interface StaffResponse {
@@ -92,14 +103,6 @@ function displayName(member: StaffMember): string {
   return member.name ?? [member.firstName, member.lastName].filter(Boolean).join(' ') ?? '';
 }
 
-function formatDate(value?: string | null): string {
-  if (!value) return '-';
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime())
-    ? '-'
-    : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
 export default function AdminSchoolStaffPage() {
   const { can } = useAuth();
   const allowed = can('staff.view');
@@ -116,9 +119,7 @@ export default function AdminSchoolStaffPage() {
     return () => window.clearTimeout(timer);
   }, [query]);
 
-  // Search, filters and sort are resolved by the API so the directory stays
-  // authoritative; the table only paginates what comes back.
-  const params = new URLSearchParams({ sort });
+  const params = new URLSearchParams({ sort, include: 'assignments' });
   if (debounced) params.set('search', debounced);
   if (role) params.set('role', role);
   if (employment) params.set('status', employment);
@@ -131,8 +132,6 @@ export default function AdminSchoolStaffPage() {
 
   const staff = React.useMemo(() => data?.staff ?? [], [data]);
 
-  // Role options are derived from the records returned, so the filter never
-  // offers a role nobody holds.
   const roleOptions = React.useMemo(() => {
     const seen = new Map<string, string>();
     for (const member of staff) {
@@ -146,6 +145,7 @@ export default function AdminSchoolStaffPage() {
   const onLeave = staff.filter((m) => m.status === 'on_leave').length;
   const canSignIn = staff.filter((m) => m.userStatus === 'active').length;
   const blocked = staff.filter((m) => m.userStatus === 'suspended').length;
+  const withAssignments = staff.filter((m) => (m.assignmentsSummary?.total ?? 0) > 0).length;
 
   const filtered = debounced || role || employment || account ? staff.length : staff.length;
 
@@ -172,7 +172,6 @@ export default function AdminSchoolStaffPage() {
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-foreground">{name || 'Unnamed'}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {/* employeeId is the staff identifier the schema carries. */}
                 {row.employeeId ? (
                   <span className="font-mono">{row.employeeId}</span>
                 ) : (
@@ -200,6 +199,33 @@ export default function AdminSchoolStaffPage() {
           </div>
         ),
       sortValue: (row) => row.roles.map((r) => r.name).join(','),
+    },
+    {
+      id: 'assignments',
+      header: 'Academic Assignments',
+      cell: (row) => {
+        const summary = row.assignmentsSummary;
+        if (!summary || summary.total === 0) {
+          return <span className="text-xs text-muted-foreground">No allocations</span>;
+        }
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs font-medium text-foreground">
+              {summary.mainTeacherStreams > 0 && `${summary.mainTeacherStreams} main`}
+              {summary.mainTeacherStreams > 0 && summary.assistantTeacherStreams > 0 && ' · '}
+              {summary.assistantTeacherStreams > 0 && `${summary.assistantTeacherStreams} asst`}
+              {summary.assistantTeacherStreams > 0 && summary.subjectTeacherStreams > 0 && ' · '}
+              {summary.subjectTeacherStreams > 0 && `${summary.subjectTeacherStreams} subject`}
+            </span>
+            {summary.learningAreas > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {summary.learningAreas} learning area{summary.learningAreas !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        );
+      },
+      sortValue: (row) => row.assignmentsSummary?.total ?? 0,
     },
     {
       id: 'contact',
@@ -254,13 +280,13 @@ export default function AdminSchoolStaffPage() {
         description={`Faculty, administrative staff and their system access. ${total === 1 ? '1 member' : `${total} members`} on the directory.`}
         action={
           <div className="flex flex-wrap items-center gap-2">
-            {can('users.import') ? (
+            {can('teaching.view') ? (
               <PrimaryActionButton
-                href="/admin/imports"
-                label="Import Staff"
-                icon="file-up"
+                href="/admin/academics/teacher-allocation"
+                label="View Teaching Teams"
+                icon="users"
                 variant="outline"
-                title="Bulk staff provisioning is not implemented. That screen states what is missing."
+                title="Open the Teacher Allocation page to see who covers each stream."
               />
             ) : null}
             {can('staff.manage') ? (
@@ -284,7 +310,7 @@ export default function AdminSchoolStaffPage() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <DashboardCard
               title="Staff on directory"
               value={filtered}
@@ -317,6 +343,13 @@ export default function AdminSchoolStaffPage() {
               tone={blocked > 0 ? 'danger' : 'success'}
               description="Employed but unable to sign in"
             />
+            <DashboardCard
+              title="With assignments"
+              value={withAssignments}
+              icon="book-open"
+              tone="default"
+              description="Teaching allocations active"
+            />
           </div>
 
           <DataTable
@@ -328,40 +361,51 @@ export default function AdminSchoolStaffPage() {
             onRowClick={(row) => {
               window.location.href = `/admin/staff/${row.id}`;
             }}
-            renderRowActions={(row) => (
-              <ActionButtons
-                items={[
-                  {
-                    id: 'view',
-                    label: `View profile for ${displayName(row) || row.email}`,
-                    href: `/admin/staff/${row.id}`,
-                    icon: 'eye',
-                  },
-                  ...(can('staff.manage')
-                    ? [
-                        {
-                          id: 'edit',
-                          label: `Edit ${displayName(row) || row.email}`,
-                          href: `/admin/staff/${row.id}/edit`,
-                          icon: 'pencil',
-                        },
-                      ]
-                    : []),
-                  // Role assignment writes through the roles module, which
-                  // enforces that the actor may only grant a role they hold.
-                  ...(can('roles.manage')
-                    ? [
-                        {
-                          id: 'access',
-                          label: `Manage portal access for ${displayName(row) || row.email}`,
-                          href: `/admin/staff/${row.id}/access`,
-                          icon: 'key-round',
-                        },
-                      ]
-                    : []),
-                ]}
-              />
-            )}
+            renderRowActions={(row) => {
+              const name = displayName(row) || row.email;
+              return (
+                <ActionButtons
+                  items={[
+                    {
+                      id: 'view',
+                      label: `View profile for ${name}`,
+                      href: `/admin/staff/${row.id}`,
+                      icon: 'eye',
+                    },
+                    ...(can('teaching.view')
+                      ? [
+                          {
+                            id: 'assignments',
+                            label: `Manage academic assignments for ${name}`,
+                            href: `/admin/staff/${row.id}/assignments`,
+                            icon: 'book-open',
+                          },
+                        ]
+                      : []),
+                    ...(can('staff.manage')
+                      ? [
+                          {
+                            id: 'edit',
+                            label: `Edit ${name}`,
+                            href: `/admin/staff/${row.id}/edit`,
+                            icon: 'pencil',
+                          },
+                        ]
+                      : []),
+                    ...(can('roles.manage')
+                      ? [
+                          {
+                            id: 'access',
+                            label: `Manage portal access for ${name}`,
+                            href: `/admin/staff/${row.id}/access`,
+                            icon: 'key-round',
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
+              );
+            }}
             toolbar={
               <ContextFilterBar
                 search={{

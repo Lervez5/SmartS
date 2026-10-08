@@ -14,6 +14,7 @@ import { router as academicsRouter } from './modules/academics';
 import { router as academicSessionsRouter } from './modules/academic-sessions';
 import { router as streamsRouter } from './modules/academics/streams';
 import { router as resultsEntryRouter } from './modules/academics/results-entry';
+import { router as teacherAllocationRouter } from './modules/academics/allocation/routes';
 import { router as classesRouter } from './modules/classes';
 import { router as subjectsRouter } from './modules/subjects';
 import { router as attendanceRouter } from './modules/attendance';
@@ -93,5 +94,6 @@ router.use('/settings', settingsRouter);
 router.use('/academic-sessions', academicSessionsRouter);
 router.use('/streams', streamsRouter);
 router.use('/results-entry', resultsEntryRouter);
+router.use('/teacher-allocation', teacherAllocationRouter);
 
 router.use('/reports', reportsRouter);

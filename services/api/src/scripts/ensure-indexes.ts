@@ -56,6 +56,8 @@ type IndexSpec = {
   unique?: boolean;
   /** Set only for optional fields, to exempt documents that omit the value. */
   partialOn?: string;
+  /** A raw partial filter, for indexes that cover part of a collection. */
+  partial?: Record<string, unknown>;
 };
 
 /** Indexes that must not exist, because they contradict the schema. */
@@ -111,6 +113,23 @@ const REQUIRED: IndexSpec[] = [
     key: { schoolCode: 1 },
     unique: true,
     partialOn: 'schoolCode',
+  },
+
+  /*
+   * A stream may have many assistant and learning-area teachers, but only one
+   * main class teacher, per academic session. The service checks this too, so a
+   * caller gets a readable 409 rather than a database error, but the rule is
+   * structural: two concurrent requests would otherwise both pass the check and
+   * one would win, leaving the loser reporting success. Partial, so only active
+   * main-teacher rows compete, and keyed on the session so last year's teacher
+   * does not block this year's.
+   */
+  {
+    collection: 'StreamAllocation',
+    name: 'one_active_main_teacher_per_stream_session',
+    key: { streamId: 1, academicYearId: 1 },
+    unique: true,
+    partial: { responsibility: 'main_class_teacher', status: 'active' },
   },
 ];
 
@@ -170,6 +189,9 @@ export async function ensureIndexes(): Promise<{ dropped: number; created: numbe
     if (spec.unique) index.unique = true;
     if (spec.partialOn) {
       index.partialFilterExpression = { [spec.partialOn]: { $type: 'string' } };
+    }
+    if (spec.partial) {
+      index.partialFilterExpression = spec.partial;
     }
 
     let result: CreateResult;

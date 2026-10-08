@@ -1485,11 +1485,9 @@ const ADMIN_NAV: NavSection[] = [
         id: 'adm.teacher-allocation',
         label: 'Teacher Allocation',
         href: '/admin/academics/teacher-allocation',
-        permissions: ['staff.view', 'courses.manage'],
+        permissions: ['teaching.view'],
         icon: 'user-round-check',
         order: 2,
-        implemented: false,
-        gap: 'Allocation is representable - Class.teacherId and Course.teacherId both point at User - but there is no route to read or reassign them. GET /api/subjects has no RBAC guard, so a scoped allocation view has to be built before this screen is safe.',
       },
       {
         id: 'adm.student-transitions',

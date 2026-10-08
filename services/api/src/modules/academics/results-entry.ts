@@ -27,6 +27,11 @@ import { ApiError } from '../../shared/logger';
 import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
 import { resolveBand } from '../academics/grading';
 import { resolveClassResponsibility } from '../classes/scope';
+import {
+  currentSessionId,
+  loadAllocations,
+  summariseResponsibility,
+} from './allocation/scope';
 
 export const router: Router = Router();
 
@@ -63,8 +68,16 @@ const saveSchema = z.object({
  * Whether this caller may enter results for a class.
  *
  * An administrative capability opens any class in their school; a teacher needs
- * an explicit assignment, resolved through the class teacher or assistant class
- * teacher record rather than from their role.
+ * an explicit assignment, resolved from the teaching allocation rather than from
+ * their role.
+ *
+ * Two allocations can authorise this, and they are not the same thing. The stream
+ * allocation is authoritative and is checked first: a learning-area teacher
+ * allocated to Mathematics for a stream may enter Mathematics marks for that
+ * stream's learners, and the class-level teaching assignment is the older,
+ * class-wide record kept as a fallback for classes that have not been allocated
+ * by stream yet. A teacher allocated to a learning area in one stream therefore
+ * does not thereby gain that learning area in the class's other streams.
  */
 async function assertMayEnterResults(
   user: { id: string; role: string },
@@ -73,12 +86,60 @@ async function assertMayEnterResults(
 ): Promise<{ scoped: boolean }> {
   if (user.role === 'SUPER_ADMIN') return { scoped: false };
 
+  const cls = await prisma.class.findUnique({
+    where: { id: classId },
+    select: { id: true, schoolId: true },
+  });
+  if (!cls) throw new ApiError(404, 'Class not found in this school');
+
+  const sessionId = await currentSessionId(cls.schoolId);
+  if (sessionId) {
+    const streams = await prisma.stream.findMany({
+      where: { classId },
+      select: { id: true },
+    });
+
+    if (streams.length > 0) {
+      const allocations = await loadAllocations(
+        streams.map((row) => row.id),
+        sessionId
+      );
+
+      if (allocations.length > 0) {
+        const summary = summariseResponsibility(
+          user.id,
+          allocations,
+          streams.map((row) => row.id)
+        );
+        const entered = new Set<string>();
+        for (const entry of summary.values()) {
+          for (const subjectId of entry.resultSubjectIds) entered.add(subjectId);
+        }
+
+        // Class responsibility is not by itself enough to enter marks: a teacher
+        // is allocated to particular learning areas, not to all of them.
+        if (subjectIds && subjectIds.length > 0) {
+          const missing = subjectIds.filter((id) => !entered.has(id));
+          if (missing.length > 0) {
+            throw new ApiError(
+              403,
+              'You are not allocated to enter results for one or more of these learning areas in any stream of this class for this academic session.'
+            );
+          }
+          return { scoped: true };
+        }
+
+        if (entered.size > 0) return { scoped: true };
+      }
+    }
+  }
+
   const responsibility = await resolveClassResponsibility(user.id, classId);
   if (!responsibility) throw new ApiError(404, 'Class not found in this school');
   if (!responsibility.hasAccess) {
     throw new ApiError(
       403,
-      'You are not assigned to this class. Entering results requires the class teacher or assistant class teacher assignment, not the TEACHER role.'
+      'You are not assigned to this class. Entering results requires a teaching allocation, not the TEACHER role.'
     );
   }
 

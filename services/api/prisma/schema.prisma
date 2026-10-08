@@ -43,6 +43,26 @@ enum AdmissionStatus {
   enrolled
 }
 
+/// What a teacher is allocated to do for one stream within one academic session.
+///
+/// These are responsibilities, not roles. A person can be a stream's main class
+/// teacher and also teach a learning area to it, and the two allocations sit
+/// side by side rather than one replacing the other.
+enum StreamResponsibility {
+  /// The single designated main/class teacher answerable for the stream.
+  main_class_teacher
+  /// Supports the main teacher, holding the rights the school grants on the
+  /// assignment. Several may be active at once.
+  assistant_class_teacher
+  /// Teaches one learning area to the stream, alongside the stream team.
+  subject_teacher
+}
+
+enum AllocationStatus {
+  active
+  inactive
+}
+
 enum AttendanceStatus {
   present
   absent
@@ -222,6 +242,7 @@ model User {
   teacherClasses       Class[]               @relation("TeacherClasses")
   classAssistants      ClassAssistant[]      @relation("ClassAssistants")
   teachingAssignments  TeachingAssignment[]  @relation("TeachingAssignments")
+  streamAllocations    StreamAllocation[]    @relation("StreamAllocations")
   teacherCourses       Course[]              @relation("TeacherCourses")
   enrollments          Enrollment[]          @relation("StudentEnrollments")
   courseEnrollments    CourseEnrollment[]    @relation("StudentCourseEnrollments")
@@ -330,6 +351,7 @@ model Subject {
   schoolId            String               @db.ObjectId
   examinationSubjects ExaminationSubject[]
   teachingAssignments TeachingAssignment[]
+  streamAllocations   StreamAllocation[]
 
   @@unique([schoolId, name])
   @@unique([schoolId, code])
@@ -457,6 +479,7 @@ model AcademicYear {
   updatedAt           DateTime              @updatedAt
   learnerExits        LearnerExit[]
   teachingAssignments TeachingAssignment[]
+  streamAllocations   StreamAllocation[]
 
   @@unique([schoolId, name])
   @@index([status])
@@ -562,6 +585,71 @@ model ExaminationSubject {
 /// Recording that per pairing is also what makes result entry accountable: a
 /// mark is attributable to the teacher allocated to that learning area, rather
 /// than to whoever holds a TEACHER role.
+/// The authoritative teaching allocation.
+///
+/// A school runs sessions, and within a session a grade holds classes, and a
+/// class is divided into streams. Each stream carries its own teaching team:
+/// exactly one designated main class teacher, any number of assistant class
+/// teachers, and any number of learning-area teachers. A class with five streams
+/// therefore has five teams, not one team shared across them, which is why the
+/// allocation hangs off the stream rather than the class.
+///
+/// This is the single record Attendance, Results Entry, the Teacher portal and
+/// Timetable resolve responsibility from, so those features cannot disagree about
+/// who is answerable for a stream. It does not create, delete or alter an
+/// account: staff identity, global role and teaching responsibility are separate
+/// concerns, and a teacher with no allocation is still a staff member.
+model StreamAllocation {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId String @db.ObjectId
+
+  /// The session the allocation belongs to. Allocations never leak across
+  /// sessions: being responsible for a stream last year does not make a teacher
+  /// responsible for it this year unless the school recorded it again.
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  academicYearId String       @db.ObjectId
+
+  stream   Stream @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  streamId String @db.ObjectId
+
+  teacher   User   @relation("StreamAllocations", fields: [teacherId], references: [id])
+  teacherId String @db.ObjectId
+
+  responsibility StreamResponsibility
+
+  /// Required for `subject_teacher` and absent for the stream team, which covers
+  /// the stream as a whole rather than one learning area.
+  subject   Subject? @relation(fields: [subjectId], references: [id])
+  subjectId String?  @db.ObjectId
+
+  /// Whether an assistant may manage this stream - attendance, learners, class
+  /// communication - or may only view it. The main teacher always may.
+  canManage Boolean @default(false)
+
+  /// Whether this teacher may enter results for the pairing. Being allocated to
+  /// teach a learning area and being allowed to finalise its marks are separate
+  /// decisions, so they are recorded separately.
+  canEnterResults Boolean @default(true)
+
+  status AllocationStatus @default(active)
+
+  /// Effective period, preserved rather than overwritten, so who was responsible
+  /// for a stream on a given date stays answerable after a reassignment.
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([streamId, academicYearId])
+  @@index([teacherId, academicYearId])
+  @@index([schoolId, academicYearId])
+  @@index([subjectId])
+  @@index([responsibility, status])
+}
+
 model TeachingAssignment {
   id      String @id @default(auto()) @map("_id") @db.ObjectId
   class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
@@ -853,6 +941,8 @@ model Stream {
   updatedAt DateTime @updatedAt
 
   enrollments Enrollment[]
+  /// The teaching team and learning-area teachers for this stream.
+  allocations StreamAllocation[]
 
   @@unique([classId, code])
   @@index([classId])
@@ -1343,6 +1433,7 @@ model School {
   academicYears        AcademicYear[]
   classes              Class[]
   subjects             Subject[]
+  streamAllocations    StreamAllocation[]
 
   @@index([status])
 }

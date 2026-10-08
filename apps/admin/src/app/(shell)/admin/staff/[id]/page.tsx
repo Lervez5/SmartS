@@ -5,12 +5,13 @@ import { useParams } from 'next/navigation';
 import { useApi } from '@schoolos/hooks';
 import { useAuth } from '@schoolos/auth';
 import {
-  DataTable,
   DashboardCard,
+  DataTable,
   EmptyState,
   ErrorState,
   LoadingState,
   NavIcon,
+  PrimaryActionButton,
   SectionHeader,
   SettingsCard,
   StatusPill,
@@ -23,10 +24,16 @@ import {
 /**
  * Staff profile.
  *
- * A read view over `GET /api/staff`, the same source as the directory, because
- * the module has no per-staff endpoint. Employment and account access are shown
- * as two states, not one.
+ * A read view over `GET /api/staff`, plus `GET /api/staff/:userId/assignments`
+ * for the academic allocations. Employment and account access are shown as two
+ * states, not one, and academic responsibilities are shown as a third layer
+ * because they are assignments, not identity or employment.
  */
+interface StaffRoleRef {
+  id: string;
+  name: string;
+}
+
 interface StaffMember {
   id: string;
   userId: string;
@@ -37,7 +44,7 @@ interface StaffMember {
   phone?: string | null;
   avatar?: string | null;
   userStatus: string;
-  roles: Array<{ id: string; name: string }>;
+  roles: StaffRoleRef[];
   position?: string | null;
   department?: string | null;
   employeeId?: string | null;
@@ -45,8 +52,53 @@ interface StaffMember {
   status: string;
 }
 
+interface StaffAssignment {
+  id: string;
+  responsibility: string;
+  status: string;
+  canManage: boolean;
+  canEnterResults: boolean;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  teacher: {
+    id: string;
+    name: string | null;
+    email: string;
+  };
+  subject: {
+    id: string;
+    name: string;
+    code: string | null;
+  } | null;
+  academicSession: {
+    id: string;
+    name: string;
+    label: string | null;
+    status: string;
+  };
+  stream: {
+    id: string;
+    name: string;
+    code: string;
+    class: {
+      id: string;
+      name: string;
+      gradeLevel: string | null;
+    };
+  };
+}
+
 interface StaffResponse {
   staff?: StaffMember[];
+}
+
+interface AssignmentsResponse {
+  teacher?: {
+    id: string;
+    name: string | null;
+    email: string;
+  };
+  assignments?: StaffAssignment[];
 }
 
 const EMPLOYMENT_TONE: Record<string, StatusTone> = {
@@ -61,6 +113,18 @@ const ACCOUNT_TONE: Record<string, StatusTone> = {
   pending: 'info',
   suspended: 'danger',
   archived: 'neutral',
+};
+
+const RESPONSIBILITY_TONE: Record<string, StatusTone> = {
+  main_class_teacher: 'success',
+  assistant_class_teacher: 'info',
+  subject_teacher: 'brand',
+};
+
+const RESPONSIBILITY_LABEL: Record<string, string> = {
+  main_class_teacher: 'Main class teacher',
+  assistant_class_teacher: 'Assistant teacher',
+  subject_teacher: 'Subject teacher',
 };
 
 function formatDate(value?: string | null): string {
@@ -80,6 +144,7 @@ export default function AdminStaffProfilePage() {
   const staffId = params?.id as string | undefined;
   const { can } = useAuth();
   const allowed = can('staff.view');
+  const canManageAssignments = can('teaching.manage');
 
   const { data, loading, error } = useApi<StaffResponse>(
     allowed ? '/api/staff?limit=200' : '/api/staff?denied=1'
@@ -89,6 +154,12 @@ export default function AdminStaffProfilePage() {
     () => (data?.staff ?? []).find((row) => row.id === staffId),
     [data, staffId]
   );
+
+  const { data: assignmentsData } = useApi<AssignmentsResponse>(
+    allowed && member ? `/api/staff/${member.userId}/assignments` : '/api/staff?denied=1'
+  );
+
+  const assignments = React.useMemo(() => assignmentsData?.assignments ?? [], [assignmentsData]);
 
   if (!allowed) {
     return (
@@ -136,6 +207,11 @@ export default function AdminStaffProfilePage() {
 
   const name = displayName(member);
 
+  const mainTeacherCount = assignments.filter((a) => a.responsibility === 'main_class_teacher' && a.status === 'active').length;
+  const assistantTeacherCount = assignments.filter((a) => a.responsibility === 'assistant_class_teacher' && a.status === 'active').length;
+  const subjectTeacherCount = assignments.filter((a) => a.responsibility === 'subject_teacher' && a.status === 'active').length;
+  const activeAssignments = assignments.filter((a) => a.status === 'active');
+
   const detailRows = [
     { field: 'Full name', value: name || '-' },
     { field: 'Email', value: member.email },
@@ -149,16 +225,77 @@ export default function AdminStaffProfilePage() {
     { field: 'Record id', value: member.id, mono: true },
   ];
 
-  const columns: Array<DataTableColumn<{ field: string; value: string; mono?: boolean }>> = [
-    { id: 'field', header: 'Field', cell: (row) => row.field },
+  const assignmentColumns: Array<DataTableColumn<StaffAssignment>> = [
     {
-      id: 'value',
-      header: 'Value',
+      id: 'session',
+      header: 'Academic Session',
       cell: (row) => (
-        <span className={row.mono ? 'font-mono text-xs text-foreground' : undefined}>
-          {row.value}
-        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-foreground">{row.academicSession.name}</p>
+          {row.academicSession.label && (
+            <p className="truncate text-xs text-muted-foreground">{row.academicSession.label}</p>
+          )}
+        </div>
       ),
+      sortValue: (row) => row.academicSession.name,
+    },
+    {
+      id: 'stream',
+      header: 'Stream',
+      cell: (row) => (
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-foreground">
+            {row.stream.class.name} / {row.stream.name}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">
+            Grade {row.stream.class.gradeLevel || '-'} · Stream {row.stream.code}
+          </p>
+        </div>
+      ),
+      sortValue: (row) => `${row.stream.class.name} ${row.stream.code}`,
+    },
+    {
+      id: 'responsibility',
+      header: 'Responsibility',
+      cell: (row) => (
+        <div className="flex flex-col gap-1">
+          <StatusPill
+            label={RESPONSIBILITY_LABEL[row.responsibility] ?? row.responsibility}
+            tone={RESPONSIBILITY_TONE[row.responsibility] ?? 'neutral'}
+          />
+          {row.responsibility === 'assistant_class_teacher' && (
+            <span className="text-xs text-muted-foreground">
+              {row.canManage ? 'Can manage stream' : 'View only'}
+            </span>
+          )}
+          {row.subject && (
+            <span className="text-xs text-muted-foreground">{row.subject.name}</span>
+          )}
+        </div>
+      ),
+      sortValue: (row) => row.responsibility,
+    },
+    {
+      id: 'period',
+      header: 'Period',
+      cell: (row) => (
+        <div className="text-xs">
+          <p>{formatDate(row.effectiveFrom)}</p>
+          {row.effectiveTo && <p className="text-muted-foreground">to {formatDate(row.effectiveTo)}</p>}
+        </div>
+      ),
+      sortValue: (row) => row.effectiveFrom,
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (row) => (
+        <StatusPill
+          label={row.status}
+          tone={row.status === 'active' ? 'success' : 'neutral'}
+        />
+      ),
+      sortValue: (row) => row.status,
     },
   ];
 
@@ -166,9 +303,24 @@ export default function AdminStaffProfilePage() {
     <div className="space-y-6">
       <SectionHeader
         title={name || 'Staff member'}
-        description="Staff record and portal access, as held by the platform."
+        description="Staff record, portal access, and academic responsibilities."
         action={
           <div className="flex flex-wrap items-center gap-2">
+            {canManageAssignments ? (
+              <PrimaryActionButton
+                href={`/admin/staff/${member.id}/assignments`}
+                label="Manage Assignments"
+                icon="book-open"
+              />
+            ) : null}
+            {can('teaching.view') ? (
+              <PrimaryActionButton
+                href="/admin/academics/teacher-allocation"
+                label="View Teaching Teams"
+                icon="users"
+                variant="outline"
+              />
+            ) : null}
             {can('staff.manage') ? (
               <a
                 href={`/admin/staff/${member.id}/edit`}
@@ -232,16 +384,53 @@ export default function AdminStaffProfilePage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <DashboardCard title="Position" value={member.position ?? '-'} icon="user-round" />
-        <DashboardCard title="Department" value={member.department ?? '-'} icon="layers" />
-        <DashboardCard
-          title="Can sign in"
-          value={member.userStatus === 'active' ? 'Yes' : 'No'}
-          icon="shield-check"
-          tone={member.userStatus === 'active' ? 'success' : 'warning'}
-        />
+        <DashboardCard title="Main teacher" value={mainTeacherCount} icon="user-round-check" tone="success" description="Streams led" />
+        <DashboardCard title="Assistant teacher" value={assistantTeacherCount} icon="user-round" tone="accent" description="Streams supported" />
+        <DashboardCard title="Subject teacher" value={subjectTeacherCount} icon="book-open" tone="default" description="Learning areas taught" />
         <DashboardCard title="Hired" value={formatDate(member.hireDate)} icon="calendar-check" />
       </div>
+
+      <SettingsCard
+        title="Academic assignments"
+        description="Teaching allocations from the authoritative StreamAllocation model. These are assignments, not global roles."
+      >
+        {activeAssignments.length === 0 ? (
+          <EmptyState
+            title="No academic assignments"
+            description={
+              canManageAssignments
+                ? 'This staff member has no active teaching allocations. Use Manage Assignments to create one.'
+                : 'This staff member has no active teaching allocations on record.'
+            }
+            icon="book-open"
+            action={
+              canManageAssignments ? (
+                <a
+                  href={`/admin/staff/${member.id}/assignments`}
+                  className="rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  Add Assignment
+                </a>
+              ) : null
+            }
+          />
+        ) : (
+          <DataTable
+            caption="Academic assignments"
+            columns={assignmentColumns}
+            rows={activeAssignments}
+            rowKey={(row) => row.id}
+            pageSize={20}
+            empty={
+              <EmptyState
+                title="No active assignments"
+                description="There are no active academic assignments for this staff member."
+                icon="book-open"
+              />
+            }
+          />
+        )}
+      </SettingsCard>
 
       <SettingsCard
         title="Staff details"
@@ -249,7 +438,18 @@ export default function AdminStaffProfilePage() {
       >
         <DataTable
           caption="Full staff record"
-          columns={columns}
+          columns={[
+            { id: 'field', header: 'Field', cell: (row) => row.field },
+            {
+              id: 'value',
+              header: 'Value',
+              cell: (row) => (
+                <span className={row.mono ? 'font-mono text-xs text-foreground' : undefined}>
+                  {row.value}
+                </span>
+              ),
+            },
+          ]}
           rows={detailRows}
           rowKey={(row) => row.field}
         />
