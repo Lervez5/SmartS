@@ -10,7 +10,14 @@ import { SETTINGS_AREAS, type SettingsArea } from './types';
  * than a wall of nulls. These configure behaviour only; they hold no
  * operational data.
  */
-const DEFAULTS: Record<SettingsArea, Record<string, unknown>> = {
+/**
+ * Default configuration per area.
+ *
+ * Exported so provisioning reuses exactly what a read falls back to. A separate
+ * set of seed defaults would drift from these and make a freshly seeded school
+ * report different values depending on whether a record existed.
+ */
+export const DEFAULTS: Record<SettingsArea, Record<string, unknown>> = {
   general: {
     name: '',
   },
@@ -56,7 +63,6 @@ const DEFAULTS: Record<SettingsArea, Record<string, unknown>> = {
   },
   subscription: {
     providerConfigured: false,
-    implemented: false,
   },
   notifications: {
     defaultChannel: 'in_app',
@@ -289,6 +295,40 @@ export async function updatePersonalSettings(userId: string, input: unknown) {
   }
   const saved = await schoolRepository.personal.upsert(userId, parsed.data);
   return { userId: saved.userId, settings: saved };
+}
+
+/* ------------------------------------------------------------------ *
+ * Provisioning
+ * ------------------------------------------------------------------ */
+
+/**
+ * Ensures a settings record exists for every area of a school.
+ *
+ * A read already falls back to `DEFAULTS`, so a missing record is not an error —
+ * but it does mean a freshly seeded school has nothing to administer, and the
+ * areas nobody visits stay absent indefinitely. Provisioning writes the defaults
+ * once so every area is inspectable and editable.
+ *
+ * Idempotent and non-destructive: an area that already has a record is left
+ * exactly as the administrator configured it. Only the area's own defaults are
+ * written, and only through the same repository the settings routes use, so
+ * validation and column mapping stay in one place.
+ */
+export async function provisionSchoolSettings(schoolId: string) {
+  const created: SettingsArea[] = [];
+  const skipped: SettingsArea[] = [];
+
+  for (const area of SETTINGS_AREAS) {
+    const existing = await findSettings(area, schoolId);
+    if (existing) {
+      skipped.push(area);
+      continue;
+    }
+    await upsertSettings(area, schoolId, { ...DEFAULTS[area] });
+    created.push(area);
+  }
+
+  return { created, skipped };
 }
 
 export type { PersonalSettingsDto };

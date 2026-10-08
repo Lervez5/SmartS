@@ -4,6 +4,7 @@ import { logger } from '../shared/logger';
 import { prisma } from '../infrastructure/database';
 import { PERMISSIONS, ROLE_PERMISSIONS } from '@schoolos/auth/permissions';
 import { ROLES, type UserRole } from '@schoolos/auth/roles';
+import { provisionSchoolSettings } from '../modules/settings/service';
 
 /**
  * Seeds the canonical role/permission catalogue into MongoDB and creates one
@@ -178,10 +179,40 @@ async function seedUsers() {
   }
 }
 
+/**
+ * Provision every configuration area for the provisioned school.
+ *
+ * A read already falls back to defaults, so this is not about making the pages
+ * render — it is about the school actually being complete. Without it the two
+ * areas nobody opens, subscription and glow, never get a record, and there is
+ * nothing for an administrator to administer.
+ *
+ * Idempotent and non-destructive: an area that already has a record keeps the
+ * administrator's configuration untouched.
+ */
+async function seedSchoolSettings(): Promise<void> {
+  const school = await prisma.school.findFirst();
+  if (!school) {
+    logger.warn('No school provisioned yet; skipping school settings.');
+    return;
+  }
+  const result = await provisionSchoolSettings(school.id);
+  if (result.created.length > 0) {
+    logger.info('School settings provisioned', {
+      school: school.name,
+      created: result.created,
+      kept: result.skipped,
+    });
+  } else {
+    logger.info('School settings already complete', { school: school.name });
+  }
+}
+
 async function seed() {
   logger.info('Starting seed...');
   await seedRolesAndPermissions();
   await seedUsers();
+  await seedSchoolSettings();
   logger.info('Seed complete.', { password: config.seed.adminPassword });
 }
 

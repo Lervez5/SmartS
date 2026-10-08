@@ -387,32 +387,41 @@ enum TermStatus {
   completed
 }
 
+enum AssessmentStatus {
+  draft
+  published
+  completed
+  archived
+}
+
 model AcademicYear {
-  id        String                @id @default(auto()) @map("_id") @db.ObjectId
-  name      String                @unique // e.g. 2026
-  label     String? // display label, e.g. "2026 Academic Session"
-  startDate DateTime
-  endDate   DateTime
+  id           String                @id @default(auto()) @map("_id") @db.ObjectId
+  name         String                @unique // e.g. 2026
+  label        String? // display label, e.g. "2026 Academic Session"
+  startDate    DateTime
+  endDate      DateTime
   /// Only one session is `active` at a time; the service enforces it.
-  status    AcademicSessionStatus @default(planned)
-  terms     Term[]
-  createdAt DateTime              @default(now())
-  updatedAt DateTime              @updatedAt
+  status       AcademicSessionStatus @default(planned)
+  terms        Term[]
+  examinations Examination[]
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
 
   @@index([status])
 }
 
 model Term {
-  id             String       @id @default(auto()) @map("_id") @db.ObjectId
-  academicYearId String       @db.ObjectId
-  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  academicYearId String        @db.ObjectId
+  academicYear   AcademicYear  @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   name           String // e.g. "Term 1"
   termNumber     Int
   startDate      DateTime
   endDate        DateTime
-  status         TermStatus   @default(planned)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  status         TermStatus    @default(planned)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  examinations   Examination[]
 
   @@unique([academicYearId, termNumber])
   @@index([status])
@@ -561,21 +570,38 @@ model Submission {
 }
 
 model Examination {
-  id           String        @id @default(auto()) @map("_id") @db.ObjectId
-  title        String
-  description  String?
-  class        Class?        @relation("ClassExams", fields: [classId], references: [id])
-  classId      String?       @db.ObjectId
-  subject      Subject?      @relation("SubjectExams", fields: [subjectId], references: [id])
-  subjectId    String?       @db.ObjectId
-  startDate    DateTime
-  endDate      DateTime?
-  duration     Int? // minutes
-  maxScore     Float?
-  examAttempts ExamAttempt[]
-  grades       Grade[]       @relation("ExamGrades")
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  title          String
+  /// Lifecycle state. `draft` is not visible to learners; `published` opens the
+  /// assessment; `completed` locks marks entry.
+  status         AssessmentStatus @default(draft)
+  /// Free text rather than an enum because the permitted values are school
+  /// policy: SchoolAcademicSettings.assessmentTypes lists what the school uses.
+  assessmentType String?
+  /// The authoritative academic context, so a summative assessment belongs to
+  /// the same session and term the navbar selects rather than to loose dates.
+  academicYearId String?          @db.ObjectId
+  academicYear   AcademicYear?    @relation(fields: [academicYearId], references: [id])
+  termId         String?          @db.ObjectId
+  term           Term?            @relation(fields: [termId], references: [id])
+  description    String?
+  class          Class?           @relation("ClassExams", fields: [classId], references: [id])
+  classId        String?          @db.ObjectId
+  /// Subject is the learning-area analogue the platform currently carries.
+  subject        Subject?         @relation("SubjectExams", fields: [subjectId], references: [id])
+  subjectId      String?          @db.ObjectId
+  startDate      DateTime
+  endDate        DateTime?
+  duration       Int? // minutes
+  maxScore       Float?
+  examAttempts   ExamAttempt[]
+  grades         Grade[]          @relation("ExamGrades")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([academicYearId])
+  @@index([termId])
+  @@index([status])
 }
 
 model ExamAttempt {

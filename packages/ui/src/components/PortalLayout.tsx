@@ -16,15 +16,21 @@ import { settingsHrefFor, useAuth, useLogout, type AppId, type UserRole } from '
 import { AppShell } from './AppShell';
 import { ErrorState, LoadingState } from './block';
 
-/** Shape of `GET /api/settings/branding`, which needs only school scope. */
-interface BrandingResponse {
-  logoUrl?: string | null;
-  portalNameOverride?: string | null;
-  // Flat, matching the endpoint. `school` is accepted so a nested shape would
-  // still resolve rather than silently falling back.
-  displayName?: string | null;
-  name?: string | null;
-  school?: { displayName?: string | null; name?: string | null } | null;
+/**
+ * Shape of `GET /api/settings/branding`.
+ *
+ * Wrapped in `settings` like every other configuration area, so the shell and
+ * the settings screens share one contract. `school` is tolerated so a nested
+ * shape would still resolve rather than silently falling back to the platform
+ * mark.
+ */
+interface BrandingEnvelope {
+  settings?: {
+    logoUrl?: string | null;
+    portalNameOverride?: string | null;
+    displayName?: string | null;
+    name?: string | null;
+  } | null;
 }
 
 /** Shape of `GET /api/settings/general`, used for the support channel. */
@@ -51,7 +57,7 @@ export interface PortalLayoutProps {
 
 /** Resolves the school's real branding for the navbar and sidebar. */
 function useBranding(enabled: boolean) {
-  const [branding, setBranding] = React.useState<BrandingResponse | null>(null);
+  const [branding, setBranding] = React.useState<BrandingEnvelope['settings'] | null>(null);
 
   React.useEffect(() => {
     if (!enabled) return;
@@ -64,7 +70,8 @@ function useBranding(enabled: boolean) {
           signal: controller.signal,
         });
         if (!res.ok) return;
-        setBranding((await res.json()) as BrandingResponse);
+        const body = (await res.json()) as BrandingEnvelope;
+        setBranding(body.settings ?? null);
       } catch {
         // The shell falls back to a neutral mark rather than a hardcoded name.
       }
@@ -206,14 +213,8 @@ export function PortalLayout({
       schoolName={
         schoolName ??
         branding?.portalNameOverride ??
-        // GET /api/settings/branding returns a FLAT projection: displayName and
-        // name sit at the top level. Reading a nested `school` here meant the
-        // name never resolved and the shell fell back to "School Management
-        // Platform" in both the navbar and the sidebar.
         branding?.displayName ??
         branding?.name ??
-        branding?.school?.displayName ??
-        branding?.school?.name ??
         null
       }
       supportHref={resolvedSupport}
