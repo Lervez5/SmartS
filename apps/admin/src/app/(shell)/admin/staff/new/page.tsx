@@ -15,6 +15,7 @@ import {
   TextInput,
   roleLabel,
   type DataTableColumn,
+  notify,
 } from '@schoolos/ui';
 
 /**
@@ -56,7 +57,6 @@ export default function AdminAddStaffPage() {
   const [hireDate, setHireDate] = React.useState('');
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [done, setDone] = React.useState<string | null>(null);
 
   const {
     data,
@@ -110,8 +110,6 @@ export default function AdminAddStaffPage() {
           type="button"
           onClick={() => {
             setSelected(row.id);
-            setDone(null);
-            setError(null);
           }}
           className={[
             'rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors',
@@ -133,7 +131,6 @@ export default function AdminAddStaffPage() {
       return;
     }
     setSaving(true);
-    setError(null);
     try {
       const res = await fetch('/api/staff', {
         method: 'POST',
@@ -152,19 +149,19 @@ export default function AdminAddStaffPage() {
         const body = (await res.json().catch(() => null)) as {
           error?: { message?: string };
         } | null;
-        setError(body?.error?.message ?? `The API refused the request (HTTP ${res.status}).`);
+        notify.error(body?.error?.message ?? `The API refused the request (HTTP ${res.status}).`);
         return;
       }
 
       const created = (await res.json()) as { user?: { name?: string | null; email?: string } };
-      setDone(created.user?.name ?? created.user?.email ?? 'Staff member added');
+      notify.success(created.user?.name ?? created.user?.email ?? 'Staff member added');
       setSelected(null);
       setPosition('');
       setDepartment('');
       setEmployeeId('');
       setHireDate('');
     } catch {
-      setError('Could not reach the API. Check that it is running.');
+      notify.error('Could not reach the API. Check that it is running.');
     } finally {
       setSaving(false);
     }
@@ -258,12 +255,6 @@ export default function AdminAddStaffPage() {
               className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
             >
               {error}
-            </div>
-          ) : null}
-
-          {done ? (
-            <div className="mt-4 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
-              {done} now has a staff record and appears on the School Staff directory.
             </div>
           ) : null}
 

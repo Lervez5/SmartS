@@ -13,6 +13,7 @@ import {
   SettingsCard,
   StatusPill,
   TextInput,
+  notify,
 } from '@schoolos/ui';
 
 /**
@@ -70,8 +71,6 @@ export default function AdminEditLearnerPage() {
 
   const [hydrated, setHydrated] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const [saveError, setSaveError] = React.useState<string | null>(null);
-  const [saved, setSaved] = React.useState(false);
 
   // Seed the form once the record arrives, and only then, so a re-render of the
   // list does not clobber what the user is typing.
@@ -97,8 +96,6 @@ export default function AdminEditLearnerPage() {
   async function save() {
     if (!learner) return;
     setSaving(true);
-    setSaveError(null);
-    setSaved(false);
     try {
       const res = await fetch(`/api/students/${learner.id}`, {
         method: 'PATCH',
@@ -117,15 +114,15 @@ export default function AdminEditLearnerPage() {
         const body = (await res.json().catch(() => null)) as {
           error?: { message?: string };
         } | null;
-        setSaveError(body?.error?.message ?? `The API refused the change (HTTP ${res.status}).`);
+        notify.error(body?.error?.message ?? `The API refused the change (HTTP ${res.status}).`);
         return;
       }
 
-      setSaved(true);
+      notify.success('Changes saved');
       setHydrated(false);
       router.refresh();
     } catch {
-      setSaveError('Could not reach the API. Check that it is running.');
+      notify.error('Could not reach the API. Check that it is running.');
     } finally {
       setSaving(false);
     }
@@ -138,8 +135,6 @@ export default function AdminEditLearnerPage() {
     setGender(learner.gender ?? '');
     setDateOfBirth(formatDate(learner.dateOfBirth));
     setEnrollmentDate(formatDate(learner.enrollmentDate));
-    setSaveError(null);
-    setSaved(false);
   }
 
   if (!allowed) {
@@ -240,21 +235,6 @@ export default function AdminEditLearnerPage() {
             />
           </Field>
         </div>
-
-        {saveError ? (
-          <div
-            role="alert"
-            className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-          >
-            {saveError}
-          </div>
-        ) : null}
-
-        {saved ? (
-          <div className="mt-4">
-            <StatusPill label="Saved" tone="success" />
-          </div>
-        ) : null}
 
         <div className="mt-5 flex items-center gap-2">
           <button

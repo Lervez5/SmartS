@@ -14,11 +14,13 @@ import * as React from 'react';
 import { cn } from '@schoolos/utils';
 import {
   useAuth,
+  SETTINGS_AREA_LABELS,
   SETTINGS_AREA_PERMISSIONS,
   type Permission,
   type SettingsArea,
 } from '@schoolos/auth';
 import { NavIcon } from './NavIcon';
+import { notify } from './Toast';
 import { ErrorState, LoadingState, SectionHeader } from './block';
 import type { LucideIcon } from 'lucide-react';
 
@@ -321,10 +323,9 @@ export function SettingsSection<R extends SettingsRecord>({
         const body = (await res.json().catch(() => null)) as {
           error?: { message?: string };
         } | null;
-        setSave({
-          status: 'error',
-          message: body?.error?.message ?? `The API rejected the change (HTTP ${res.status}).`,
-        });
+        const message = body?.error?.message ?? `The API rejected the change (HTTP ${res.status}).`;
+        setSave({ status: 'error', message });
+        notify.error(message);
         return;
       }
       // Re-read rather than trusting local state: the service normalizes and
@@ -338,11 +339,11 @@ export function SettingsSection<R extends SettingsRecord>({
       setValue(next);
       setBaseline(JSON.stringify(next));
       setSave({ status: 'saved' });
+      notify.success(`${SETTINGS_AREA_LABELS[area]} settings saved`);
     } catch {
-      setSave({
-        status: 'error',
-        message: 'Could not reach the API. Check that it is running.',
-      });
+      const message = 'Could not reach the API. Check that it is running.';
+      setSave({ status: 'error', message });
+      notify.error(message);
     }
   }
 

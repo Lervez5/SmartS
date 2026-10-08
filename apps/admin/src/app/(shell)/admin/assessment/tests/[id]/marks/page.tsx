@@ -12,6 +12,7 @@ import {
   LoadingState,
   SectionHeader,
   StatusPill,
+  notify,
 } from '@schoolos/ui';
 
 /**
@@ -74,7 +75,6 @@ export default function AdminAssessmentMarksPage() {
   const [seeding, setSeeding] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
-  const [done, setDone] = React.useState<string | null>(null);
 
   // Seed the editable values from the saved scores once the record arrives.
   React.useEffect(() => {
@@ -102,7 +102,6 @@ export default function AdminAssessmentMarksPage() {
     if (!assessment) return;
     setSeeding(true);
     setActionError(null);
-    setDone(null);
     try {
       const res = await fetch(`/api/examinations/${assessment.id}/attempts`, {
         method: 'POST',
@@ -116,7 +115,7 @@ export default function AdminAssessmentMarksPage() {
         return;
       }
       const body = (await res.json()) as { created: number; total: number };
-      setDone(
+      notify.success(
         body.created === 0
           ? `No new attempts: all ${body.total} enrolled learners are already recorded.`
           : `${body.created} attempt${body.created === 1 ? '' : 's'} created from the class enrolment.`
@@ -133,7 +132,6 @@ export default function AdminAssessmentMarksPage() {
     if (!assessment) return;
     setSaving(true);
     setActionError(null);
-    setDone(null);
     try {
       const records = assessment.attempts
         .filter((attempt) => attempt.studentId)
@@ -165,7 +163,7 @@ export default function AdminAssessmentMarksPage() {
       }
 
       const body = (await res.json()) as { saved: number };
-      setDone(`${body.saved} mark${body.saved === 1 ? '' : 's'} saved.`);
+      notify.success(`${body.saved} mark${body.saved === 1 ? '' : 's'} saved.`);
       refetch();
       router.refresh();
     } catch {
@@ -306,21 +304,6 @@ export default function AdminAssessmentMarksPage() {
         />
       </div>
 
-      {actionError ? (
-        <div
-          role="alert"
-          className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-        >
-          {actionError}
-        </div>
-      ) : null}
-
-      {done ? (
-        <p className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
-          {done}
-        </p>
-      ) : null}
-
       {total === 0 ? (
         <div className="space-y-3">
           <EmptyState
@@ -389,7 +372,6 @@ export default function AdminAssessmentMarksPage() {
                               ...prev,
                               [key]: raw === '' ? null : Number(raw),
                             }));
-                            setDone(null);
                           }}
                           placeholder="0"
                           aria-label={`Score for ${attempt.name}`}
