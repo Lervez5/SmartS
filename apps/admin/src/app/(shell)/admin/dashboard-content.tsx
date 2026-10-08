@@ -209,7 +209,16 @@ function AcademicOverview() {
       {students.error || classes.error || courses.error ? (
         <ErrorState
           title="Some academic data could not be loaded"
-          message="One or more academic endpoints refused the request. Your role's permissions decide which of these panels resolve."
+          message={
+            [
+              students.error ? 'the learner register (/api/students)' : null,
+              classes.error ? 'the class list (/api/classes)' : null,
+              courses.error ? 'the course list (/api/courses)' : null,
+            ]
+              .filter(Boolean)
+              .join(', ') +
+            ' refused the request. Each needs its own permission: students.view, cohorts.view and courses.view respectively.'
+          }
         />
       ) : null}
 
@@ -630,7 +639,9 @@ export function AdminDashboard() {
   // `students.view`, because an ACCOUNTANT holds students.view purely to bill
   // against a learner and has no class or course oversight. Gating on
   // students.view would hand an accountant a full academic dashboard.
-  const showAcademic = can('cohorts.view') || can('courses.view');
+  // The panel reads learners, classes and courses, so it needs all three. A role
+  // holding only some gets none of it rather than a permanently broken panel.
+  const showAcademic = can('students.view') && can('cohorts.view') && can('courses.view');
   const showUsers = can('users.view');
   const showFinance = can('finance.view');
   const showAdministration =

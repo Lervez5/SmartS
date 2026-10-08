@@ -220,6 +220,7 @@ model User {
 
   // Back-references for relations from other models
   teacherClasses       Class[]               @relation("TeacherClasses")
+  assistantClasses     Class[]               @relation("AssistantTeacherClasses")
   teacherCourses       Course[]              @relation("TeacherCourses")
   enrollments          Enrollment[]          @relation("StudentEnrollments")
   courseEnrollments    CourseEnrollment[]    @relation("StudentCourseEnrollments")
@@ -324,6 +325,8 @@ model Subject {
   grades       Grade[]       @relation("SubjectGrades")
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  school       School?       @relation(fields: [schoolId], references: [id])
+  schoolId     String?       @db.ObjectId
 }
 
 model Topic {
@@ -522,26 +525,38 @@ model CourseEnrollment {
 // ====================================================================
 
 model Class {
-  id           String          @id @default(auto()) @map("_id") @db.ObjectId
-  name         String
-  description  String?
-  classCode    String?         @unique
-  gradeLevel   String?
-  teacher      User?           @relation("TeacherClasses", fields: [teacherId], references: [id])
-  teacherId    String?         @db.ObjectId
-  subject      Subject?        @relation("SubjectClasses", fields: [subjectId], references: [id])
-  subjectId    String?         @db.ObjectId
-  courseId     String?         @db.ObjectId
-  course       Course?         @relation(fields: [courseId], references: [id])
-  enrollments  Enrollment[]
-  assignments  Assignment[]    @relation("ClassAssignments")
-  attendance   Attendance[]    @relation("ClassAttendance")
-  schedules    ClassSchedule[]
-  examinations Examination[]   @relation("ClassExams")
-  grades       Grade[]         @relation("ClassGrades")
-  schedule     DateTime?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  /// A class belongs to one school. This is also what makes the class teacher
+  /// and the assistant class teacher meaningful: they are staff of this school
+  /// teaching this class.
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId String @db.ObjectId
+
+  name        String
+  description String?
+  classCode   String? @unique
+  gradeLevel  String?
+  teacher     User?   @relation("TeacherClasses", fields: [teacherId], references: [id])
+  teacherId   String? @db.ObjectId
+
+  /// Assistant class teacher. Distinct from the class teacher because the two
+  /// carry different responsibilities, and both are shown on the class record.
+  assistantTeacher   User?           @relation("AssistantTeacherClasses", fields: [assistantTeacherId], references: [id])
+  assistantTeacherId String?         @db.ObjectId
+  subject            Subject?        @relation("SubjectClasses", fields: [subjectId], references: [id])
+  subjectId          String?         @db.ObjectId
+  courseId           String?         @db.ObjectId
+  course             Course?         @relation(fields: [courseId], references: [id])
+  enrollments        Enrollment[]
+  assignments        Assignment[]    @relation("ClassAssignments")
+  attendance         Attendance[]    @relation("ClassAttendance")
+  schedules          ClassSchedule[]
+  examinations       Examination[]   @relation("ClassExams")
+  grades             Grade[]         @relation("ClassGrades")
+  schedule           DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 }
 
 model Enrollment {
@@ -1192,6 +1207,8 @@ model School {
   glowSettings         SchoolGlowSettings?
   competencyBands      CompetencyBand[]
   academicYears        AcademicYear[]
+  classes              Class[]
+  subjects             Subject[]
 
   @@index([status])
 }

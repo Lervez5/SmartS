@@ -5,6 +5,7 @@ import {
   createClassSchema,
   classScheduleSchema,
 } from './schema';
+import { schoolScopeOf } from '../settings/scope';
 import {
   listCourses,
   getCourse,
@@ -78,7 +79,7 @@ export async function getClassController(req: Request, res: Response): Promise<v
 
 export async function createClassController(req: Request, res: Response): Promise<void> {
   const dto = createClassSchema.parse(req.body);
-  res.status(201).json(await createClass(dto));
+  res.status(201).json(await createClass(dto, schoolScopeOf(req).schoolId));
 }
 
 export async function addScheduleController(req: Request, res: Response): Promise<void> {

@@ -150,9 +150,10 @@ export async function getClass(id: string) {
   return cls;
 }
 
-export async function createClass(dto: CreateClassDto) {
+export async function createClass(dto: CreateClassDto, schoolId: string) {
   return prisma.class.create({
     data: {
+      schoolId,
       name: dto.name,
       description: dto.description,
       classCode: dto.classCode,
