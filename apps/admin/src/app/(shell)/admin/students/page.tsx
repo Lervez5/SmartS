@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useApi } from '@schoolos/hooks';
 import { useAuth } from '@schoolos/auth';
 import {
-  ActionMenu,
+  ActionButtons,
   ContextFilterBar,
   DataTable,
   DashboardCard,
@@ -320,22 +320,21 @@ export default function AdminActiveLearnersPage() {
               window.location.href = `/admin/students/${row.id}`;
             }}
             renderRowActions={(row) => (
-              <ActionMenu
-                label={`Actions for ${displayName(row) || row.email}`}
+              <ActionButtons
                 items={[
                   {
                     id: 'view',
-                    label: 'View profile',
+                    label: `View profile for ${displayName(row) || row.email}`,
                     href: `/admin/students/${row.id}`,
                     icon: 'eye',
                   },
-                  // Only a holder of students.manage is offered editing, and
-                  // the endpoint enforces the same permission server-side.
+                  // Only offered to a holder of students.manage; the endpoint
+                  // enforces the same permission server-side.
                   ...(can('students.manage')
                     ? [
                         {
                           id: 'edit',
-                          label: 'Edit details',
+                          label: `Edit ${displayName(row) || row.email}`,
                           href: `/admin/students/${row.id}/edit`,
                           icon: 'pencil',
                         },
@@ -343,7 +342,7 @@ export default function AdminActiveLearnersPage() {
                     : []),
                   {
                     id: 'id-card',
-                    label: 'ID card',
+                    label: `ID card for ${displayName(row) || row.email}`,
                     href: `/admin/students/${row.id}/id-card`,
                     icon: 'credit-card',
                   },
@@ -351,7 +350,7 @@ export default function AdminActiveLearnersPage() {
                     ? [
                         {
                           id: 'reports',
-                          label: 'Academic reports',
+                          label: `Academic reports for ${displayName(row) || row.email}`,
                           href: '/admin/reports',
                           icon: 'file-bar-chart',
                         },
@@ -361,7 +360,7 @@ export default function AdminActiveLearnersPage() {
                     ? [
                         {
                           id: 'finance',
-                          label: 'Fees and invoices',
+                          label: `Fees and invoices for ${displayName(row) || row.email}`,
                           href: '/admin/finance',
                           icon: 'receipt',
                         },
