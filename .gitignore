@@ -8,6 +8,7 @@ node_modules/
 !.env.example
 **/.env
 **/.env.*
+!**/.env.example
 
 # Python
 __pycache__/
@@ -62,3 +63,19 @@ backend/uploads/*
 
 # Other build artifacts
 *.tsbuildinfo
+*.log
+coverage/
+.cache/
+.eslintcache
+
+# Husky internal directory
+.husky/_/
+
+# Editor backup files
+*~
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/
