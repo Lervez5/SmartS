@@ -16,7 +16,7 @@ import {
 } from '@schoolos/ui';
 
 /**
- * Results Entry — enter learner summative results by learning area.
+ * Results Entry - enter learner summative results by learning area.
  *
  * The context is chosen first, in the order it constrains: an academic session
  * and term decide which assessments exist, a grade narrows them further, and an
@@ -25,7 +25,7 @@ import {
  * wrong assessment or the wrong learners.
  *
  * "Out of" is shown from the assessment's configured maximum and is not editable
- * here — it is the assessment's own value, and the API rejects any score above
+ * here - it is the assessment's own value, and the API rejects any score above
  * it.
  *
  * The grid is learners × learning areas, which is what `Grade` already records.
@@ -158,7 +158,7 @@ export default function AdminResultsEntryPage() {
   const parentClass = classes.find((c) => c.id === classId) ?? null;
 
   // The class is fixed by the assessment, so it is shown rather than chosen
-  // independently — a mismatch would record marks against the wrong learners.
+  // independently - a mismatch would record marks against the wrong learners.
   const effectiveClassId = assessment?.classId ?? '';
 
   // Term needs a session before it can be meaningful.
@@ -440,7 +440,7 @@ export default function AdminResultsEntryPage() {
             </option>
             {classes.map((cls) => (
               <option key={cls.id} value={cls.id}>
-                {[cls.name, cls.gradeLevel].filter(Boolean).join(' — ')}
+                {[cls.name, cls.gradeLevel].filter(Boolean).join(' - ')}
               </option>
             ))}
           </select>
@@ -451,7 +451,7 @@ export default function AdminResultsEntryPage() {
             type="number"
             readOnly
             value={assessment?.maxScore ?? ''}
-            placeholder="—"
+            placeholder="-"
             className="h-10 w-full rounded-md border border-input bg-muted/50 px-2.5 text-sm text-muted-foreground"
           />
         </Field>

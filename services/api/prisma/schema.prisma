@@ -557,7 +557,7 @@ model ExaminationSubject {
 /// Who teaches which learning area to which class.
 ///
 /// This is the real allocation unit. A class offers many learning areas, and a
-/// teacher is responsible for a subset of them in a given class — the maths
+/// teacher is responsible for a subset of them in a given class - the maths
 /// teacher of 7 Blue is not automatically entitled to enter English marks there.
 /// Recording that per pairing is also what makes result entry accountable: a
 /// mark is attributable to the teacher allocated to that learning area, rather
@@ -611,13 +611,10 @@ model Class {
   subject   Subject? @relation("SubjectClasses", fields: [subjectId], references: [id])
   subjectId String?  @db.ObjectId
 
-  classCode  String? @unique
-  gradeLevel String?
-  teacher    User?   @relation("TeacherClasses", fields: [teacherId], references: [id])
-  teacherId  String? @db.ObjectId
-
-  /// Assistant class teachers. A class has one main teacher and any number of
-  /// assistants, so this is a join rather than a second scalar: an assistant is
+  classCode           String?              @unique
+  gradeLevel          String?
+  teacher             User?                @relation("TeacherClasses", fields: [teacherId], references: [id])
+  teacherId           String?              @db.ObjectId
   /// responsible for the same class as the main teacher, and which of them may
   /// manage it is recorded per assignment.
   assistants          ClassAssistant[]
