@@ -872,8 +872,6 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['attendance.view'],
         icon: 'calendar-check',
         order: 5,
-        implemented: false,
-        gap: 'GET /api/attendance/reports exists and is permission-gated, but no admin screen consumes it and there is no school-wide class list to scope a register by. Only per-class marking (POST /api/attendance/mark) and /roster/:classId are implemented.',
       },
       {
         id: 'adm.staff',

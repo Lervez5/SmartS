@@ -3,6 +3,7 @@ import { AttendanceStatus } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../infrastructure/database';
 import { requireRole, requirePermissions } from '../../middleware/rbac';
+import { resolveClassResponsibility } from '../classes/scope';
 import { recordAuditLog } from '../audit-logs/service';
 
 export const router: Router = Router();
@@ -112,15 +113,47 @@ router.post('/mark', requireMark, async (req, res, next) => {
 
     const cls = await prisma.class.findUnique({
       where: { id: payload.classId },
-      select: { id: true, teacherId: true, name: true },
+      select: { id: true, name: true },
     });
     if (!cls) {
       res.status(404).json({ error: { message: 'Class not found' } });
       return;
     }
-    if (req.user!.role === 'TEACHER' && cls.teacherId && cls.teacherId !== req.user!.id) {
-      res.status(403).json({ error: { message: 'You do not teach this class' } });
-      return;
+
+    /*
+     * Marking is scoped to an assignment, not to a role.
+     *
+     * The previous check was `role === 'TEACHER' && cls.teacherId && ...`, which
+     * did three wrong things: it keyed on the role rather than on an
+     * assignment, it ignored assistant class teachers entirely, and it failed
+     * open whenever a class had no main teacher set, letting any teacher mark
+     * any class. An administrative capability opens any class in the school; a
+     * teacher needs the class teacher or assistant class teacher assignment.
+     */
+    if (req.user!.role !== 'SUPER_ADMIN') {
+      const responsibility = await resolveClassResponsibility(req.user!.id, cls.id);
+      if (!responsibility) {
+        res.status(404).json({ error: { message: 'Class not found' } });
+        return;
+      }
+      if (!responsibility.hasAccess) {
+        res.status(403).json({
+          error: {
+            message:
+              'You are not assigned to this class. Marking attendance requires the class teacher or assistant class teacher assignment, not the TEACHER role.',
+          },
+        });
+        return;
+      }
+      if (!responsibility.canManage) {
+        res.status(403).json({
+          error: {
+            message:
+              'You are an assistant class teacher on this class with view-only rights, so you cannot record attendance for it.',
+          },
+        });
+        return;
+      }
     }
 
     const enrolled = await prisma.enrollment.findMany({
@@ -134,74 +167,58 @@ router.post('/mark', requireMark, async (req, res, next) => {
 
     const accepted = payload.records.filter((r) => allowed.has(r.studentId));
 
-    const saved = await prisma
-      .$transaction(
-        accepted.map((record) =>
-          prisma.attendance.upsert({
-            where: {
-              id: `${payload.classId}:${record.studentId}:${date.toISOString().slice(0, 10)}`,
-            },
-            update: {
-              status: record.status,
-              note: record.note,
-              markedAt: new Date(),
-            },
-            create: {
-              id: `${payload.classId}:${record.studentId}:${date.toISOString().slice(0, 10)}`,
-              classId: payload.classId,
-              studentId: record.studentId,
-              status: record.status,
-              note: record.note,
-              date,
-              markedAt: new Date(),
-            },
+    /*
+     * Batched rather than per learner.
+     *
+     * A class can hold fifty learners or more, and the previous path attempted a
+     * composite-id upsert that cannot succeed here, then fell back to a
+     * read-then-write loop: roughly a hundred queries for one register. This
+     * reads the day's existing marks once, updates what changed and inserts the
+     * rest, so a full roster is three round trips.
+     */
+    const markedAt = new Date();
+    const existing = await prisma.attendance.findMany({
+      where: { classId: payload.classId, date: { gte: start, lte: end } },
+      select: { id: true, studentId: true },
+    });
+    const existingByStudent = new Map(existing.map((row) => [row.studentId, row.id]));
+
+    const toCreate = accepted.filter((record) => !existingByStudent.has(record.studentId));
+    const toUpdate = accepted.filter((record) => existingByStudent.has(record.studentId));
+
+    const saved = await prisma.$transaction(async (tx) => {
+      await Promise.all(
+        toUpdate.map((record) =>
+          tx.attendance.update({
+            where: { id: existingByStudent.get(record.studentId)! },
+            data: { status: record.status, note: record.note, markedAt },
           })
         )
-      )
-      .catch(async () => {
-        // The deterministic id is not a valid ObjectId on all records, so fall
-        // back to manual find-then-write.
-        const out = [];
-        for (const record of accepted) {
-          const existing = await prisma.attendance.findFirst({
-            where: {
-              classId: payload.classId,
-              studentId: record.studentId,
-              date: { gte: start, lte: end },
-            },
-          });
-          out.push(
-            existing
-              ? await prisma.attendance.update({
-                  where: { id: existing.id },
-                  data: {
-                    status: record.status,
-                    note: record.note,
-                    markedAt: new Date(),
-                  },
-                })
-              : await prisma.attendance.create({
-                  data: {
-                    classId: payload.classId,
-                    studentId: record.studentId,
-                    status: record.status,
-                    note: record.note,
-                    date,
-                    markedAt: new Date(),
-                  },
-                })
-          );
-        }
-        return out;
-      });
+      );
+
+      if (toCreate.length > 0) {
+        await tx.attendance.createMany({
+          data: toCreate.map((record) => ({
+            classId: payload.classId,
+            studentId: record.studentId,
+            status: record.status,
+            note: record.note,
+            date,
+            markedAt,
+          })),
+        });
+      }
+
+      return accepted.length;
+    });
 
     await recordAuditLog(
       req.user!.id,
       'MARK_ATTENDANCE',
-      `Marked attendance for ${cls.name} (${saved.length} students)`
+      `Marked attendance for ${cls.name} (${saved} learners)`
     );
 
-    res.json({ saved: saved.length, rejected, date });
+    res.json({ saved, rejected, date });
   } catch (e) {
     next(e);
   }

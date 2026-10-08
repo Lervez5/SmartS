@@ -41,6 +41,7 @@ import { router as rolesRouter } from './modules/roles';
 import { router as settingsRouter } from './modules/settings';
 import { router as publicRouter } from './modules/public';
 import { router as uploadsRouter } from './modules/uploads';
+import { router as attendanceRegistersRouter } from './modules/attendance/registers';
 export const router: Router = Router();
 
 router.use('/auth', authRouter);
@@ -52,8 +53,11 @@ router.use('/public', publicRouter);
 
 // The raw body parser for this path is registered in app.ts before the JSON one.
 router.use('/uploads', uploadsRouter);
-
 router.use(requireAuth);
+
+// Registers live under the attendance module, so they mount with it and are
+// therefore behind requireAuth like every other protected route.
+router.use('/attendance', attendanceRegistersRouter);
 
 router.use('/users', usersRouter);
 router.use('/students', studentsRouter);
