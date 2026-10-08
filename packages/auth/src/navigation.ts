@@ -1265,8 +1265,6 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['academics.view'],
         icon: 'split',
         order: 5,
-        implemented: false,
-        gap: 'No Stream model exists. A CBC school groups learners by stream within a grade, so this needs a Stream entity with a parent Grade before enrolment can record it.',
       },
       {
         id: 'adm.sms',

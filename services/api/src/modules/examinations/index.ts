@@ -543,8 +543,8 @@ router.put(
     }
 
     // An interactive transaction rather than the array form: each write depends
-    // on the one before it — update the attempt, resolve the band, write the
-    // grade — and the array form only accepts a flat list of Prisma promises.
+    // on the one before it - update the attempt, resolve the band, write the
+    // grade - and the array form only accepts a flat list of Prisma promises.
     await prisma.$transaction(async (tx) => {
       for (const record of payload.records) {
         const attemptId = byStudent.get(record.studentId);

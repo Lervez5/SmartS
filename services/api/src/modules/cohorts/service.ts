@@ -17,7 +17,12 @@ const cohortSelect = {
   subject: { select: { id: true, name: true } },
   teacher: { select: { id: true, name: true, email: true } },
   // Distinct from the class teacher, so the two are not collapsed.
-  assistantTeacher: { select: { id: true, name: true, email: true } },
+  assistants: {
+    select: {
+      canManage: true,
+      assistant: { select: { id: true, name: true, email: true } },
+    },
+  },
   course: { select: { id: true, title: true } },
   schedules: {
     select: {
@@ -41,7 +46,12 @@ type CohortRow = {
   schedule: Date | null;
   subject: { id: string; name: string } | null;
   teacher: { id: string; name: string | null; email: string } | null;
-  assistantTeacher: { id: string; name: string | null; email: string } | null;
+  /// Assistant class teachers, with the rights each assignment grants. Recorded
+  /// per assignment rather than inferred from a role.
+  assistants: Array<{
+    canManage: boolean;
+    assistant: { id: string; name: string | null; email: string };
+  }>;
   course: { id: string; title: string } | null;
   schedules: Array<{
     id: string;

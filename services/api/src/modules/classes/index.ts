@@ -17,7 +17,12 @@ const classInclude = {
   teacher: { select: { id: true, name: true, email: true } },
   // The assistant class teacher is a separate role from the class teacher, so
   // both are returned rather than collapsed into one field.
-  assistantTeacher: { select: { id: true, name: true, email: true } },
+  assistants: {
+    select: {
+      canManage: true,
+      assistant: { select: { id: true, name: true, email: true } },
+    },
+  },
   schedules: true,
   _count: { select: { enrollments: true } },
 } as const;

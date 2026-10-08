@@ -220,7 +220,7 @@ model User {
 
   // Back-references for relations from other models
   teacherClasses       Class[]               @relation("TeacherClasses")
-  assistantClasses     Class[]               @relation("AssistantTeacherClasses")
+  classAssistants      ClassAssistant[]      @relation("ClassAssistants")
   teacherCourses       Course[]              @relation("TeacherCourses")
   enrollments          Enrollment[]          @relation("StudentEnrollments")
   courseEnrollments    CourseEnrollment[]    @relation("StudentCourseEnrollments")
@@ -415,6 +415,12 @@ enum CompetencyLevel {
   BE
 }
 
+enum StreamStatus {
+  active
+  inactive
+  archived
+}
+
 enum AssessmentStatus {
   draft
   published
@@ -540,23 +546,25 @@ model Class {
   teacher     User?   @relation("TeacherClasses", fields: [teacherId], references: [id])
   teacherId   String? @db.ObjectId
 
-  /// Assistant class teacher. Distinct from the class teacher because the two
-  /// carry different responsibilities, and both are shown on the class record.
-  assistantTeacher   User?           @relation("AssistantTeacherClasses", fields: [assistantTeacherId], references: [id])
-  assistantTeacherId String?         @db.ObjectId
-  subject            Subject?        @relation("SubjectClasses", fields: [subjectId], references: [id])
-  subjectId          String?         @db.ObjectId
-  courseId           String?         @db.ObjectId
-  course             Course?         @relation(fields: [courseId], references: [id])
-  enrollments        Enrollment[]
-  assignments        Assignment[]    @relation("ClassAssignments")
-  attendance         Attendance[]    @relation("ClassAttendance")
-  schedules          ClassSchedule[]
-  examinations       Examination[]   @relation("ClassExams")
-  grades             Grade[]         @relation("ClassGrades")
-  schedule           DateTime?
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
+  /// Assistant class teachers. A class has one main teacher and any number of
+  /// assistants, so this is a join rather than a second scalar: an assistant is
+  /// responsible for the same class as the main teacher, and which of them may
+  /// manage it is recorded per assignment.
+  assistants   ClassAssistant[]
+  subject      Subject?         @relation("SubjectClasses", fields: [subjectId], references: [id])
+  subjectId    String?          @db.ObjectId
+  courseId     String?          @db.ObjectId
+  course       Course?          @relation(fields: [courseId], references: [id])
+  enrollments  Enrollment[]
+  assignments  Assignment[]     @relation("ClassAssignments")
+  attendance   Attendance[]     @relation("ClassAttendance")
+  schedules    ClassSchedule[]
+  streams      Stream[]
+  examinations Examination[]    @relation("ClassExams")
+  grades       Grade[]          @relation("ClassGrades")
+  schedule     DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 }
 
 model Enrollment {
@@ -566,6 +574,8 @@ model Enrollment {
   class     Class    @relation(fields: [classId], references: [id])
   classId   String   @db.ObjectId
   createdAt DateTime @default(now())
+  stream    Stream?  @relation(fields: [streamId], references: [id])
+  streamId  String?  @db.ObjectId
 
   @@unique([studentId, classId])
 }
@@ -746,6 +756,58 @@ model CompetencyBand {
 
   @@unique([schoolId, level])
   @@index([schoolId])
+}
+
+/// A subdivision of a class.
+///
+/// A stream never replaces the class: attendance, timetabling and assessment all
+/// stay anchored to the class, and the stream is how a class is split into
+/// teaching groups within it. It therefore carries no teacher of its own -
+/// responsibility belongs to the class's main teacher and assistants, and a
+/// stream-level assignment would compete with that rather than extend it.
+model Stream {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  class Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  /// Unique within the class, since two streams in one class cannot share a code.
+  classId  String       @db.ObjectId
+  name     String
+  code     String
+  /// Optional ordering within the class, where a school numbers its streams.
+  capacity Int?
+  status   StreamStatus @default(active)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  enrollments Enrollment[]
+
+  @@unique([classId, code])
+  @@index([classId])
+  @@index([status])
+}
+
+/// An assistant class teacher, with the rights that assignment grants.
+///
+/// `canManage` is what lets a school give an assistant the same operational
+/// rights as the main class teacher, or fewer. It is recorded on the assignment
+/// rather than inferred from a global role, so being a TEACHER never implies
+/// authority over a class one was not assigned to.
+model ClassAssistant {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId String @db.ObjectId
+
+  assistant   User   @relation("ClassAssistants", fields: [assistantId], references: [id])
+  assistantId String @db.ObjectId
+
+  /// Whether this assistant may manage the class, or may only view it.
+  canManage Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@unique([classId, assistantId])
+  @@index([assistantId])
 }
 
 model Grade {
@@ -1471,7 +1533,7 @@ model SchoolSecuritySettings {
 
 /// Daily Glow configuration. The Daily Glow experience does not exist in the
 /// codebase yet; these fields are the configuration surface it will read, and
-/// no behavioural controls are exposed until it is implemented.
+/// no behavioural controls are exposed until it is implemented completely.
 model SchoolGlowSettings {
   id       String @id @default(auto()) @map("_id") @db.ObjectId
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)

@@ -12,6 +12,7 @@ import { router as staffRouter } from './modules/staff';
 import { router as admissionsRouter } from './modules/admissions';
 import { router as academicsRouter } from './modules/academics';
 import { router as academicSessionsRouter } from './modules/academic-sessions';
+import { router as streamsRouter } from './modules/academics/streams';
 import { router as classesRouter } from './modules/classes';
 import { router as subjectsRouter } from './modules/subjects';
 import { router as attendanceRouter } from './modules/attendance';
@@ -81,5 +82,6 @@ router.use('/audit-logs', auditLogsRouter);
 router.use('/roles', rolesRouter);
 router.use('/settings', settingsRouter);
 router.use('/academic-sessions', academicSessionsRouter);
+router.use('/streams', streamsRouter);
 
 router.use('/reports', reportsRouter);
