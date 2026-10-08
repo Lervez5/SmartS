@@ -86,7 +86,7 @@ export function AcademicSettingsSection() {
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <Field
                   label="Current Academic Year ID"
-                  hint="Free text for now — no AcademicYear model exists to reference"
+                  hint="Free text for now - no AcademicYear model exists to reference"
                 >
                   <TextInput
                     value={str(v.currentAcademicYearId)}

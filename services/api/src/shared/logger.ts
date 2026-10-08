@@ -19,7 +19,7 @@ const devFormat = winston.format.combine(
      * This used to read `info.metadata`, which is always undefined: winston
      * spreads the second argument's keys across the top level of `info`, not
      * into a `metadata` namespace. Every log line in the API therefore printed
-     * a trailing `""` and silently dropped its context — error messages, port
+     * a trailing `""` and silently dropped its context - error messages, port
      * numbers and env were all invisible, which is how a startup failure could
      * report nothing actionable at all.
      */

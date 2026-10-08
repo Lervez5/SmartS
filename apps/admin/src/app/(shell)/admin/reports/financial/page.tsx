@@ -16,7 +16,7 @@ import {
 } from '@schoolos/ui';
 
 /**
- * `GET /api/reporting/financial` — gated by `reports.finance`.
+ * `GET /api/reporting/financial` - gated by `reports.finance`.
  *
  * A real endpoint: the service aggregates Invoice and Expense collections over
  * the window, so the figures here come from the database rather than being
@@ -43,10 +43,10 @@ function money(cents: number | undefined, currency = 'KES'): string {
 }
 
 function date(value?: string): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
-    ? '—'
+    ? '-'
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 

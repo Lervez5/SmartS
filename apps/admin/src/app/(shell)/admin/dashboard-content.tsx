@@ -160,7 +160,7 @@ function AcademicOverview() {
     {
       id: 'subject',
       header: 'Learning Area',
-      cell: (row) => row.subject?.name ?? '—',
+      cell: (row) => row.subject?.name ?? '-',
       hideBelow: 'sm',
     },
     {
@@ -248,7 +248,7 @@ function AcademicOverview() {
 }
 
 /* ------------------------------------------------------------------ *
- * User rollup (SUPER_ADMIN only — gated by users.view)
+ * User rollup (SUPER_ADMIN only - gated by users.view)
  * ------------------------------------------------------------------ */
 
 function UsersOverview() {
@@ -369,7 +369,7 @@ function UsersOverview() {
                   id: 'role',
                   header: 'Role',
                   hideBelow: 'sm',
-                  cell: (row) => (row.role ? roleLabel(row.role) : '—'),
+                  cell: (row) => (row.role ? roleLabel(row.role) : '-'),
                 },
                 {
                   id: 'status',

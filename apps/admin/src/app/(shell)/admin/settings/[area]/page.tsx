@@ -21,8 +21,8 @@ import {
 /**
  * Settings area router.
  *
- * The area list comes from `SETTINGS_AREAS` in `@schoolos/auth` — the same
- * constant the API re-exports — so a screen can never exist for an area the
+ * The area list comes from `SETTINGS_AREAS` in `@schoolos/auth` - the same
+ * constant the API re-exports - so a screen can never exist for an area the
  * service does not serve. Each area maps to exactly one section component over
  * the `SettingsSection` primitive, which owns load/save/permission handling.
  */

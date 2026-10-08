@@ -502,6 +502,13 @@ export function TopNavbar({
           <Menu className="h-[22px] w-[22px]" />
         </button>
 
+        {/*
+          Same identity as the sidebar: the school's configured logo and name
+          with the portal beneath it, so the two never disagree. Below `sm`
+          the navbar keeps the name but drops the portal line, because the
+          academic context and actions need the width - the mobile drawer
+          carries the full pair.
+        */}
         <BrandMark
           logoUrl={logoUrl}
           schoolName={schoolName}
@@ -513,8 +520,7 @@ export function TopNavbar({
           logoUrl={logoUrl}
           schoolName={schoolName}
           size="sm"
-          markOnly
-          className="sm:hidden"
+          className="flex min-w-0 sm:hidden"
         />
       </div>
 

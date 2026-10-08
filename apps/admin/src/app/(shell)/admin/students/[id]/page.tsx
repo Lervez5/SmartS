@@ -23,7 +23,7 @@ import {
  *
  * Reads the same `GET /api/students` directory the Active Learners page uses
  * and selects the requested learner. There is no per-learner endpoint and no
- * edit endpoint, so this is a read view over the directory response — adding a
+ * edit endpoint, so this is a read view over the directory response - adding a
  * dedicated `GET /api/students/:id` is the obvious next step once the
  * directory stops being the only source.
  */
@@ -58,10 +58,10 @@ const STATUS_TONE = {
 } as const;
 
 function formatDate(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
-    ? '—'
+    ? '-'
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -131,26 +131,26 @@ export default function AdminLearnerProfilePage() {
   const name = displayName(learner);
 
   const detailRows = [
-    { field: 'Full name', value: name || '—' },
+    { field: 'Full name', value: name || '-' },
     { field: 'Email', value: learner.email },
-    { field: 'Phone', value: learner.phone || '—' },
+    { field: 'Phone', value: learner.phone || '-' },
     { field: 'Date of birth', value: formatDate(learner.dateOfBirth) },
     {
       field: 'Gender',
       value:
         learner.gender && learner.gender !== 'unspecified'
           ? learner.gender.charAt(0).toUpperCase() + learner.gender.slice(1)
-          : '—',
+          : '-',
     },
     { field: 'Enrolment date', value: formatDate(learner.enrollmentDate) },
     {
       field: 'Admission identifier',
-      value: learner.admissionId || '—',
+      value: learner.admissionId || '-',
       mono: Boolean(learner.admissionId),
     },
     { field: 'Class', value: learner.class?.name ?? 'Unplaced' },
-    { field: 'Class code', value: learner.class?.classCode || '—' },
-    { field: 'Grade level', value: learner.class?.gradeLevel ?? learner.gradeLevel ?? '—' },
+    { field: 'Class code', value: learner.class?.classCode || '-' },
+    { field: 'Grade level', value: learner.class?.gradeLevel ?? learner.gradeLevel ?? '-' },
     { field: 'Stream', value: 'No stream in the data model' },
     { field: 'Linked guardians', value: String(learner.guardians) },
     { field: 'Record id', value: learner.id, mono: true },
@@ -241,7 +241,7 @@ export default function AdminLearnerProfilePage() {
         <DashboardCard title="Class" value={learner.class?.name ?? 'Unplaced'} icon="users-round" />
         <DashboardCard
           title="Grade level"
-          value={learner.class?.gradeLevel ?? learner.gradeLevel ?? '—'}
+          value={learner.class?.gradeLevel ?? learner.gradeLevel ?? '-'}
           icon="layers"
         />
         <DashboardCard title="Guardians linked" value={learner.guardians} icon="users" />

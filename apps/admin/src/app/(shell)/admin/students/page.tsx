@@ -20,7 +20,7 @@ import {
 } from '@schoolos/ui';
 
 /**
- * Active Learners — the learner directory.
+ * Active Learners - the learner directory.
  *
  * Data comes from `GET /api/students`, which is gated by `students.view` and
  * returns StudentProfile joined to User plus the learner's class placement via
@@ -76,10 +76,10 @@ function displayName(learner: Learner): string {
 }
 
 function formatDate(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
-    ? '—'
+    ? '-'
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -203,7 +203,7 @@ export default function AdminActiveLearnersPage() {
             {row.admissionId.slice(-8)}
           </span>
         ) : (
-          <span className="text-muted-foreground">—</span>
+          <span className="text-muted-foreground">-</span>
         ),
       sortValue: (row) => row.admissionId ?? '',
     },
@@ -214,7 +214,7 @@ export default function AdminActiveLearnersPage() {
         row.gender && row.gender !== 'unspecified' ? (
           <span className="text-sm capitalize text-foreground">{row.gender}</span>
         ) : (
-          <span className="text-muted-foreground">—</span>
+          <span className="text-muted-foreground">-</span>
         ),
       sortValue: (row) => row.gender ?? '',
     },

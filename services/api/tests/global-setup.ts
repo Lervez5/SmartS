@@ -8,7 +8,7 @@
  * produced spurious 403s.
  *
  * The env assignment must precede the Prisma import, and ESM hoists imports
- * above statements — so every runtime dependency is pulled in with a dynamic
+ * above statements - so every runtime dependency is pulled in with a dynamic
  * `import()` after `process.env` is set. A static import here builds the client
  * against the repo-root .env (the main `schoolos` database) and silently syncs
  * the wrong database.

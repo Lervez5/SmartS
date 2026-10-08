@@ -107,7 +107,7 @@ router.get(
             phone: true,
             // Class placement hangs off User, not StudentProfile: the
             // Enrollment relation is declared on User. A learner is placed
-            // through Enrollment, so the directory follows the same path —
+            // through Enrollment, so the directory follows the same path -
             // and returns both the placement and StudentProfile.gradeLevel
             // because the two can disagree.
             enrollments: {

@@ -10,7 +10,7 @@ import { ErrorState, LoadingState, SectionHeader, initialsOf } from '@schoolos/u
  * Learner ID card.
  *
  * A rendered document, not a stored record: everything on the card is read from
- * data the platform already holds — the school's configured name and logo from
+ * data the platform already holds - the school's configured name and logo from
  * SchoolBrandingSettings, and the learner's identity from StudentProfile and
  * User. No new model is introduced, because nothing here needs persisting: a
  * card is generated on demand and printed.
@@ -194,7 +194,7 @@ export default function AdminLearnerIdCardPage() {
                 {/* The only admission identifier the schema carries is a raw
                     ObjectId, so the tail is what is legible. */}
                 <dd className="truncate font-mono text-xs text-foreground">
-                  {learner.admissionId ? learner.admissionId.slice(-8).toUpperCase() : '—'}
+                  {learner.admissionId ? learner.admissionId.slice(-8).toUpperCase() : '-'}
                 </dd>
               </div>
               <div>
@@ -215,8 +215,8 @@ export default function AdminLearnerIdCardPage() {
 
       <p className="text-xs text-muted-foreground">
         The card is generated on demand and is not stored, so reissuing one after a name or class
-        change produces the current record. Tracking issuance — when a card was printed, by whom,
-        and replacements — needs an issuance record, which does not exist yet.
+        change produces the current record. Tracking issuance - when a card was printed, by whom,
+        and replacements - needs an issuance record, which does not exist yet.
       </p>
     </div>
   );

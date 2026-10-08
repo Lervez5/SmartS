@@ -18,7 +18,7 @@ import {
 } from '@schoolos/ui';
 
 /**
- * `GET /api/reporting/attendance` — gated by `reports.attendance`.
+ * `GET /api/reporting/attendance` - gated by `reports.attendance`.
  *
  * A real endpoint: the service aggregates Attendance by status, by class and
  * across the window, and resolves class names before returning.
@@ -41,10 +41,10 @@ const TONE: Record<string, StatusTone> = {
 };
 
 function date(value?: string): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
-    ? '—'
+    ? '-'
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 

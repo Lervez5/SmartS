@@ -6,7 +6,7 @@
  *
  * 1. The Prisma CLI could not run. `prisma validate`, `prisma generate` and
  *    `prisma db push` resolve `env("DATABASE_URL")` from a `.env` beside the
- *    CLI, but this workspace keeps a single `.env` at the repo root — the app
+ *    CLI, but this workspace keeps a single `.env` at the repo root - the app
  *    loads it explicitly in `src/config/index.ts`, the CLI never learned to.
  *    Every prisma command failed with P1012 until this wrapper loaded it.
  *

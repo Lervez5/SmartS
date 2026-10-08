@@ -815,12 +815,12 @@ const ADMIN_NAV: NavSection[] = [
   {
     /**
      * People: the school's human population, in the order an administrator
-     * works through it — current learners, those joining, those who have left,
+     * works through it - current learners, those joining, those who have left,
      * their guardians, daily presence, then staff.
      *
      * Attendance moved in here from its own single-item section. It is a
      * property of a learner on a given day, so grouping it with the people it
-     * describes reads better than a separate top-level entry — and it keeps one
+     * describes reads better than a separate top-level entry - and it keeps one
      * "People" group rather than splitting the population across two headings.
      */
     id: 'people',
@@ -1242,7 +1242,7 @@ const ADMIN_NAV: NavSection[] = [
         icon: 'user-round-check',
         order: 2,
         implemented: false,
-        gap: 'Allocation is representable — Class.teacherId and Course.teacherId both point at User — but there is no route to read or reassign them. GET /api/subjects has no RBAC guard, so a scoped allocation view has to be built before this screen is safe.',
+        gap: 'Allocation is representable - Class.teacherId and Course.teacherId both point at User - but there is no route to read or reassign them. GET /api/subjects has no RBAC guard, so a scoped allocation view has to be built before this screen is safe.',
       },
       {
         id: 'adm.student-transitions',
@@ -1770,7 +1770,7 @@ export function hasAnyNavigation(
  *
  * Derived from the registry rather than hardcoded per component. The user menu
  * needs a settings link, and the admin portal serves it at `/admin/settings`
- * while the other three serve `/settings` — a single `/settings` default sent
+ * while the other three serve `/settings` - a single `/settings` default sent
  * admin users to a route that does not exist, which the portal middleware then
  * redirected to the sign-in page.
  *

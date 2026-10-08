@@ -20,7 +20,11 @@ import { ErrorState, LoadingState } from './block';
 interface BrandingResponse {
   logoUrl?: string | null;
   portalNameOverride?: string | null;
-  school?: { displayName?: string | null; name?: string | null };
+  // Flat, matching the endpoint. `school` is accepted so a nested shape would
+  // still resolve rather than silently falling back.
+  displayName?: string | null;
+  name?: string | null;
+  school?: { displayName?: string | null; name?: string | null } | null;
 }
 
 /** Shape of `GET /api/settings/general`, used for the support channel. */
@@ -40,7 +44,7 @@ export interface PortalLayoutProps {
   /**
    * Support channel. Defaults to the school's configured official email as a
    * `mailto:` link, and the navbar hides the entry when the school has not
-   * configured one — rather than pointing at a help desk that does not exist.
+   * configured one - rather than pointing at a help desk that does not exist.
    */
   supportHref?: string | null;
 }
@@ -202,6 +206,12 @@ export function PortalLayout({
       schoolName={
         schoolName ??
         branding?.portalNameOverride ??
+        // GET /api/settings/branding returns a FLAT projection: displayName and
+        // name sit at the top level. Reading a nested `school` here meant the
+        // name never resolved and the shell fell back to "School Management
+        // Platform" in both the navbar and the sidebar.
+        branding?.displayName ??
+        branding?.name ??
         branding?.school?.displayName ??
         branding?.school?.name ??
         null
