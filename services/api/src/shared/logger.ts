@@ -10,10 +10,24 @@ const consoleFormat = winston.format.combine(
 
 const devFormat = winston.format.combine(
   winston.format.timestamp(),
-  winston.format.errors({ stack: true }),
   winston.format.colorize(),
+  winston.format.errors({ stack: true }),
   winston.format.printf((info) => {
-    return `${info.timestamp} [${info.level}]: ${info.message} ${JSON.stringify(info.metadata || '')}`;
+    /**
+     * Render whatever the caller attached as extra fields.
+     *
+     * This used to read `info.metadata`, which is always undefined: winston
+     * spreads the second argument's keys across the top level of `info`, not
+     * into a `metadata` namespace. Every log line in the API therefore printed
+     * a trailing `""` and silently dropped its context — error messages, port
+     * numbers and env were all invisible, which is how a startup failure could
+     * report nothing actionable at all.
+     */
+    const { timestamp, level, message, stack, service, ...rest } = info as Record<string, unknown>;
+    const context = Object.keys(rest).length > 0 ? ` ${JSON.stringify(rest)}` : '';
+    const trace = typeof stack === 'string' && stack ? `\n${stack}` : '';
+
+    return `${timestamp} [${level}]: ${message}${context}${trace}`;
   })
 );
 
