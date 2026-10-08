@@ -227,6 +227,7 @@ export default function AdminEnrollLearnerPage() {
               <TextInput
                 value={admissionId}
                 onChange={(event) => setAdmissionId(event.target.value)}
+                placeholder="admission identifier"
               />
             </Field>
             <Field label="Gender">
@@ -241,6 +242,7 @@ export default function AdminEnrollLearnerPage() {
                 type="date"
                 value={dateOfBirth}
                 onChange={(event) => setDateOfBirth(event.target.value)}
+                placeholder="mm/dd/yyyy"
               />
             </Field>
           </div>

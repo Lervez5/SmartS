@@ -241,6 +241,7 @@ export default function AdminNewAssessmentPage() {
               type="date"
               value={startDate}
               onChange={(event) => setStartDate(event.target.value)}
+              placeholder="mm/dd/yyyy"
             />
           </Field>
           <Field
@@ -251,6 +252,7 @@ export default function AdminNewAssessmentPage() {
               type="date"
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
+              placeholder="mm/dd/yyyy"
             />
           </Field>
           <Field label="Maximum score" hint="Marks above this are rejected by the API">
@@ -259,6 +261,7 @@ export default function AdminNewAssessmentPage() {
               min={0}
               value={maxScore}
               onChange={(event) => setMaxScore(event.target.value)}
+              placeholder="100"
             />
           </Field>
         </div>
@@ -269,6 +272,7 @@ export default function AdminNewAssessmentPage() {
               rows={3}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
+              placeholder="A short introduction, used on reports and the website."
             />
           </Field>
         </div>

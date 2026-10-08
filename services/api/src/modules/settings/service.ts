@@ -146,6 +146,40 @@ function auditSafe(area: SettingsArea, before: unknown, after: unknown) {
  * write is confirmed before returning: a caller only sees a success response
  * when MongoDB accepted the change.
  */
+/**
+ * Record metadata that a read returns and a write must not send back.
+ *
+ * The settings records carry `id`, `schoolId` and `updatedAt` alongside the
+ * configuration. They are storage identity, not configuration, and the area
+ * schemas are strict objects — so echoing a read straight back failed with
+ * "Unrecognized key(s) in object".
+ */
+const RECORD_METADATA_KEYS = new Set(['id', 'schoolId', 'createdAt', 'updatedAt']);
+
+/**
+ * Prepares an incoming payload for validation.
+ *
+ * Two normalisations, both required for a read to be writable back:
+ *
+ *  1. `null` keys are dropped. Every unset optional column comes back from
+ *     Mongo as `null`, while the schemas declare `.optional()` — which permits
+ *     an absent key but rejects an explicit `null`. Removing the key means "no
+ *     opinion" and leaves the stored value alone.
+ *  2. Record metadata is dropped, because it is not configuration.
+ *
+ * Clearing a field stays expressible: the forms send an empty string, which
+ * each schema already maps the way it intends.
+ */
+function normaliseSettingsInput(input: unknown): unknown {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) return input;
+
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    if (value !== null && !RECORD_METADATA_KEYS.has(key)) out[key] = value;
+  }
+  return out;
+}
+
 export async function updateSettings(
   actorId: string,
   schoolId: string,
@@ -158,7 +192,7 @@ export async function updateSettings(
     throw new ApiError(404, `Unknown settings area "${area}"`);
   }
 
-  const parsed = schema.safeParse(input);
+  const parsed = schema.safeParse(normaliseSettingsInput(input));
   if (!parsed.success) {
     throw new ApiError(422, 'Some settings are not valid', parsed.error.flatten());
   }

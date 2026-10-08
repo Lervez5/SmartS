@@ -55,6 +55,7 @@ export function SecuritySettingsSection() {
                     max={128}
                     value={str(v.passwordMinLength)}
                     onChange={(e) => set('passwordMinLength', Number(e.target.value))}
+                    placeholder="8"
                   />
                 </Field>
                 <Field label="Expiry (days)" hint="Blank means passwords never expire">
@@ -65,6 +66,7 @@ export function SecuritySettingsSection() {
                     onChange={(e) =>
                       set('passwordExpiryDays', e.target.value ? Number(e.target.value) : undefined)
                     }
+                    placeholder="180"
                   />
                 </Field>
               </div>
@@ -100,6 +102,7 @@ export function SecuritySettingsSection() {
                     max={100}
                     value={str(v.maxFailedLogins)}
                     onChange={(e) => set('maxFailedLogins', Number(e.target.value))}
+                    placeholder="5"
                   />
                 </Field>
                 <Field label="Lockout Duration (minutes)">
@@ -108,6 +111,7 @@ export function SecuritySettingsSection() {
                     min={1}
                     value={str(v.lockoutMinutes)}
                     onChange={(e) => set('lockoutMinutes', Number(e.target.value))}
+                    placeholder="15"
                   />
                 </Field>
               </div>
@@ -154,6 +158,7 @@ export function SecuritySettingsSection() {
                     min={5}
                     value={str(v.sessionTimeoutMinutes)}
                     onChange={(e) => set('sessionTimeoutMinutes', Number(e.target.value))}
+                    placeholder="480"
                   />
                 </Field>
                 <Field label="Reset Token Expiry (minutes)">
@@ -162,6 +167,7 @@ export function SecuritySettingsSection() {
                     min={5}
                     value={str(v.passwordResetExpiryMinutes)}
                     onChange={(e) => set('passwordResetExpiryMinutes', Number(e.target.value))}
+                    placeholder="30"
                   />
                 </Field>
               </div>

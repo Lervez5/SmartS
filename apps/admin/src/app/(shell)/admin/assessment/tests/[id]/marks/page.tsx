@@ -391,6 +391,7 @@ export default function AdminAssessmentMarksPage() {
                             }));
                             setDone(null);
                           }}
+                          placeholder="0"
                           aria-label={`Score for ${attempt.name}`}
                           className="h-9 w-24 rounded-md border border-input bg-background px-2.5 text-right text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         />

@@ -189,7 +189,11 @@ export default function AdminEditAcademicSessionPage() {
       >
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <Field label="Session identifier" required>
-            <TextInput value={name} onChange={(event) => setName(event.target.value)} />
+            <TextInput
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="2026"
+            />
           </Field>
           <Field label="Display label">
             <TextInput
@@ -203,6 +207,7 @@ export default function AdminEditAcademicSessionPage() {
               type="date"
               value={startDate}
               onChange={(event) => setStartDate(event.target.value)}
+              placeholder="mm/dd/yyyy"
             />
           </Field>
           <Field
@@ -214,6 +219,7 @@ export default function AdminEditAcademicSessionPage() {
               type="date"
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
+              placeholder="mm/dd/yyyy"
             />
           </Field>
           <Field

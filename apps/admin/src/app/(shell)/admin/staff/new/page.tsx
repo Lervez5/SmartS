@@ -232,6 +232,7 @@ export default function AdminAddStaffPage() {
               <TextInput
                 value={employeeId}
                 onChange={(event) => setEmployeeId(event.target.value)}
+                placeholder="EMP-0042"
               />
             </Field>
             <Field label="Hire date">
@@ -239,6 +240,7 @@ export default function AdminAddStaffPage() {
                 type="date"
                 value={hireDate}
                 onChange={(event) => setHireDate(event.target.value)}
+                placeholder="mm/dd/yyyy"
               />
             </Field>
           </div>
