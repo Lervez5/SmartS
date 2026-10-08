@@ -494,6 +494,7 @@ model AcademicYear {
   streamAllocations   StreamAllocation[]
   classes             Class[]
   streams             Stream[]
+  enrollments         Enrollment[]
 
   @@unique([schoolId, name])
   @@index([status])
@@ -750,16 +751,27 @@ model Class {
 }
 
 model Enrollment {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  student   User?    @relation("StudentEnrollments", fields: [studentId], references: [id])
-  studentId String?  @db.ObjectId
-  class     Class    @relation(fields: [classId], references: [id])
-  classId   String   @db.ObjectId
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  student        User?         @relation("StudentEnrollments", fields: [studentId], references: [id])
+  studentId      String?       @db.ObjectId
+  class          Class         @relation(fields: [classId], references: [id])
+  classId        String        @db.ObjectId
+  /// When the learner joined this class. Distinct from `createdAt` so an
+  /// archival or data-migration import can record a past enrolment date rather
+  /// than the row-creation timestamp.
+  startDate      DateTime?
+
   createdAt DateTime @default(now())
   stream    Stream?  @relation(fields: [streamId], references: [id])
   streamId  String?  @db.ObjectId
 
+  /// The academic session the enrolment belongs to, so the lifecycle timeline
+  /// can attribute each class placement to the session the learner joined it in.
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id])
+  academicYearId String?       @db.ObjectId
+
   @@unique([studentId, classId])
+  @@index([academicYearId])
 }
 
 model ClassSchedule {

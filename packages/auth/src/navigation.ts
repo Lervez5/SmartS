@@ -1480,11 +1480,9 @@ const ADMIN_NAV: NavSection[] = [
         id: 'adm.student-transitions',
         label: 'Student Transitions',
         href: '/admin/academics/student-transitions',
-        permissions: ['students.manage'],
+        permissions: ['students.view'],
         icon: 'arrow-right-left',
         order: 3,
-        implemented: false,
-        gap: 'No promotion or transfer workflow exists. StudentProfile.gradeLevel is a free-text string, SchoolAcademicSettings.promotionRule is an unapplied string, and there is no route that moves a learner between classes or closes a session.',
       },
       {
         id: 'adm.grades',
