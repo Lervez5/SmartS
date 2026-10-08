@@ -10,12 +10,11 @@
  * request.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authClient, errorMessage } from '../client';
 import { useAuthStore } from '../store';
-import { normalizeRole, ROLE_HOME } from '../roles';
-import type { UserRole } from '../roles';
+import { normalizeRole, ROLE_HOME, ROLE_APP, APP_URLS, type UserRole, type AppId } from '../roles';
 import { AuthForm } from './primitives';
 import type { Permission } from '../permissions';
 
@@ -74,6 +73,18 @@ export function LoginForm({ appId, schoolName, forgotPasswordHref }: LoginFormPr
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
+  // If the user is already authenticated in the correct portal, send them to
+  // their home rather than re-showing the login form.
+  useEffect(() => {
+    const store = useAuthStore.getState();
+    if (store.user?.appId === appId && store.isAuthenticated) {
+      const role = normalizeRole(store.user.role) as UserRole | null;
+      if (role) {
+        router.replace(ROLE_HOME[role] ?? '/');
+      }
+    }
+  }, [appId, router]);
+
   async function handleSubmit(data: Record<string, unknown>) {
     const email = String(data.email ?? '').trim();
     const password = String(data.password ?? '');
@@ -96,6 +107,17 @@ export function LoginForm({ appId, schoolName, forgotPasswordHref }: LoginFormPr
       const role = normalizeRole(res.user.role) as UserRole | null;
       if (!role) {
         setError('Unrecognized role in session');
+        return;
+      }
+
+      // Portal eligibility: the backend authenticated the credential, but this
+      // form only accepts the identity if it belongs to this portal. A valid
+      // Teacher / Parent / DEAN / ACCOUNTANT / SUPER_ADMIN credential must not
+      // enter the Student portal merely because the credentials are valid.
+      if (res.user.appId !== appId) {
+        const correctRole = res.user.appId as AppId;
+        const targetUrl = APP_URLS[correctRole] ?? ROLE_HOME[role] ?? '/';
+        window.location.href = targetUrl;
         return;
       }
 
@@ -184,7 +206,7 @@ export function LoginForm({ appId, schoolName, forgotPasswordHref }: LoginFormPr
 
       {schoolName ? (
         <p className="text-xs text-muted-foreground">
-          Signing in to{' '}
+          Signing in to {' '}
           <span className="font-semibold text-foreground">{schoolName}</span>
         </p>
       ) : null}
