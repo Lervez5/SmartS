@@ -31,4 +31,25 @@ describe('Settings', () => {
     const res = await adminAgent.get(`${API_BASE}/settings`);
     expect([200, 404]).toContain(res.status);
   });
+
+  it('allows authenticated users to read personal preferences', async () => {
+    const res = await teacherAgent.get(`${API_BASE}/settings/personal`);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('settings');
+  });
+
+  it('allows authenticated users to update personal preferences', async () => {
+    const res = await teacherAgent.put(`${API_BASE}/settings/personal`).send({
+      theme: 'dark',
+      emailNotifications: false,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.settings.theme).toBe('dark');
+    expect(res.body.settings.emailNotifications).toBe(false);
+  });
+
+  it('rejects unauthenticated access to personal preferences', async () => {
+    const res = await request(appInstance).get(`${API_BASE}/settings/personal`);
+    expect(res.status).toBe(401);
+  });
 });

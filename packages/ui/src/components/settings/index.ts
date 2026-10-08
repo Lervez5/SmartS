@@ -15,3 +15,6 @@ export { NotificationsSettingsSection } from './NotificationsSettingsSection';
 export { SecuritySettingsSection } from './SecuritySettingsSection';
 export { SubscriptionSettingsSection } from './SubscriptionSettingsSection';
 export { GlowSettingsSection } from './GlowSettingsSection';
+export { PersonalSettingsSection } from './PersonalSettingsSection';
+export { ProfileSettingsSection } from './ProfileSettingsSection';
+export { AccountSecuritySettingsSection } from './AccountSecuritySettingsSection';

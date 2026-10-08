@@ -19,6 +19,7 @@ export interface AuthUser {
   firstName?: string;
   lastName?: string;
   avatar?: string;
+  phone?: string;
   permissions: Permission[];
   appId: AppId;
   sessionTokenVersion?: number;

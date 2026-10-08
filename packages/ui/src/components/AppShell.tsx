@@ -227,7 +227,6 @@ export function QuickActions({
       >
         <NavIcon name="plus" className="h-4 w-4" />
         <span className="hidden sm:inline">Quick Actions</span>
-        <span className="sm:hidden">Actions</span>
       </button>
 
       {open ? (
@@ -569,13 +568,14 @@ export function TopNavbar({
           <Menu className="h-5 w-5" />
         </button>
 
-        {/* On mobile drawers, show BrandMark. On desktop, show a sleek portal badge so text isn't repeated! */}
-        <div className="lg:hidden flex items-center">
+        {/* On mobile, show only the mark so the text does not crowd the actions. On desktop, show a sleek portal badge so text isn't repeated! */}
+        <div className="lg:hidden flex items-center min-w-0">
           <BrandMark
             logoUrl={logoUrl}
             schoolName={schoolName}
             portalName={portalName}
             size="sm"
+            markOnly
           />
         </div>
 

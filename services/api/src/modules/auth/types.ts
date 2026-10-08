@@ -7,6 +7,10 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   name?: string;
+  firstName?: string;
+  lastName?: string;
+  avatar?: string;
+  phone?: string;
   permissions: Permission[];
   appId: AppId;
 }

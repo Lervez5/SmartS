@@ -306,6 +306,7 @@ const TEACHER_GRANTS: Permission[] = [
 const PARENT_GRANTS: Permission[] = [
   'students.view',
   'attendance.view',
+  'academics.view',
   'learningAreas.view',
   'timetable.view',
   'progress.view',

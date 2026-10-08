@@ -26,6 +26,7 @@ export const updateMeSchema = z.object({
   firstName: z.string().max(100).optional(),
   lastName: z.string().max(100).optional(),
   avatar: z.string().max(1024).optional(),
+  phone: z.string().max(32).optional(),
 });
 
 export const updateMyPasswordSchema = z.object({

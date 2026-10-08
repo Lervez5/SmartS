@@ -19,6 +19,7 @@ export interface User {
   firstName?: string;
   lastName?: string;
   avatar?: string;
+  phone?: string;
   permissions: Permission[];
   appId: string;
 }

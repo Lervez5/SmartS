@@ -12,6 +12,8 @@ export interface AuthContextValue {
   permissions: Permission[];
   login: (user: User) => void;
   logout: () => void;
+  /** Adopt an identity resolved from the API session cookie. */
+  setSession: (user: User) => void;
   /** Centralized authorization check. */
   can: (permission: Permission) => boolean;
   canAny: (permissions: readonly Permission[]) => boolean;
@@ -34,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isResolving = useAuthStore((state) => state.isResolving);
   const login = useAuthStore((state) => state.login);
   const logout = useAuthStore((state) => state.logout);
+  const setSession = useAuthStore((state) => state.setSession);
   const can = useAuthStore((state) => state.can);
   const canAny = useAuthStore((state) => state.canAny);
   const canAll = useAuthStore((state) => state.canAll);
@@ -46,12 +49,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       permissions: user?.permissions ?? [],
       login,
       logout,
+      setSession,
       can,
       canAny,
       canAll,
       canAccess: (app: AppId) => canAccessApp(user?.role, app),
     }),
-    [user, isAuthenticated, isResolving, login, logout, can, canAny, canAll]
+    [user, isAuthenticated, isResolving, login, logout, setSession, can, canAny, canAll]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -65,6 +69,7 @@ export function useAuth(): AuthContextValue {
   const isResolving = useAuthStore((state) => state.isResolving);
   const login = useAuthStore((state) => state.login);
   const logout = useAuthStore((state) => state.logout);
+  const setSession = useAuthStore((state) => state.setSession);
   const can = useAuthStore((state) => state.can);
   const canAny = useAuthStore((state) => state.canAny);
   const canAll = useAuthStore((state) => state.canAll);
@@ -77,6 +82,7 @@ export function useAuth(): AuthContextValue {
       permissions: user?.permissions ?? [],
       login,
       logout,
+      setSession,
       can,
       canAny,
       canAll,

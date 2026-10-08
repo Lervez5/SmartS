@@ -18,6 +18,7 @@ export interface AuthUser {
   firstName?: string;
   lastName?: string;
   avatar?: string;
+  phone?: string;
   permissions: Permission[];
   /** The application this user is permitted to enter. */
   appId: string;

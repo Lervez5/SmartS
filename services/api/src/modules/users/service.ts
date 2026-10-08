@@ -104,6 +104,7 @@ export async function updateMeService(id: string, input: UpdateMeInput) {
   if (input.firstName !== undefined) data.firstName = input.firstName;
   if (input.lastName !== undefined) data.lastName = input.lastName;
   if (input.avatar !== undefined) data.avatar = input.avatar;
+  if (input.phone !== undefined) data.phone = input.phone;
 
   const updated = await updateUserRepo(id, data);
   const role = updated.roleMemberships[0]?.role;
@@ -115,6 +116,7 @@ export async function updateMeService(id: string, input: UpdateMeInput) {
     firstName: updated.firstName,
     lastName: updated.lastName,
     avatar: updated.avatar,
+    phone: updated.phone,
   };
 }
 
