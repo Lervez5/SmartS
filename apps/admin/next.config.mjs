@@ -22,6 +22,20 @@ const workspaceAliases = {
   '@schoolos/validation': resolve(repoRoot, 'packages/validation/src'),
 };
 
+/**
+ * The API origin, used to proxy uploaded files.
+ *
+ * Branding images are saved as a path such as `/uploads/branding/<school>/cover/x.jpg`
+ * because the API serves them from its own origin, and the browser resolves a
+ * relative `src` against the portal that served the page. Without a proxy for
+ * that prefix the sign-in photograph 404s on every portal. Derived from the same
+ * variable as the `/api` rewrite so the two cannot drift apart.
+ */
+const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const apiOrigin = /^https?:\/\//i.test(apiBase)
+  ? apiBase.replace(/\/api\/?$/, '')
+  : 'http://localhost:4000';
+
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
@@ -40,7 +54,13 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/:path*`,
+        destination: `${apiBase}/:path*`,
+      },
+      {
+        // Uploaded branding images are stored as `/uploads/...` and served by
+        // the API, so the portal has to proxy that prefix as well.
+        source: '/uploads/:path*',
+        destination: `${apiOrigin}/uploads/:path*`,
       },
     ];
   },

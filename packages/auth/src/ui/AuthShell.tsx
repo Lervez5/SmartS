@@ -242,9 +242,19 @@ export function AuthVisual({
 }: AuthVisualProps) {
   const name = institutionName?.trim();
 
+  /*
+   * A photograph that is configured but cannot be loaded has to degrade to the
+   * branded field. Left alone the panel renders a broken-image icon inside the
+   * scrim, which looks like a layout fault and says nothing about the cause. The
+   * reset matters when the setting is corrected: without it the panel would stay
+   * on the fallback for the rest of the session.
+   */
+  const [photoFailed, setPhotoFailed] = React.useState(false);
+  React.useEffect(() => setPhotoFailed(false), [coverImageUrl]);
+
   return (
     <div className={cn('relative h-full w-full overflow-hidden bg-slate-900', className)}>
-      {coverImageUrl ? (
+      {coverImageUrl && !photoFailed ? (
         <>
           {/*
             The photograph is the institution's own, so it is given the surface
@@ -255,6 +265,7 @@ export function AuthVisual({
             src={coverImageUrl}
             alt={coverImageAltText?.trim() || name || 'Photograph of the school'}
             className="absolute inset-0 h-full w-full object-cover"
+            onError={() => setPhotoFailed(true)}
           />
           {/*
             A scrim, strongest where the text sits. Without it a bright
