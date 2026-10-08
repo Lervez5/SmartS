@@ -83,6 +83,10 @@ interface ClassOption {
   gradeLevel?: string | null;
 }
 
+interface ClassesResponse {
+  classes?: ClassOption[];
+}
+
 const REASON_LABEL: Record<string, string> = {
   completed: 'Completed',
   transferred: 'Transferred',
@@ -158,7 +162,7 @@ export default function AdminAlumniPage() {
 
   // Classes are only needed for a restore, so they load only when it is
   // possible.
-  const classes = useApi<ClassOption[]>(canManage ? '/api/classes' : null);
+  const classes = useApi<ClassesResponse>(canManage ? '/api/classes' : null);
 
   const records = React.useMemo(() => data?.alumni ?? [], [data]);
   const total = data?.total ?? records.length;
@@ -490,7 +494,7 @@ export default function AdminAlumniPage() {
                   onChange={(event) => setTargetClass(event.target.value)}
                 >
                   <option value="">Do not place in a class</option>
-                  {(classes.data ?? []).map((row) => (
+                  {(classes.data?.classes ?? []).map((row) => (
                     <option key={row.id} value={row.id}>
                       {row.name}
                       {row.gradeLevel ? ` - ${row.gradeLevel}` : ''}

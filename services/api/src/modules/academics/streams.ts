@@ -12,7 +12,7 @@
  */
 
 import { Router, type Request, type Response } from 'express';
-import { StreamStatus } from '@prisma/client';
+import { ClassStatus, StreamStatus } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../infrastructure/database';
 import { requirePermissions } from '../../middleware/rbac';
@@ -28,10 +28,12 @@ const listSchema = z.object({
   classId: z.string().optional(),
   status: z.nativeEnum(StreamStatus).optional(),
   search: z.string().optional(),
+  academicYearId: z.string().optional(),
 });
 
 const createSchema = z.object({
   classId: z.string().min(1),
+  academicYearId: z.string().uuid().optional(),
   name: z.string().trim().min(1).max(80),
   code: z.string().trim().min(1).max(24),
   capacity: z.coerce.number().int().min(0).max(1000).optional(),
@@ -54,6 +56,9 @@ const include = {
       id: true,
       name: true,
       gradeLevel: true,
+      classCode: true,
+      academicYearId: true,
+      status: true,
       // The main class teacher and the assistants are reported together, because
       // both are responsible for this class and neither is inferred from a role.
       teacher: { select: { id: true, name: true, email: true } },
@@ -81,6 +86,9 @@ function present(stream: {
     id: string;
     name: string;
     gradeLevel: string | null;
+    classCode: string | null;
+    academicYearId: string | null;
+    status: ClassStatus | null;
     teacher: { id: string; name: string | null; email: string } | null;
     assistants: Array<{
       canManage: boolean;
@@ -104,6 +112,9 @@ function present(stream: {
           id: stream.class.id,
           name: stream.class.name,
           gradeLevel: stream.class.gradeLevel,
+          classCode: stream.class.classCode,
+          academicYearId: stream.class.academicYearId,
+          status: stream.class.status,
         }
       : null,
     // Reported as the people responsible for the parent class, so the screen
@@ -132,6 +143,7 @@ router.get(
       where: {
         ...(query.classId ? { classId: query.classId } : {}),
         ...(query.status ? { status: query.status } : {}),
+        ...(query.academicYearId ? { academicYearId: query.academicYearId } : {}),
         ...(query.search
           ? {
               OR: [
@@ -151,6 +163,20 @@ router.get(
   })
 );
 
+router.get(
+  '/:id',
+  requirePermissions('academics.view'),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { schoolId } = schoolScopeOf(req);
+    const stream = await prisma.stream.findFirst({
+      where: { id: req.params.id, class: { schoolId } },
+      include,
+    });
+    if (!stream) throw new ApiError(404, 'Stream not found');
+    res.json({ stream: present(stream) });
+  })
+);
+
 router.post(
   '/',
   requirePermissions('academics.manage'),
@@ -159,13 +185,26 @@ router.post(
     const { schoolId } = schoolScopeOf(req);
 
     // The parent class must belong to the caller's school, so a stream cannot be
-    // attached to another school's class by supplying its id.
+    // attached to another school's class by supplying its id. If the request
+    // also specifies an academic session, the class must belong to it: a stream
+    // cannot attach to a class in a different academic session.
     const parent = await prisma.class.findFirst({
-      where: { id: payload.classId, schoolId },
-      select: { id: true },
+      where: {
+        id: payload.classId,
+        schoolId,
+      },
+      select: { id: true, academicYearId: true, status: true },
     });
     if (!parent) {
       throw new ApiError(404, 'Class not found in this school');
+    }
+
+    if (payload.academicYearId && parent.academicYearId !== payload.academicYearId) {
+      throw new ApiError(409, 'The selected class belongs to a different academic session.');
+    }
+
+    if (parent.status === 'archived') {
+      throw new ApiError(409, 'Cannot create a stream under an archived class.');
     }
 
     const clash = await prisma.stream.findUnique({
@@ -183,6 +222,7 @@ router.post(
         code: payload.code,
         capacity: payload.capacity,
         status: payload.status ?? 'active',
+        academicYearId: parent.academicYearId,
       },
       include,
     });

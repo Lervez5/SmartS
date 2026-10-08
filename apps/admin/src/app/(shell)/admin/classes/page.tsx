@@ -14,18 +14,42 @@ import {
   PrimaryActionButton,
   SectionHeader,
   StatusPill,
+  useAcademicSession,
   type DataTableColumn,
+  type StatusTone,
 } from '@schoolos/ui';
 
 /**
  * Classes - the authoritative academic-structure management page.
  *
- * A class is the academic unit, and streams subdivide it. This screen shows
- * the class record, its streams, learner count, and the teaching team as
- * reported by the class-level teacher and assistants. Stream-level teaching
- * team detail is surfaced through the existing Teacher Allocation page, so
- * this screen does not duplicate that allocation model.
+ * A class (also called a "grade") is the parent academic unit. Streams subdivide
+ * it. This screen shows the class record, its child streams, learner counts,
+ * and the class-level teaching team (main teacher + assistants). Stream-level
+ * teaching team detail is surfaced through the Teacher Allocation page, so this
+ * screen does not duplicate that allocation model.
+ *
+ * The list is scoped to the navbar-selected academic session: changing the
+ * session reloads the corresponding classes rather than mixing structures from
+ * different academic years.
  */
+
+interface StreamRecord {
+  id: string;
+  name: string;
+  code: string;
+  capacity: number | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  learnerCount: number;
+  allocations: Array<{
+    id: string;
+    responsibility: string;
+    status: string;
+    teacher: { id: string; name: string | null; email: string };
+    subject: { id: string; name: string; code: string | null } | null;
+  }>;
+}
 
 interface ClassRecord {
   id: string;
@@ -33,34 +57,28 @@ interface ClassRecord {
   classCode: string | null;
   gradeLevel: string | null;
   description: string | null;
+  academicYearId: string | null;
+  status: 'active' | 'inactive' | 'archived';
   subject: { id: string; name: string } | null;
   teacher: { id: string; name: string | null; email: string } | null;
+  academicYear: { id: string; name: string; label: string | null; status: string } | null;
   assistants: Array<{
     canManage: boolean;
     assistant: { id: string; name: string | null; email: string };
   }>;
   _count: { enrollments: number };
-  streams: Array<{
-    id: string;
-    name: string;
-    code: string;
-    status: string;
-    _count: { enrollments: number };
-    allocations: Array<{
-      id: string;
-      responsibility: string;
-      status: string;
-      teacher: { id: string; name: string | null; email: string };
-      subject: { id: string; name: string; code: string | null } | null;
-    }>;
-  }>;
+  streamCount: number;
+  activeStreamCount: number;
+  createdAt: string;
+  updatedAt: string;
+  streams: StreamRecord[];
 }
 
 interface ClassesResponse {
   classes?: ClassRecord[];
 }
 
-const STATUS_TONE: Record<string, string> = {
+const STATUS_TONE: Record<string, StatusTone> = {
   active: 'success',
   inactive: 'warning',
   archived: 'neutral',
@@ -70,6 +88,7 @@ export default function AdminClassesPage() {
   const { can } = useAuth();
   const allowed = can('cohorts.view');
   const canManage = can('cohorts.manage');
+  const { sessionId, current: session, ready } = useAcademicSession();
 
   const [query, setQuery] = React.useState('');
   const [debounced, setDebounced] = React.useState('');
@@ -83,9 +102,19 @@ export default function AdminClassesPage() {
 
   const params = new URLSearchParams();
   if (debounced) params.set('search', debounced);
+  if (gradeLevel) params.set('gradeLevel', gradeLevel);
+  if (status) params.set('status', status);
+  if (sessionId && sessionId.trim()) params.set('academicYearId', sessionId);
   const qs = params.toString();
 
-  const classes = useApi<ClassesResponse>(allowed ? `/api/classes${qs ? `?${qs}` : ''}` : '/api/classes?denied=1');
+  const classes = useApi<ClassesResponse>(
+    allowed && ready ? `/api/classes${qs ? `?${qs}` : ''}` : '/api/classes?denied=1'
+  );
+
+  React.useEffect(() => {
+    if (!ready) return;
+    classes.refetch();
+  }, [sessionId, ready, gradeLevel, status, debounced]);
 
   const rows = React.useMemo(() => classes.data?.classes ?? [], [classes.data]);
 
@@ -97,8 +126,9 @@ export default function AdminClassesPage() {
     return [...seen.entries()].map(([value, label]) => ({ value, label }));
   }, [rows]);
 
-  const active = rows.filter((c) => c.streams.some((s) => s.status === 'active')).length;
-  const totalStreams = rows.reduce((sum, c) => sum + c.streams.length, 0);
+  const activeClasses = rows.filter((c) => c.status === 'active').length;
+  const archivedClasses = rows.filter((c) => c.status === 'archived').length;
+  const totalStreams = rows.reduce((sum, c) => sum + c.streamCount, 0);
   const totalLearners = rows.reduce((sum, c) => sum + c._count.enrollments, 0);
 
   const columns: Array<DataTableColumn<ClassRecord>> = [
@@ -143,18 +173,15 @@ export default function AdminClassesPage() {
     {
       id: 'streams',
       header: 'Streams',
-      cell: (row) => {
-        const activeStreams = row.streams.filter((s) => s.status === 'active').length;
-        return (
-          <div className="flex flex-col items-end">
-            <span className="text-sm font-medium text-foreground">{row.streams.length}</span>
-            {row.streams.length > 0 && (
-              <span className="text-xs text-muted-foreground">{activeStreams} active</span>
-            )}
-          </div>
-        );
-      },
-      sortValue: (row) => row.streams.length,
+      cell: (row) => (
+        <div className="flex flex-col items-end">
+          <span className="text-sm font-medium text-foreground">{row.streamCount}</span>
+          {row.activeStreamCount > 0 && (
+            <span className="text-xs text-muted-foreground">{row.activeStreamCount} active</span>
+          )}
+        </div>
+      ),
+      sortValue: (row) => row.streamCount,
     },
     {
       id: 'learners',
@@ -162,6 +189,14 @@ export default function AdminClassesPage() {
       align: 'right',
       cell: (row) => row._count.enrollments.toLocaleString(),
       sortValue: (row) => row._count.enrollments,
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (row) => (
+        <StatusPill label={row.status} tone={STATUS_TONE[row.status] ?? 'neutral'} />
+      ),
+      sortValue: (row) => row.status,
     },
     {
       id: 'subject',
@@ -185,17 +220,29 @@ export default function AdminClassesPage() {
     );
   }
 
+  const sessionDescription = session
+    ? `Session: ${session.label}`
+    : ready
+      ? 'No session selected'
+      : 'Loading session…';
+
   return (
     <div className="space-y-6">
       <SectionHeader
         title="Classes"
-        description="Academic classes and their streams. A class is the academic unit; streams subdivide it for teaching groups."
+        description={
+          <>
+            Academic classes (grades) and their child streams. A class is the academic
+            unit; streams subdivide it for teaching groups. {sessionDescription}
+          </>
+        }
         action={
           canManage ? (
             <PrimaryActionButton
               href="/admin/classes/new"
               label="Create Class"
               icon="plus"
+              title="Create a new class for the selected academic session"
             />
           ) : null}
       />
@@ -209,8 +256,12 @@ export default function AdminClassesPage() {
         />
       ) : rows.length === 0 && !debounced && !gradeLevel && !status ? (
         <EmptyState
-          title="No classes found"
-          description="Create your first class to get started"
+          title={sessionId && ready ? 'No classes in this session' : 'No classes found'}
+          description={
+            canManage
+              ? 'Create your first class to get started. Streams can be added after the class is created.'
+              : 'No classes are available for your role.'
+          }
           icon="users-round"
           action={
             canManage ? (
@@ -220,7 +271,8 @@ export default function AdminClassesPage() {
               >
                 Create Class
               </a>
-            ) : null}
+            ) : null
+          }
         />
       ) : (
         <>
@@ -233,8 +285,16 @@ export default function AdminClassesPage() {
               description={
                 debounced || gradeLevel || status
                   ? 'Matching the current filters'
-                  : 'Total classes'
+                  : session
+                    ? `In ${session.label}`
+                    : 'Total classes'
               }
+            />
+            <DashboardCard
+              title="Active"
+              value={activeClasses}
+              icon="check-circle"
+              description={`${archivedClasses} archived`}
             />
             <DashboardCard
               title="Streams"
@@ -248,13 +308,6 @@ export default function AdminClassesPage() {
               value={totalLearners}
               icon="graduation-cap"
               description="In a class"
-            />
-            <DashboardCard
-              title="With active streams"
-              value={active}
-              icon="check"
-              tone="success"
-              description="Classes with at least one active stream"
             />
           </div>
 

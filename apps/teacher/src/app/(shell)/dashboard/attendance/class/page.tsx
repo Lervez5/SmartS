@@ -30,6 +30,10 @@ interface TeacherClass {
   _count?: { enrollments?: number } | null;
 }
 
+interface ClassesResponse {
+  classes?: TeacherClass[];
+}
+
 interface RosterStudent {
   id: string;
   name: string;
@@ -64,7 +68,7 @@ function today(): string {
 }
 
 export default function TeacherAttendanceClassPage() {
-  const classes = useApi<TeacherClass[]>('/api/classes/teacher/my-cohorts');
+  const classes = useApi<ClassesResponse>('/api/classes/teacher/my-cohorts');
   const [classId, setClassId] = React.useState('');
   const [date, setDate] = React.useState(today);
   const [draft, setDraft] = React.useState<Record<string, MarkStatus>>({});
@@ -72,7 +76,7 @@ export default function TeacherAttendanceClassPage() {
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
 
-  const classList = classes.data ?? [];
+  const classList = classes.data?.classes ?? [];
 
   // Default to the first class once the list arrives.
   React.useEffect(() => {

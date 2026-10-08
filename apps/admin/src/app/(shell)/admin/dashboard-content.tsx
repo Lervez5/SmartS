@@ -548,11 +548,11 @@ interface CourseRow {
 
 function AcademicOverview({ sessionId, termId }: { sessionId: string; termId: string }) {
   const students = useApi<{ students?: StudentRow[] }>('/api/students?limit=200');
-  const classes = useApi<ClassRow[]>('/api/classes');
+  const classes = useApi<{ classes?: ClassRow[] }>('/api/classes');
   const courses = useApi<{ courses?: CourseRow[] }>('/api/courses');
 
   const learnerRows = students.data?.students ?? [];
-  const classRows = classes.data ?? [];
+  const classRows = classes.data?.classes ?? [];
   const courseRows = courses.data?.courses ?? [];
 
   const unplaced = learnerRows.filter((s) => !s.gradeLevel).length;

@@ -102,7 +102,7 @@ describe('Classes module', () => {
     it('returns classes for admin', async () => {
       const res = await adminAgent.get(BASE);
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
+      expect(Array.isArray(res.body.classes)).toBe(true);
     });
   });
 
@@ -115,9 +115,9 @@ describe('Classes module', () => {
         classCode: `T4-${stamp}`,
       });
       expect(res.status).toBe(201);
-      expect(res.body.id).toBeDefined();
-      expect(res.body.name).toBe('Class Test');
-      classId = res.body.id;
+      expect(res.body.class.id).toBeDefined();
+      expect(res.body.class.name).toBe('Class Test');
+      classId = res.body.class.id;
     });
 
     it('rejects duplicate class codes within the same school', async () => {
@@ -133,8 +133,8 @@ describe('Classes module', () => {
     it('returns the class by id', async () => {
       const res = await adminAgent.get(`${BASE}/${classId}`);
       expect(res.status).toBe(200);
-      expect(res.body.id).toBe(classId);
-      expect(res.body.name).toBe('Class Test');
+      expect(res.body.class.id).toBe(classId);
+      expect(res.body.class.name).toBe('Class Test');
     });
 
     it('returns 404 for unknown class', async () => {
@@ -150,8 +150,8 @@ describe('Classes module', () => {
         gradeLevel: 'Grade 5',
       });
       expect(res.status).toBe(200);
-      expect(res.body.name).toBe('Class Test Updated');
-      expect(res.body.gradeLevel).toBe('Grade 5');
+      expect(res.body.class.name).toBe('Class Test Updated');
+      expect(res.body.class.gradeLevel).toBe('Grade 5');
     });
   });
 });

@@ -15,6 +15,7 @@ import {
   SettingsCard,
   TextInput,
   notify,
+  useAcademicSession,
   type DataTableColumn,
 } from '@schoolos/ui';
 
@@ -30,17 +31,27 @@ interface ClassOption {
   id: string;
   name: string;
   gradeLevel?: string | null;
+  classCode?: string | null;
+  academicYearId?: string | null;
+  status?: string;
   teacher?: { id: string; name: string | null } | null;
   assistants?: Array<{ canManage: boolean; assistant: { id: string; name: string | null } }>;
+  _count?: { enrollments: number };
+}
+
+interface ClassesResponse {
+  classes?: ClassOption[];
 }
 
 export default function AdminNewStreamPage() {
   const { can } = useAuth();
   const allowed = can('academics.manage');
   const router = useRouter();
+  const { sessionId, current: session, ready } = useAcademicSession();
 
-  const classes = useApi<ClassOption[]>(allowed ? '/api/classes' : null);
+  const classes = useApi<ClassesResponse>(allowed && ready ? `/api/classes?academicYearId=${sessionId}` : (allowed ? '/api/classes' : null));
 
+  const options = React.useMemo(() => classes.data?.classes ?? [], [classes.data]);
   const [classId, setClassId] = React.useState('');
   const [name, setName] = React.useState('');
   const [code, setCode] = React.useState('');
@@ -48,7 +59,6 @@ export default function AdminNewStreamPage() {
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const options = classes.data ?? [];
   const parent = options.find((cls) => cls.id === classId);
 
   async function submit() {
@@ -59,12 +69,13 @@ export default function AdminNewStreamPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          classId,
-          name: name.trim(),
-          code: code.trim(),
-          ...(capacity.trim() ? { capacity: Number(capacity) } : {}),
-        }),
+         body: JSON.stringify({
+           classId,
+           ...(parent?.academicYearId ? { academicYearId: parent.academicYearId } : {}),
+           name: name.trim(),
+           code: code.trim(),
+           ...(capacity.trim() ? { capacity: Number(capacity) } : {}),
+         }),
       });
 
       if (!res.ok) {

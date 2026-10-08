@@ -449,6 +449,18 @@ enum StreamStatus {
   archived
 }
 
+/// Lifecycle state of a Class/Grade record.
+///
+/// `active` classes accept new streams and learners. `inactive` classes are
+/// retained but closed to new streams. `archived` classes are historical: their
+/// structure, enrolments and results remain readable but no new learners or
+/// streams may be added.
+enum ClassStatus {
+  active
+  inactive
+  archived
+}
+
 enum AssessmentStatus {
   draft
   published
@@ -480,6 +492,8 @@ model AcademicYear {
   learnerExits        LearnerExit[]
   teachingAssignments TeachingAssignment[]
   streamAllocations   StreamAllocation[]
+  classes             Class[]
+  streams             Stream[]
 
   @@unique([schoolId, name])
   @@index([status])
@@ -688,6 +702,15 @@ model Class {
 
   name        String
   description String?
+
+  /// The academic session this class/grade belongs to. A class is always
+  /// created within a specific session so that streams and learners attached
+  /// to it are correctly attributed.
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id])
+  academicYearId String?       @db.ObjectId
+
+  /// Lifecycle state. Archived classes are read-only for new learners and streams.
+  status ClassStatus @default(active)
 
   /// The class's primary or home learning area.
   ///
@@ -1002,9 +1025,15 @@ model Stream {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  enrollments Enrollment[]
+  enrollments    Enrollment[]
   /// The teaching team and learning-area teachers for this stream.
-  allocations StreamAllocation[]
+  allocations    StreamAllocation[]
+  /// Scoped academic session, copied from the parent class at creation. This
+  /// keeps the session explicit on the stream so queries can filter without
+  /// joining through the class, and so the hierarchy invariant is enforced at
+  /// the data layer.
+  academicYear   AcademicYear?      @relation(fields: [academicYearId], references: [id])
+  academicYearId String?            @db.ObjectId
 
   @@unique([classId, code])
   @@index([classId])

@@ -30,6 +30,8 @@ interface ClassOption {
   name: string;
   gradeLevel: string | null;
   classCode: string | null;
+  academicYearId: string | null;
+  status: 'active' | 'inactive' | 'archived';
   teacher: { id: string; name: string | null; email: string } | null;
   assistants: Array<{ canManage: boolean; assistant: { id: string; name: string | null } }>;
   _count: { enrollments: number };
@@ -48,7 +50,6 @@ export default function AdminNewClassStreamPage() {
 
   const classes = useApi<ClassDetailResponse>(allowed ? '/api/classes' : '/api/classes?denied=1');
   const parent = React.useMemo(() => classes.data?.classes?.find((c) => c.id === classId), [classes.data, classId]);
-
   const [name, setName] = React.useState('');
   const [code, setCode] = React.useState('');
   const [capacity, setCapacity] = React.useState('');
@@ -64,12 +65,13 @@ export default function AdminNewClassStreamPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          classId,
-          name: name.trim(),
-          code: code.trim(),
-          ...(capacity.trim() ? { capacity: Number(capacity) } : {}),
-        }),
+         body: JSON.stringify({
+           classId,
+           ...(parent?.academicYearId ? { academicYearId: parent.academicYearId } : {}),
+           name: name.trim(),
+           code: code.trim(),
+           ...(capacity.trim() ? { capacity: Number(capacity) } : {}),
+         }),
       });
 
       if (!res.ok) {

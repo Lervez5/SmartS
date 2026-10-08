@@ -6,9 +6,9 @@ import { useApi } from '@schoolos/hooks';
 import { useAuth } from '@schoolos/auth';
 import {
   ActionButtons,
-  ContextFilterBar,
-  DataTable,
+  ConfirmButton,
   DashboardCard,
+  DataTable,
   EmptyState,
   ErrorState,
   LoadingState,
@@ -16,9 +16,9 @@ import {
   SectionHeader,
   SettingsCard,
   StatusPill,
+  notify,
   type DataTableColumn,
   type StatusTone,
-  notify,
 } from '@schoolos/ui';
 
 /**
@@ -29,40 +29,53 @@ import {
  * level teaching team detail is surfaced through the Teacher Allocation page.
  */
 
+interface StreamRecord {
+  id: string;
+  name: string;
+  code: string;
+  capacity: number | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  learnerCount: number;
+  allocations: Array<{
+    id: string;
+    responsibility: string;
+    status: string;
+    teacher: { id: string; name: string | null; email: string };
+    subject: { id: string; name: string; code: string | null } | null;
+  }>;
+}
+
 interface ClassRecord {
   id: string;
   name: string;
   classCode: string | null;
   gradeLevel: string | null;
   description: string | null;
+  academicYearId: string | null;
+  status: string;
   subject: { id: string; name: string } | null;
   teacher: { id: string; name: string | null; email: string } | null;
+  academicYear: { id: string; name: string; label: string | null; status: string } | null;
   assistants: Array<{
     canManage: boolean;
     assistant: { id: string; name: string | null; email: string };
   }>;
   _count: { enrollments: number };
-  streams: Array<{
+  streamCount: number;
+  activeStreamCount: number;
+  createdAt: string;
+  updatedAt: string;
+  streams: StreamRecord[];
+  enrollments?: Array<{
     id: string;
-    name: string;
-    code: string;
-    capacity: number | null;
-    status: string;
-    createdAt: string;
-    updatedAt: string;
-    _count: { enrollments: number };
-    allocations: Array<{
-      id: string;
-      responsibility: string;
-      status: string;
-      teacher: { id: string; name: string | null; email: string };
-      subject: { id: string; name: string; code: string | null } | null;
-    }>;
+    student: { id: string; name: string | null; email: string };
   }>;
 }
 
-interface ClassesResponse {
-  classes?: ClassRecord[];
+interface ClassDetailResponse {
+  class?: ClassRecord;
 }
 
 const STATUS_TONE: Record<string, StatusTone> = {
@@ -86,15 +99,15 @@ export default function AdminClassDetailPage() {
   const canManage = can('cohorts.manage');
   const canViewAllocation = can('teaching.view');
 
-  const { data, loading, error, refetch } = useApi<ClassesResponse>(
+  const { data, loading, error, refetch } = useApi<ClassDetailResponse>(
     allowed && classId ? `/api/classes/${classId}` : '/api/classes?denied=1'
   );
 
-  const cls = React.useMemo(() => data?.classes?.[0], [data]);
+  const cls = React.useMemo(() => data?.class, [data]);
 
   const activeStreams = cls?.streams.filter((s) => s.status === 'active') ?? [];
   const archivedStreams = cls?.streams.filter((s) => s.status === 'archived') ?? [];
-  const totalStreams = cls?.streams.length ?? 0;
+  const totalStreams = cls?.streamCount ?? 0;
   const totalAllocations = cls?.streams.reduce(
     (sum, s) => sum + s.allocations.filter((a) => a.status === 'active').length,
     0
@@ -126,7 +139,7 @@ export default function AdminClassDetailPage() {
     );
   }
 
-  const streamColumns: Array<DataTableColumn<ClassRecord['streams'][number]>> = [
+  const streamColumns: Array<DataTableColumn<StreamRecord>> = [
     {
       id: 'stream',
       header: 'Stream',
@@ -141,14 +154,16 @@ export default function AdminClassDetailPage() {
     {
       id: 'learners',
       header: 'Learners',
-      cell: (row) => row._count.enrollments.toLocaleString(),
-      sortValue: (row) => row._count.enrollments,
+      cell: (row) => row.learnerCount.toLocaleString(),
+      sortValue: (row) => row.learnerCount,
+      align: 'right',
     },
     {
       id: 'capacity',
       header: 'Capacity',
       cell: (row) => (row.capacity != null ? row.capacity.toLocaleString() : '-'),
       sortValue: (row) => row.capacity ?? 0,
+      align: 'right',
     },
     {
       id: 'teachingTeam',
@@ -172,6 +187,7 @@ export default function AdminClassDetailPage() {
         );
       },
       sortValue: (row) => row.allocations.filter((a) => a.status === 'active').length,
+      hideBelow: 'md',
     },
     {
       id: 'status',
@@ -183,11 +199,38 @@ export default function AdminClassDetailPage() {
     },
   ];
 
+  async function archive() {
+    if (!cls) return;
+    const res = await fetch(`/api/classes/${cls.id}/archive`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      notify.error(body?.error?.message ?? `Could not archive ${cls.name} (HTTP ${res.status}).`);
+      return;
+    }
+    const result = (await res.json().catch(() => null)) as { retained?: { learners?: number } } | null;
+    notify.success(`${cls.name} archived`, {
+      description: result?.retained?.learners
+        ? `Retained ${result.retained.learners} enrolment(s); the class is retired, not deleted.`
+        : 'Enrolments, attendance and results are retained.',
+    });
+    router.push('/admin/classes');
+  }
+
   return (
     <div className="space-y-6">
       <SectionHeader
         title={cls.name}
-        description={cls.gradeLevel ? `Grade ${cls.gradeLevel}` : 'Class detail'}
+        description={
+          <>
+            {cls.gradeLevel ? `Grade ${cls.gradeLevel}` : 'Class detail'} · Status:{' '}
+            <StatusPill label={cls.status} tone={STATUS_TONE[cls.status] ?? 'neutral'} />
+          </>
+        }
         action={
           <div className="flex flex-wrap items-center gap-2">
             {canViewAllocation ? (
@@ -198,16 +241,26 @@ export default function AdminClassDetailPage() {
                 variant="outline"
               />
             ) : null}
-            {canManage ? (
+            {canManage && cls.status !== 'archived' ? (
               <PrimaryActionButton
                 href={`/admin/classes/${cls.id}/edit`}
                 label="Edit Class"
                 icon="pencil"
               />
             ) : null}
+            {canManage && cls.status !== 'archived' && (
+              <ConfirmButton
+                label="Archive class"
+                confirmLabel="Archive"
+                description="This retires the class and its streams. Enrolments, attendance and results are retained."
+                onConfirm={archive}
+                variant="outline"
+                icon="archive"
+              />
+            )}
             <a
               href="/admin/classes"
-              className="rounded-md border border-input bg-background px-3.5 py-2 text-sm font-semibold transition-colors hover:bg-accent"
+              className="rounded-md border border-input bg-background px-3.5 py-2 text-sm font-semibold transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               Back to Classes
             </a>
@@ -280,29 +333,40 @@ export default function AdminClassDetailPage() {
                 : 'None'}
             </p>
           </div>
-          {cls.description && (
+           {cls.description && (
             <div className="md:col-span-2">
               <p className="text-xs font-medium text-muted-foreground">Description</p>
               <p className="text-sm text-foreground">{cls.description}</p>
             </div>
           )}
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Academic session</p>
+            <p className="text-sm text-foreground">
+              {cls.academicYear?.name ?? cls.academicYear?.label ?? '-'}
+            </p>
+          </div>
         </div>
       </SettingsCard>
 
-      {canManage && (
+      {canManage && cls.status !== 'archived' && (
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-foreground">Streams</h2>
           <PrimaryActionButton
             href={`/admin/classes/${cls.id}/streams/new`}
             label="Create Stream"
             icon="plus"
+            title="Add a stream to this class"
           />
         </div>
       )}
 
       <SettingsCard
         title=""
-        description="Subdivisions of this class. Each stream carries its own teaching team through Teacher Allocation."
+        description={
+          cls.status === 'archived'
+            ? 'This class is archived. Its streams are retained for historical reference.'
+            : 'Subdivisions of this class. Each stream carries its own teaching team through Teacher Allocation.'
+        }
       >
         {totalStreams === 0 ? (
           <EmptyState
@@ -310,15 +374,14 @@ export default function AdminClassDetailPage() {
             description="Create a stream to subdivide this class into teaching groups."
             icon="split"
             action={
-              canManage ? (
+              canManage && cls.status !== 'archived' ? (
                 <a
                   href={`/admin/classes/${cls.id}/streams/new`}
                   className="rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
                 >
                   Create Stream
                 </a>
-              ) : null
-            }
+              ) : null}
           />
         ) : (
           <DataTable
@@ -326,6 +389,9 @@ export default function AdminClassDetailPage() {
             columns={streamColumns}
             rows={cls.streams}
             rowKey={(row) => row.id}
+            onRowClick={(row) => {
+              window.location.href = `/admin/academics/streams/${row.id}/edit`;
+            }}
             empty={
               <EmptyState
                 title="No streams"
@@ -339,7 +405,7 @@ export default function AdminClassDetailPage() {
                   {
                     id: 'view',
                     label: `View ${row.name}`,
-                    href: `/admin/academics/streams/${row.id}/edit`,
+                    href: `/admin/classes/${cls.id}/streams/${row.id}`,
                     icon: 'eye',
                   },
                   {

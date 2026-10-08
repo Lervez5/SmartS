@@ -105,7 +105,7 @@ export default function AdminStreamsPage() {
 
   // Classes come from the caller's own school, so the filter can only ever
   // offer a class they are allowed to see.
-  const classes = useApi<Array<{ id: string; name: string; gradeLevel?: string | null }>>(
+  const classes = useApi<{ classes?: Array<{ id: string; name: string; gradeLevel?: string | null }> }>(
     allowed ? '/api/classes' : null
   );
 
@@ -113,7 +113,7 @@ export default function AdminStreamsPage() {
 
   const classOptions = React.useMemo(
     () =>
-      (classes.data ?? []).map((cls) => ({
+      (classes.data?.classes ?? []).map((cls) => ({
         value: cls.id,
         label: [cls.name, cls.gradeLevel].filter(Boolean).join(' - '),
       })),

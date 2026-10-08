@@ -14,6 +14,7 @@ import {
   SectionHeader,
   SettingsCard,
   TextInput,
+  useAcademicSession,
   notify,
   type DataTableColumn,
 } from '@schoolos/ui';
@@ -39,6 +40,7 @@ export default function AdminNewClassPage() {
   const { can } = useAuth();
   const allowed = can('cohorts.manage');
   const router = useRouter();
+  const { sessionId, current: session, ready } = useAcademicSession();
 
   const [name, setName] = React.useState('');
   const [classCode, setClassCode] = React.useState('');
@@ -55,12 +57,13 @@ export default function AdminNewClassPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          classCode: classCode.trim() || undefined,
-          gradeLevel: gradeLevel.trim() || undefined,
-          description: description.trim() || undefined,
-        }),
+         body: JSON.stringify({
+           name: name.trim(),
+           classCode: classCode.trim() || undefined,
+           gradeLevel: gradeLevel.trim() || undefined,
+           description: description.trim() || undefined,
+           ...(sessionId && ready ? { academicYearId: sessionId } : {}),
+         }),
       });
 
       if (!res.ok) {
