@@ -125,6 +125,8 @@ const STUDENT_NAV: NavSection[] = [
         href: '/dashboard/classes',
         permissions: ['cohorts.view', 'courses.view'],
         icon: 'users-round',
+        implemented: false,
+        gap: 'No page exists at this route yet, so the link resolves to nothing.',
         order: 1,
       },
       {
@@ -347,6 +349,8 @@ const TEACHER_NAV: NavSection[] = [
         href: '/dashboard/classes',
         permissions: ['cohorts.view'],
         icon: 'users-round',
+        implemented: false,
+        gap: 'No page exists at this route yet, so the link resolves to nothing.',
         order: 1,
       },
       {
@@ -606,6 +610,8 @@ const PARENT_NAV: NavSection[] = [
         href: '/dashboard/children',
         permissions: ['students.view'],
         icon: 'graduation-cap',
+        implemented: false,
+        gap: 'No page exists at this route yet, so the link resolves to nothing.',
         order: 1,
       },
       {
@@ -878,8 +884,6 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['staff.view'],
         icon: 'user-round',
         order: 6,
-        implemented: false,
-        gap: 'GET /api/staff exists and is permission-gated, but /admin/staff is still a placeholder rather than a table bound to it.',
       },
     ],
   },
@@ -925,6 +929,7 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['cohorts.view'],
         icon: 'users-round',
         order: 4,
+        implemented: false,
       },
     ],
   },
@@ -940,6 +945,7 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['courses.view'],
         icon: 'book-open',
         order: 1,
+        implemented: false,
       },
       {
         id: 'adm.timetable',
@@ -977,6 +983,7 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['assessment.view', 'examinations.view'],
         icon: 'clipboard-check',
         order: 1,
+        implemented: false,
       },
       {
         id: 'adm.assessment.tests',
@@ -1414,6 +1421,8 @@ export const QUICK_ACTIONS: Record<AppId, QuickAction[]> = {
       href: '/dashboard/children',
       permissions: ['students.view'],
       icon: 'graduation-cap',
+      implemented: false,
+      gap: 'No page exists at this route yet, so the action resolves to nothing.',
       group: 'review',
     },
     {
@@ -1471,8 +1480,6 @@ export const QUICK_ACTIONS: Record<AppId, QuickAction[]> = {
       permissions: ['students.manage'],
       icon: 'graduation-cap',
       group: 'create',
-      implemented: false,
-      gap: 'POST /api/students exists but has no form screen.',
     },
     {
       id: 'adm.qa.assessment',
@@ -1545,8 +1552,6 @@ export const PRIMARY_ACTIONS: Record<string, PrimaryAction> = {
     href: '/admin/students/new',
     permissions: ['students.manage'],
     icon: 'user-plus',
-    implemented: false,
-    gap: 'POST /api/students exists but has no form screen.',
   },
   '/admin/invitations': {
     id: 'pa.invitations',
