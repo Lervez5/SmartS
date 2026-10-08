@@ -852,8 +852,6 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['alumni.view'],
         icon: 'archive',
         order: 3,
-        implemented: false,
-        gap: 'No alumni domain exists at all: no Alumni/Alumnus model, no graduation-on-leaver state on StudentProfile, and no /api/alumni module. This needs a model, a leaver workflow on the student record, and a read route before the screen can show anything.',
       },
       {
         id: 'adm.parents',
