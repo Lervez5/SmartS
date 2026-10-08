@@ -42,8 +42,12 @@ export function useScrubCredentialQuery(active = true): void {
   }, [active]);
 }
 
+/**
+ * Shared input class — premium styled form control.
+ * Used directly on <input> elements in auth forms.
+ */
 const CONTROL =
-  'h-11 w-full rounded-lg border bg-background px-3.5 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-60 aria-[invalid=true]:border-destructive';
+  'form-input border-input disabled:opacity-60 aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-destructive/20';
 
 export function AuthForm({
   onSubmit,
@@ -77,18 +81,42 @@ export function AuthForm({
       {error ? (
         <div
           role="alert"
-          className="rounded-lg border border-destructive/30 bg-destructive/5 px-3.5 py-3 text-sm text-destructive"
+          className="flex items-start gap-2.5 rounded-xl border border-destructive/25 bg-destructive/6 px-4 py-3 text-sm text-destructive"
         >
-          {error}
+          <svg
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="mt-0.5 h-4 w-4 shrink-0 opacity-80"
+            aria-hidden
+          >
+            <path
+              fillRule="evenodd"
+              d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <span>{error}</span>
         </div>
       ) : null}
 
       {success ? (
         <div
           role="status"
-          className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-3 text-sm text-emerald-700 dark:text-emerald-300"
+          className="flex items-start gap-2.5 rounded-xl border border-emerald-500/25 bg-emerald-500/8 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300"
         >
-          {success}
+          <svg
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="mt-0.5 h-4 w-4 shrink-0"
+            aria-hidden
+          >
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <span>{success}</span>
         </div>
       ) : null}
 
@@ -97,7 +125,7 @@ export function AuthForm({
       <button
         type="submit"
         disabled={isLoading}
-        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-60"
+        className="form-submit"
       >
         {isLoading ? (
           <>
@@ -153,8 +181,13 @@ export function AuthInput({
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-sm font-medium text-foreground">
+        <label htmlFor={id} className="form-label">
           {label}
+          {required && (
+            <span className="ml-0.5 text-primary/70" aria-hidden>
+              *
+            </span>
+          )}
         </label>
         {trailing}
       </div>
@@ -170,7 +203,7 @@ export function AuthInput({
         autoComplete={autoComplete}
         defaultValue={defaultValue}
         aria-describedby={describedBy}
-        placeholder={placeholder ?? (type === 'password' ? 'Your password' : undefined)}
+        placeholder={placeholder ?? (type === 'password' ? 'Enter your password' : undefined)}
         className={CONTROL}
       />
       {hint ? (
@@ -189,7 +222,7 @@ export function AuthFooterLink({ href, children }: { href: string; children: Rea
   return (
     <a
       href={href}
-      className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {children}
     </a>
@@ -211,23 +244,23 @@ export function AuthNotice({
 }) {
   return (
     <div className="space-y-4 text-center">
-      <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+      <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/12 text-emerald-600 dark:text-emerald-400 shadow-[0_4px_14px_rgba(52,211,153,0.2)]">
         <svg
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth={2}
+          strokeWidth={2.5}
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="h-5 w-5"
+          className="h-6 w-6"
           aria-hidden
         >
           <path d="M20 6 9 17l-5-5" />
         </svg>
       </span>
-      <p className="text-sm font-semibold text-foreground">{title}</p>
-      {children ? <div className="text-sm text-muted-foreground">{children}</div> : null}
-      {action ? <div className="pt-1">{action}</div> : null}
+      <p className="text-base font-bold text-foreground tracking-tight">{title}</p>
+      {children ? <div className="text-sm text-muted-foreground leading-relaxed">{children}</div> : null}
+      {action ? <div className="pt-2">{action}</div> : null}
     </div>
   );
 }

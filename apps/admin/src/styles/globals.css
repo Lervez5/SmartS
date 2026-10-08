@@ -2,110 +2,378 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Premium Design System — SchoolOS
+   Color philosophy: Deep forest green (authority, academia, growth) paired
+   with crisp off-white surfaces and rich slate neutrals. Professional-grade
+   spacing, typography rendering, and micro-detail.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
+    /* ── Core surfaces ── */
+    --background: 150 20% 97%;        /* warm off-white, not harsh */
+    --foreground: 220 25% 10%;        /* deep ink, not pure black */
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 220 25% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 220 25% 10%;
 
-    --primary: 142.1 76.2% 36.3%;
-    /* Brand Green */
-    --primary-foreground: 210 40% 98%;
+    /* ── Brand: Forest Green — deep, authoritative, academic ── */
+    --primary: 152 65% 28%;           /* #1a7a48 — deep forest green */
+    --primary-foreground: 150 60% 97%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* ── Secondary: rich slate ── */
+    --secondary: 217 30% 93%;
+    --secondary-foreground: 220 25% 20%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* ── Muted: subtle, warm ── */
+    --muted: 210 25% 94%;
+    --muted-foreground: 215 18% 46%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* ── Accent: spring green (hover states) ── */
+    --accent: 152 30% 92%;
+    --accent-foreground: 152 65% 20%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* ── Status: destructive ── */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 142.1 76.2% 36.3%;
+    /* ── Borders & inputs ── */
+    --border: 215 22% 88%;
+    --input: 215 22% 88%;
+    --ring: 152 65% 28%;
 
-    --radius: 1rem;
+    /* ── Geometry ── */
+    --radius: 0.75rem;
 
-    --brand: #16a34a;
-    --brand-light: #4ade80;
-    --brand-dark: #166534;
+    /* ── Brand shortcuts (raw hex for non-Tailwind contexts) ── */
+    --brand: #1a7a48;
+    --brand-light: #34d975;
+    --brand-dark: #0d4a2b;
+    --brand-muted: #d1fae5;
+
+    /* ── Elevation shadows ── */
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-lg: 0 10px 30px -4px rgba(0, 0, 0, 0.10), 0 4px 10px -4px rgba(0, 0, 0, 0.07);
+    --shadow-xl: 0 20px 50px -8px rgba(0, 0, 0, 0.15), 0 8px 20px -6px rgba(0, 0, 0, 0.10);
+    --shadow-brand: 0 8px 25px -4px rgba(26, 122, 72, 0.30);
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 224 28% 8%;         /* very dark navy-charcoal */
+    --foreground: 210 35% 95%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 224 25% 11%;
+    --card-foreground: 210 35% 95%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 224 25% 11%;
+    --popover-foreground: 210 35% 95%;
 
-    --primary: 142.1 76.2% 36.3%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 152 60% 42%;           /* lighter green in dark mode */
+    --primary-foreground: 152 80% 6%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 220 22% 17%;
+    --secondary-foreground: 210 35% 92%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 220 20% 15%;
+    --muted-foreground: 215 18% 60%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 152 25% 18%;
+    --accent-foreground: 152 60% 72%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62% 42%;
+    --destructive-foreground: 210 35% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 142.1 76.2% 36.3%;
+    --border: 220 18% 18%;
+    --input: 220 18% 18%;
+    --ring: 152 60% 42%;
 
-    --radius: 1rem;
+    --radius: 0.75rem;
+
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 10px 30px -4px rgba(0, 0, 0, 0.45);
+    --shadow-xl: 0 20px 50px -8px rgba(0, 0, 0, 0.55);
+    --shadow-brand: 0 8px 25px -4px rgba(52, 217, 117, 0.20);
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Base element styles
+   ───────────────────────────────────────────────────────────────────────────── */
 
 @layer base {
-  * {
+  *,
+  *::before,
+  *::after {
     @apply border-border;
+    box-sizing: border-box;
   }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    letter-spacing: -0.01em;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.025em;
+    line-height: 1.25;
+    font-weight: 700;
+  }
+
+  h1 { font-size: 2.25rem; font-weight: 800; }
+  h2 { font-size: 1.75rem; font-weight: 700; }
+  h3 { font-size: 1.375rem; font-weight: 700; }
+  h4 { font-size: 1.125rem; font-weight: 600; }
+
+  p { line-height: 1.7; }
+
+  input, textarea, select {
+    font-family: inherit;
+    font-size: inherit;
+    letter-spacing: -0.005em;
+  }
+
+  ::selection {
+    background-color: hsl(152 65% 28% / 0.15);
+    color: hsl(152 65% 15%);
+  }
+
+  /* Smooth focus rings */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: calc(var(--radius) - 2px);
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Glassmorphism utility
+   ───────────────────────────────────────────────────────────────────────────── */
+
 .glass {
-  @apply bg-white/60 dark:bg-slate-900/50 backdrop-blur supports-[backdrop-filter]:bg-background/60;
+  background-color: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: var(--shadow-md);
 }
 
 .dark .glass {
-  @apply bg-slate-900/70 border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)];
+  background-color: rgba(14, 20, 35, 0.80);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow-lg);
 }
 
-.glass {
-  background-color: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+/* ─────────────────────────────────────────────────────────────────────────────
+   Auth shell — floating card layout
+   The auth pages use a beautiful full-viewport background with a centered
+   floating card instead of a split-screen or flat inline form.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.auth-page-bg {
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 10%, hsl(152 65% 28% / 0.08) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 80% 85%, hsl(152 65% 28% / 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 40% at 60% 0%, hsl(215 80% 60% / 0.04) 0%, transparent 45%);
 }
 
-.dark .glass {
-  background-color: rgba(15, 23, 42, 0.7);
-  /* slate-900 */
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+.dark .auth-page-bg {
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 10%, hsl(152 60% 42% / 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 80% 85%, hsl(152 60% 42% / 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 40% at 60% 0%, hsl(215 80% 60% / 0.06) 0%, transparent 45%);
 }
 
-/* FullCalendar Overrides */
+/* Floating form card */
+.auth-card {
+  background: white;
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) + 4px);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.03),
+    var(--shadow-xl);
+  padding: 2.5rem;
+}
+
+.dark .auth-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03),
+    var(--shadow-xl);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Premium form inputs
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.form-field-group {
+  position: relative;
+}
+
+/* Floating label style (used via JS, see auth-login-form) */
+.form-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.375rem;
+  letter-spacing: -0.005em;
+}
+
+.form-input {
+  height: 2.875rem;
+  width: 100%;
+  border-radius: var(--radius);
+  border: 1.5px solid hsl(var(--input));
+  background: hsl(var(--background));
+  padding: 0 1rem;
+  font-size: 0.9375rem;
+  color: hsl(var(--foreground));
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.form-input::placeholder {
+  color: hsl(var(--muted-foreground) / 0.6);
+  font-size: 0.875rem;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: hsl(var(--primary));
+  background: white;
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12);
+}
+
+.dark .form-input:focus {
+  background: hsl(var(--card));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.20);
+}
+
+.form-input:hover:not(:focus) {
+  border-color: hsl(var(--primary) / 0.4);
+}
+
+/* Submit button */
+.form-submit {
+  height: 2.875rem;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--radius);
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  box-shadow: var(--shadow-brand);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  cursor: pointer;
+  border: none;
+}
+
+.form-submit:hover:not(:disabled) {
+  background: hsl(152 65% 24%);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px -4px hsl(var(--primary) / 0.40);
+}
+
+.form-submit:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-brand);
+}
+
+.form-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Navigation & Sidebar premium overrides
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Active nav item — left accent bar */
+[aria-current='page'] {
+  position: relative;
+}
+
+[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 25%;
+  bottom: 25%;
+  width: 3px;
+  background: hsl(var(--primary));
+  border-radius: 0 2px 2px 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Card elevation system
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.card-elevated {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) + 2px);
+  box-shadow: var(--shadow-md);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.card-elevated:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Subtle animations
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@keyframes slide-up-fade {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% center; }
+  to   { background-position: 200% center; }
+}
+
+.animate-slide-up { animation: slide-up-fade 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-scale-in { animation: scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FullCalendar Overrides
+   ───────────────────────────────────────────────────────────────────────────── */
+
 .calendar-container .fc {
   font-family: inherit;
   height: 100%;
@@ -113,7 +381,7 @@
 .calendar-container .fc-theme-standard td,
 .calendar-container .fc-theme-standard th,
 .calendar-container .fc-theme-standard .fc-scrollgrid {
-  border-color: rgba(148, 163, 184, 0.15);
+  border-color: rgba(148, 163, 184, 0.12);
 }
 .calendar-container .fc-col-header-cell-cushion,
 .calendar-container .fc-daygrid-day-number {
@@ -125,19 +393,21 @@
 .calendar-container .fc-toolbar-title {
   font-size: 1rem;
   font-weight: 800;
+  letter-spacing: -0.02em;
 }
 .calendar-container .fc-button-primary {
   background: hsl(var(--primary)) !important;
   border-color: transparent !important;
-  border-radius: 0.75rem !important;
+  border-radius: 0.5rem !important;
   font-weight: 700 !important;
   font-size: 0.7rem !important;
+  font-family: inherit !important;
 }
 .calendar-container .fc-day-today {
   background: hsl(var(--primary) / 0.05) !important;
 }
 .calendar-container .fc-event {
-  border-radius: 0.5rem !important;
+  border-radius: 0.375rem !important;
   border: none !important;
   font-size: 0.7rem !important;
   font-weight: 700 !important;
@@ -165,14 +435,11 @@
   background: rgba(15, 23, 42, 0.6);
 }
 
-/* ---------------------------------------------------------------------------
+/* ─────────────────────────────────────────────────────────────────────────────
    Print
-   Learner records are printable: printing a profile produces the record itself,
-   with the application chrome removed rather than dumped onto the page.
-   --------------------------------------------------------------------------- */
+   ───────────────────────────────────────────────────────────────────────────── */
 
 @media print {
-  /* Chrome that makes no sense on paper. */
   header.sticky,
   aside,
   nav[aria-label='Main navigation'],
@@ -187,7 +454,6 @@
     background: #ffffff !important;
   }
 
-  /* Let the document flow normally instead of scrolling inside a fixed shell. */
   #__next,
   main,
   .overflow-y-auto {
@@ -197,7 +463,6 @@
     padding: 0 !important;
   }
 
-  /* Force the light palette: a dark background wastes toner and reads badly. */
   .dark .card,
   .dark [class*='bg-card'] {
     background: #ffffff !important;
@@ -211,7 +476,6 @@
     box-shadow: none !important;
   }
 
-  /* Keep a record together and avoid splitting a row across two pages. */
   table {
     page-break-inside: auto;
   }

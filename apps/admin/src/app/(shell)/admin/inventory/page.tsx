@@ -10,6 +10,7 @@ import {
   EmptyState,
   ErrorState,
   Field,
+  FloatingFormModal,
   LoadingState,
   SectionHeader,
   SettingsCard,
@@ -226,15 +227,79 @@ export default function AdminAssetRegisterPage() {
           canManage ? (
             <button
               type="button"
-              onClick={() => setAdding((v) => !v)}
+              onClick={() => setAdding(true)}
               aria-expanded={adding}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {adding ? 'Cancel' : 'Add Asset'}
+              + Add Asset
             </button>
           ) : null
         }
       />
+
+      <FloatingFormModal
+        isOpen={adding && canManage}
+        onClose={() => {
+          setAdding(false);
+          setCreateError(null);
+        }}
+        title="Add an asset"
+        description="A tag is optional but unique when given, so an item can be located by it."
+        icon="package"
+        submitLabel="Add asset"
+        isSubmitting={saving}
+        onSubmit={createAsset}
+        size="lg"
+      >
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Field label="Name" required>
+            <TextInput
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Desktop computer"
+            />
+          </Field>
+          <Field label="Asset tag" hint="Optional, unique when given">
+            <TextInput
+              value={tag}
+              onChange={(event) => setTag(event.target.value.toUpperCase())}
+              placeholder="INV-0042"
+            />
+          </Field>
+          <Field label="Category">
+            <TextInput
+              value={newCategory}
+              onChange={(event) => setNewCategory(event.target.value)}
+              placeholder="ICT"
+            />
+          </Field>
+          <Field label="Purchase value" hint="In whole shillings">
+            <TextInput
+              type="number"
+              min={0}
+              value={price}
+              onChange={(event) => setPrice(event.target.value)}
+              placeholder="85000"
+            />
+          </Field>
+          <Field label="Location" className="md:col-span-2">
+            <TextInput
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+              placeholder="Computer Lab 1"
+            />
+          </Field>
+        </div>
+
+        {createError ? (
+          <div
+            role="alert"
+            className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 px-3.5 py-2 text-sm text-destructive font-medium"
+          >
+            {createError}
+          </div>
+        ) : null}
+      </FloatingFormModal>
 
       {loading ? (
         <LoadingState label="Loading the asset register" />
@@ -245,83 +310,6 @@ export default function AdminAssetRegisterPage() {
         />
       ) : (
         <>
-          {adding ? (
-            <SettingsCard
-              title="Add an asset"
-              description="A tag is optional but unique when given, so an item can be located by it."
-            >
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                <Field label="Name" required>
-                  <TextInput
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    placeholder="Desktop computer"
-                  />
-                </Field>
-                <Field label="Asset tag" hint="Optional, unique when given">
-                  <TextInput
-                    value={tag}
-                    onChange={(event) => setTag(event.target.value.toUpperCase())}
-                    placeholder="INV-0042"
-                  />
-                </Field>
-                <Field label="Category">
-                  <TextInput
-                    value={newCategory}
-                    onChange={(event) => setNewCategory(event.target.value)}
-                    placeholder="ICT"
-                  />
-                </Field>
-                <Field label="Purchase value" hint="In whole shillings">
-                  <TextInput
-                    type="number"
-                    min={0}
-                    value={price}
-                    onChange={(event) => setPrice(event.target.value)}
-                    placeholder="85000"
-                  />
-                </Field>
-                <Field label="Location">
-                  <TextInput
-                    value={location}
-                    onChange={(event) => setLocation(event.target.value)}
-                    placeholder="Computer Lab 1"
-                  />
-                </Field>
-              </div>
-
-              {createError ? (
-                <div
-                  role="alert"
-                  className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-                >
-                  {createError}
-                </div>
-              ) : null}
-
-              <div className="mt-5 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={createAsset}
-                  disabled={saving || !name.trim()}
-                  className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-                >
-                  {saving ? 'Adding…' : 'Add asset'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdding(false);
-                    setCreateError(null);
-                  }}
-                  className="rounded-md border border-input bg-background px-3.5 py-2 text-sm font-medium transition-colors hover:bg-accent"
-                >
-                  Cancel
-                </button>
-              </div>
-            </SettingsCard>
-          ) : null}
-
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <DashboardCard
               title="Assets"

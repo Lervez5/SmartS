@@ -12,6 +12,7 @@ import {
   EmptyState,
   ErrorState,
   Field,
+  FloatingFormModal,
   LoadingState,
   PrimaryActionButton,
   SectionHeader,
@@ -459,69 +460,48 @@ export default function AdminAlumniPage() {
             }
           />
 
-          {canManage && restoring ? (
-            <div className="rounded-lg border bg-card p-5">
-              <h2 className="text-base font-semibold text-foreground">
-                Restore {displayName(restoring) || restoring.email}
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                This reactivates the account, returns the learner to the active roll and stamps the
-                exit as reversed. The record is kept, not deleted, and the action is written to the
-                audit log.
-              </p>
-
-              <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Field label="Grade to return into" hint="Defaults to the level they left from">
-                  <TextInput
-                    value={targetGrade}
-                    onChange={(event) => setTargetGrade(event.target.value)}
-                    placeholder={restoring.lastGradeLevel ?? 'Year 7'}
-                  />
-                </Field>
-                <Field
-                  label="Class"
-                  hint="Optional. Placement goes through Enrollment, the same path as enrolment."
-                >
-                  <Select
-                    value={targetClass}
-                    onChange={(event) => setTargetClass(event.target.value)}
-                  >
-                    <option value="">Do not place in a class</option>
-                    {(classes.data ?? []).map((row) => (
-                      <option key={row.id} value={row.id}>
-                        {row.name}
-                        {row.gradeLevel ? ` - ${row.gradeLevel}` : ''}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              </div>
-
-              <div className="mt-5 flex items-center gap-2">
-                <ConfirmButton
-                  label="Restore learner"
-                  confirmLabel="Restore to active roll"
-                  description={`${displayName(restoring) || restoring.email} will be reactivated.`}
-                  onConfirm={restore}
-                  variant="default"
-                  size="md"
-                  icon="undo-2"
-                  disabled={busy}
+          <FloatingFormModal
+            isOpen={canManage && Boolean(restoring)}
+            onClose={() => {
+              setRestoring(null);
+              setTargetGrade('');
+              setTargetClass('');
+            }}
+            title={`Restore ${displayName(restoring!) || restoring?.email}`}
+            description="This reactivates the account, returns the learner to the active roll and stamps the exit as reversed."
+            icon="undo-2"
+            submitLabel="Restore learner"
+            isSubmitting={busy}
+            onSubmit={restore}
+            size="md"
+          >
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="Grade to return into" hint="Defaults to the level they left from">
+                <TextInput
+                  value={targetGrade}
+                  onChange={(event) => setTargetGrade(event.target.value)}
+                  placeholder={restoring?.lastGradeLevel ?? 'Year 7'}
                 />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRestoring(null);
-                    setTargetGrade('');
-                    setTargetClass('');
-                  }}
-                  className="rounded-md border border-input bg-background px-3.5 py-2 text-sm font-medium transition-colors hover:bg-accent"
+              </Field>
+              <Field
+                label="Class"
+                hint="Optional class placement"
+              >
+                <Select
+                  value={targetClass}
+                  onChange={(event) => setTargetClass(event.target.value)}
                 >
-                  Cancel
-                </button>
-              </div>
+                  <option value="">Do not place in a class</option>
+                  {(classes.data ?? []).map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.name}
+                      {row.gradeLevel ? ` - ${row.gradeLevel}` : ''}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
             </div>
-          ) : null}
+          </FloatingFormModal>
 
           <p className="text-xs text-muted-foreground">
             An exit is recorded against the learner&rsquo;s own profile, so their attendance,

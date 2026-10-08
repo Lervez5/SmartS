@@ -14,6 +14,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { settingsHrefFor, useAuth, useLogout, type AppId, type UserRole } from '@schoolos/auth';
 import { AppShell } from './AppShell';
+import { BrandLoader } from './BrandLoader';
 import { ErrorState, LoadingState } from './block';
 
 /**
@@ -174,11 +175,7 @@ export function PortalLayout({
   }, [isResolving, isAuthenticated, router]);
 
   if (isResolving) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-6">
-        <LoadingState label="Restoring your session" className="w-full max-w-sm border-0" />
-      </div>
-    );
+    return <BrandLoader portalName={portalName} label="Preparing your workspace…" />;
   }
 
   if (!isAuthenticated || !user) {

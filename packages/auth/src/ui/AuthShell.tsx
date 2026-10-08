@@ -8,19 +8,16 @@
  * design language the AppShell continues: the same tokens, the same border and
  * radius treatment, the same type scale.
  *
- * The admin portal passes a `visual` panel to get the split-screen composition;
- * the other portals pass none and get the centered single column.
+ * Layout: A floating card centered on a premium branded background, with
+ * decorative green orbs and subtle grid overlay for depth. Admin portal passes
+ * a `visual` panel which activates the split-screen layout; other portals use
+ * the centered floating card by default.
  */
 
 import * as React from 'react';
 import Link from 'next/link';
 import { cn } from '@schoolos/utils';
 
-/**
- * Inlined rather than imported from `@schoolos/ui`: that package depends on this
- * one for roles and permissions, so an import here would form a cycle. This is
- * the only icon the auth shell needs.
- */
 function CalendarIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -43,7 +40,7 @@ export interface AuthShellProps {
   title: string;
   description?: React.ReactNode;
   children: React.ReactNode;
-  /** The right-hand visual panel. Omitted on the narrower portals. */
+  /** The right-hand visual panel. Used only by the admin split-screen layout. */
   visual?: React.ReactNode;
   /** Secondary link rendered under the form, e.g. "Forgot your password?". */
   footerLink?: { href: string; label: string };
@@ -72,95 +69,140 @@ export function AuthShell({
   fallback,
   footer,
 }: AuthShellProps) {
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="grid min-h-screen lg:grid-cols-2">
-        {/* Authentication panel */}
-        <main className={cn('flex flex-col px-6 py-8 sm:px-10 lg:px-12 lg:py-10', className)}>
-          {/*
-            The form column is capped and the block is centred in the space
-            below the identity mark.
+  if (visual) {
+    /* ── Admin split-screen layout ─────────────────────────────────────────── */
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <div className="grid min-h-screen lg:grid-cols-2">
+          {/* Authentication panel */}
+          <main
+            className={cn(
+              'relative flex flex-col px-6 py-8 sm:px-10 lg:px-14 lg:py-12',
+              'auth-page-bg',
+              className
+            )}
+          >
+            {/* Decorative orb */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -top-32 -left-32 h-80 w-80 rounded-full bg-primary/8 blur-[80px]"
+            />
 
-            Capping the width matters: on a wide display a split screen gives
-            each half the full viewport height and roughly half its width, so an
-            uncapped column stretches inputs to ~900px. `mt-auto` alone is not
-            enough either - it pins the form to the bottom edge, which leaves a
-            dead band under the logo. Centre it instead.
-          */}
-          <AuthIdentity portalLabel={portalLabel} schoolName={schoolName} logoUrl={logoUrl} />
+            <AuthIdentity portalLabel={portalLabel} schoolName={schoolName} logoUrl={logoUrl} />
 
-          <div className="flex flex-1 items-center py-10 sm:py-14">
-            <div className={cn('mx-auto w-full', visual ? 'max-w-sm' : 'max-w-md')}>
-              {!visual ? (
-                /*
-                  Without a visual panel the form is lifted into a card, so the
-                  flow reads as one object rather than loose inputs on a page.
-                */
-                <div className="rounded-2xl border bg-card p-6 shadow-lg sm:p-8">
-                  <CardHeading title={title} description={description} />
-                  <div className="mt-6">{children}</div>
-                  {fallback ? <div className="mt-4">{fallback}</div> : null}
-                  {footerLink ? (
-                    <div className="mt-6 flex justify-center">
-                      <Link
-                        href={footerLink.href}
-                        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        {footerLink.label}
-                      </Link>
-                    </div>
-                  ) : null}
-                  {footer ? <div className="mt-6">{footer}</div> : null}
-                </div>
-              ) : (
-                <>
-                  <CardHeading title={title} description={description} />
-                  <div className="mt-7">{children}</div>
-                  {fallback ? <div className="mt-4">{fallback}</div> : null}
-                  {footerLink ? (
-                    <div className="mt-6 text-center text-sm">
-                      <Link
-                        href={footerLink.href}
-                        className="font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        {footerLink.label}
-                      </Link>
-                    </div>
-                  ) : null}
-                  {footer ? <div className="mt-6">{footer}</div> : null}
-                </>
-              )}
+            <div className="flex flex-1 items-center py-10 sm:py-14">
+              <div className="mx-auto w-full max-w-sm">
+                <CardHeading title={title} description={description} />
+                <div className="mt-8">{children}</div>
+                {fallback ? <div className="mt-4">{fallback}</div> : null}
+                {footerLink ? (
+                  <div className="mt-6 text-center">
+                    <Link
+                      href={footerLink.href}
+                      className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {footerLink.label}
+                    </Link>
+                  </div>
+                ) : null}
+                {footer ? <div className="mt-6">{footer}</div> : null}
+              </div>
             </div>
-          </div>
-        </main>
+          </main>
 
-        {/* Visual / brand panel */}
-        {visual ? (
+          {/* Visual / brand panel */}
           <aside
             className="relative hidden overflow-hidden border-l bg-card lg:block"
             aria-hidden={false}
           >
             {visual}
           </aside>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Centered floating card layout (student, teacher, parent portals) ────── */
+  return (
+    <div
+      className={cn(
+        'relative min-h-screen auth-page-bg',
+        'flex flex-col items-center justify-center px-4 py-12',
+        className
+      )}
+    >
+      {/* Decorative background orbs */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute top-[-8%] left-[-8%] h-[420px] w-[420px] rounded-full bg-primary/8 blur-[100px]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute bottom-[-10%] right-[-8%] h-[360px] w-[360px] rounded-full bg-primary/6 blur-[90px]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute top-[40%] right-[15%] h-[220px] w-[220px] rounded-full bg-blue-500/4 blur-[70px]"
+      />
+
+      {/* Floating card */}
+      <div className="relative z-10 w-full max-w-md animate-scale-in">
+        {/* School identity above the card */}
+        {schoolName || logoUrl || portalLabel ? (
+          <div className="mb-6 flex justify-center">
+            <AuthIdentity
+              portalLabel={portalLabel}
+              schoolName={schoolName}
+              logoUrl={logoUrl}
+            />
+          </div>
         ) : null}
+
+        {/* The card itself */}
+        <div className="auth-card">
+          {/* Thin green accent bar at top of card */}
+          <div className="absolute inset-x-0 top-0 h-1 rounded-t-[calc(var(--radius)+4px)] bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
+
+          <CardHeading title={title} description={description} />
+          <div className="mt-7">{children}</div>
+          {fallback ? <div className="mt-4">{fallback}</div> : null}
+          {footerLink ? (
+            <div className="mt-7 flex justify-center border-t border-border/60 pt-5">
+              <Link
+                href={footerLink.href}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {footerLink.label}
+              </Link>
+            </div>
+          ) : null}
+          {footer ? <div className="mt-6">{footer}</div> : null}
+        </div>
+
+        {/* Subtle tagline below card */}
+        <p className="mt-5 text-center text-xs text-muted-foreground/70">
+          Secure sign-in
+        </p>
       </div>
     </div>
   );
 }
 
-/** Title and supporting line, shared by the card and the split layouts. */
+/** Title and supporting line, shared by both layouts. */
 function CardHeading({ title, description }: { title: string; description?: React.ReactNode }) {
   return (
     <div>
-      <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{title}</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-[1.6rem]">
+        {title}
+      </h1>
       {description ? (
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
+        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{description}</p>
       ) : null}
     </div>
   );
 }
 
-/** School mark. Uses the configured logo and name; never a hardcoded school. */
+/** School identity mark — logo / initials + name + portal label. */
 export function AuthIdentity({
   portalLabel,
   schoolName,
@@ -172,10 +214,13 @@ export function AuthIdentity({
   logoUrl?: string | null;
   className?: string;
 }) {
-  const box =
-    'flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary text-sm font-bold text-primary-foreground';
-  const initials = schoolName
-    ? schoolName
+  if (!schoolName && !logoUrl && !portalLabel) {
+    return null;
+  }
+
+  const nameToDisplay = schoolName?.trim() || null;
+  const initials = nameToDisplay
+    ? nameToDisplay
         .split(/\s+/)
         .map((w) => w.replace(/[^A-Za-z]/g, ''))
         .filter(Boolean)
@@ -186,49 +231,54 @@ export function AuthIdentity({
 
   return (
     <div className={cn('flex items-center gap-3', className)}>
-      <span className={box}>
-        {logoUrl ? (
-          <span
-            role="img"
-            aria-label={schoolName ?? 'School logo'}
-            className="h-full w-full bg-cover bg-center"
-            style={{ backgroundImage: `url(${logoUrl})` }}
-          />
-        ) : initials ? (
-          <span aria-hidden>{initials}</span>
-        ) : (
-          <span aria-hidden>S</span>
-        )}
-      </span>
-      <span className="min-w-0 leading-tight">
-        <span className="block truncate text-sm font-bold text-foreground">
-          {schoolName ?? 'School Management Platform'}
+      {/* Logo / initials box */}
+      {logoUrl || initials ? (
+        <span
+          className={cn(
+            'flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl',
+            'bg-gradient-to-br from-primary to-emerald-700 text-sm font-bold text-white',
+            'shadow-[0_4px_14px_rgba(26,122,72,0.35)]'
+          )}
+        >
+          {logoUrl ? (
+            <span
+              role="img"
+              aria-label={nameToDisplay ?? 'School logo'}
+              className="h-full w-full bg-cover bg-center"
+              style={{ backgroundImage: `url(${logoUrl})` }}
+            />
+          ) : initials ? (
+            <span aria-hidden className="text-sm font-extrabold tracking-tight">
+              {initials}
+            </span>
+          ) : null}
         </span>
-        {portalLabel ? (
-          <span className="block truncate text-xs text-muted-foreground">{portalLabel}</span>
-        ) : null}
-      </span>
+      ) : null}
+
+      {/* Name block */}
+      {nameToDisplay || portalLabel ? (
+        <span className="min-w-0 leading-tight">
+          {nameToDisplay ? (
+            <span className="block truncate text-[0.9375rem] font-bold text-foreground">
+              {nameToDisplay}
+            </span>
+          ) : null}
+          {portalLabel ? (
+            <span className="block truncate text-xs font-medium text-primary/80">{portalLabel}</span>
+          ) : null}
+        </span>
+      ) : null}
     </div>
   );
 }
 
 /**
  * The right-hand visual for the admin entry point.
- *
- * A layered abstract composition rather than a stock photograph: the school and
- * CBC learning story is told with the platform's own brand tokens, so it cannot
- * look like an unrelated marketing site. Every value shown is either a real
- * configured value passed in by the caller or a fixed label - no invented
- * statistics.
  */
 export interface AuthVisualProps {
-  /** The institution's photograph, from SchoolBrandingSettings. */
   coverImageUrl?: string | null;
-  /** Alt text for that photograph. Falls back to the institution's name. */
   coverImageAltText?: string | null;
-  /** Institution name, shown over the photograph. */
   institutionName?: string | null;
-  /** One restrained line of context. */
   caption?: string;
   className?: string;
 }
@@ -242,13 +292,6 @@ export function AuthVisual({
 }: AuthVisualProps) {
   const name = institutionName?.trim();
 
-  /*
-   * A photograph that is configured but cannot be loaded has to degrade to the
-   * branded field. Left alone the panel renders a broken-image icon inside the
-   * scrim, which looks like a layout fault and says nothing about the cause. The
-   * reset matters when the setting is corrected: without it the panel would stay
-   * on the fallback for the rest of the session.
-   */
   const [photoFailed, setPhotoFailed] = React.useState(false);
   React.useEffect(() => setPhotoFailed(false), [coverImageUrl]);
 
@@ -256,46 +299,67 @@ export function AuthVisual({
     <div className={cn('relative h-full w-full overflow-hidden bg-slate-900', className)}>
       {coverImageUrl && !photoFailed ? (
         <>
-          {/*
-            The photograph is the institution's own, so it is given the surface
-            rather than sitting behind a colour wash. object-cover fills the
-            panel without distorting what is in the picture.
-          */}
           <img
             src={coverImageUrl}
             alt={coverImageAltText?.trim() || name || 'Photograph of the school'}
             className="absolute inset-0 h-full w-full object-cover"
             onError={() => setPhotoFailed(true)}
           />
-          {/*
-            A scrim, strongest where the text sits. Without it a bright
-            photograph would leave the name unreadable, which is a legibility
-            problem rather than a styling preference.
-          */}
+          {/* Gradient scrim */}
           <div
             aria-hidden
-            className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/35 to-slate-950/20"
+            className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent"
+          />
+          {/* Green accent overlay at very top */}
+          <div
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/70 via-emerald-400/60 to-primary/70"
           />
         </>
       ) : (
         <>
-          {/* No photograph configured: a quiet branded field, not a drawing. */}
+          {/* Branded gradient field when no photo is configured */}
           <div
             aria-hidden
-            className="absolute inset-0 bg-[radial-gradient(120%_120%_at_20%_0%,hsl(142_60%_22%),hsl(222_47%_11%)_55%,hsl(222_47%_8%))]"
+            className="absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(140% 130% at 15% 0%, hsl(152 65% 22%) 0%, hsl(220 47% 11%) 50%, hsl(220 47% 8%) 100%)',
+            }}
+          />
+          {/* Dot grid overlay */}
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-20"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle, rgba(255,255,255,0.4) 1px, transparent 1px)',
+              backgroundSize: '28px 28px',
+            }}
+          />
+          {/* Glowing orb */}
+          <div
+            aria-hidden
+            className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-primary/25 blur-[80px]"
+          />
+          <div
+            aria-hidden
+            className="absolute bottom-24 -left-20 h-56 w-56 rounded-full bg-emerald-400/15 blur-[60px]"
           />
         </>
       )}
 
       {name || caption ? (
         <div className="absolute inset-x-0 bottom-0 p-8 sm:p-10">
+          {/* Green accent stripe above text */}
+          <div className="mb-4 h-0.5 w-12 rounded-full bg-primary/70" />
           {name ? (
-            <p className="max-w-md text-2xl font-semibold leading-tight text-white sm:text-3xl">
+            <p className="max-w-md text-2xl font-bold leading-tight text-white sm:text-3xl">
               {name}
             </p>
           ) : null}
           {caption ? (
-            <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-300">{caption}</p>
+            <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-300/90">{caption}</p>
           ) : null}
         </div>
       ) : null}

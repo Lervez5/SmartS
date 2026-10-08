@@ -56,10 +56,10 @@ export const TextInput = React.forwardRef<HTMLInputElement, TextInputProps>(func
       ref={ref}
       aria-invalid={error ? true : undefined}
       className={cn(
-        'h-10 w-full rounded-md border bg-background px-3 text-sm text-foreground transition-colors',
-        'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'h-10.5 w-full rounded-xl border bg-background/80 px-3.5 text-sm font-medium text-foreground transition-all duration-200',
+        'placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/15',
         'disabled:pointer-events-none disabled:opacity-60',
-        error ? 'border-destructive focus-visible:ring-destructive/40' : 'border-input',
+        error ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/15' : 'border-input/80 hover:border-primary/40',
         className
       )}
       {...props}
@@ -80,10 +80,10 @@ export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(fun
       ref={ref}
       aria-invalid={error ? true : undefined}
       className={cn(
-        'w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground transition-colors',
-        'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'w-full rounded-xl border bg-background/80 px-3.5 py-2.5 text-sm font-medium text-foreground transition-all duration-200',
+        'placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/15',
         'disabled:pointer-events-none disabled:opacity-60',
-        error ? 'border-destructive focus-visible:ring-destructive/40' : 'border-input',
+        error ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/15' : 'border-input/80 hover:border-primary/40',
         className
       )}
       {...props}
@@ -102,10 +102,10 @@ export const SettingsSelect = React.forwardRef<HTMLSelectElement, SettingsSelect
         ref={ref}
         aria-invalid={error ? true : undefined}
         className={cn(
-          'h-10 w-full rounded-md border bg-background px-2.5 text-sm text-foreground transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          'h-10.5 w-full rounded-xl border bg-background/80 px-3 text-sm font-medium text-foreground transition-all duration-200',
+          'focus-visible:outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/15',
           'disabled:pointer-events-none disabled:opacity-60',
-          error ? 'border-destructive' : 'border-input',
+          error ? 'border-destructive' : 'border-input/80 hover:border-primary/40',
           className
         )}
         {...props}
@@ -210,15 +210,15 @@ export function SettingsCard({
   className,
 }: SettingsCardProps) {
   return (
-    <section className={cn('rounded-lg border bg-card p-5', className)}>
-      <header className="mb-4 flex items-start gap-3">
+    <section className={cn('rounded-2xl border border-border/70 bg-card/90 p-6 shadow-sm hover:shadow-md transition-all duration-200', className)}>
+      <header className="mb-5 flex items-start gap-3.5">
         {Icon ? (
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Icon className="h-4.5 w-4.5" aria-hidden />
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/15 to-emerald-700/10 text-emerald-700 dark:text-emerald-400 font-semibold shadow-xs">
+            <Icon className="h-5 w-5" aria-hidden />
           </span>
         ) : null}
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+          <h2 className="text-base font-bold tracking-tight text-foreground">{title}</h2>
           {description ? (
             <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
           ) : null}

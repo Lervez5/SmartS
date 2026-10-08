@@ -31,6 +31,7 @@ import {
   DataTable,
   EmptyState,
   ErrorState,
+  FloatingFormModal,
   LoadingState,
   SectionHeader,
   StatusPill,
@@ -436,155 +437,136 @@ export default function AdminTeacherAllocationPage() {
           canManage ? (
             <button
               type="button"
-              onClick={() => setShowForm((open) => !open)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => setShowForm(true)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {showForm ? 'Close' : 'Add Allocation'}
+              + Add Allocation
             </button>
           ) : null
         }
       />
 
-      {showForm && canManage ? (
-        <form
-          onSubmit={createAllocation}
-          className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6"
-        >
-          <h2 className="text-base font-semibold text-foreground">New allocation</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Recorded against {sessionOptions.find((s) => s.value === sessionId)?.label ??
-              'the selected academic session'}
-            . This assigns responsibility only; it does not create an account.
-          </p>
-
-          <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
-            <Field label="Class" required hint="The stream is chosen inside this class">
-              <select
-                value={formClassId}
-                onChange={(event) => setFormClassId(event.target.value)}
-                className={selectClass}
-              >
-                <option value="">Choose a class…</option>
-                {classes.map((cls) => (
-                  <option key={cls.id} value={cls.id}>
-                    {[cls.name, cls.gradeLevel].filter(Boolean).join(' - ')}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field
-              label="Stream"
-              required
-              hint="Each stream carries its own teaching team, so this is what scopes every right below"
+      <FloatingFormModal
+        isOpen={showForm && canManage}
+        onClose={() => setShowForm(false)}
+        title="New allocation"
+        description={`Recorded against ${sessionOptions.find((s) => s.value === sessionId)?.label ?? 'the selected academic session'}. This assigns responsibility only; it does not create an account.`}
+        icon="user-round-check"
+        submitLabel="Create allocation"
+        isSubmitting={saving}
+        onSubmit={createAllocation}
+        size="lg"
+      >
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Field label="Class" required hint="The stream is chosen inside this class">
+            <select
+              value={formClassId}
+              onChange={(event) => setFormClassId(event.target.value)}
+              className={selectClass}
             >
-              <select
-                value={formStreamId}
-                onChange={(event) => setFormStreamId(event.target.value)}
-                disabled={!formClassId}
-                className={selectClass}
-              >
-                <option value="">
-                  {formClassId ? 'Choose a stream…' : 'Choose a class first'}
+              <option value="">Choose a class…</option>
+              {classes.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {[cls.name, cls.gradeLevel].filter(Boolean).join(' - ')}
                 </option>
-                {streamsInFormClass.map((stream) => (
-                  <option key={stream.id} value={stream.id}>
-                    {stream.code} — {stream.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
+              ))}
+            </select>
+          </Field>
 
-            <Field label="Teacher" required>
-              <select
-                value={formTeacherId}
-                onChange={(event) => setFormTeacherId(event.target.value)}
-                className={selectClass}
-              >
-                <option value="">Choose a teacher…</option>
-                {(options.data?.teachers ?? []).map((teacher) => (
-                  <option key={teacher.id} value={teacher.id}>
-                    {personName(teacher)}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Responsibility" required>
-              <select
-                value={formResponsibility}
-                onChange={(event) =>
-                  setFormResponsibility(event.target.value as Responsibility)
-                }
-                className={selectClass}
-              >
-                <option value="main_class_teacher">Main class teacher</option>
-                <option value="assistant_class_teacher">Assistant class teacher</option>
-                <option value="subject_teacher">Learning-area teacher</option>
-              </select>
-            </Field>
-
-            {formResponsibility === 'subject_teacher' ? (
-              <Field label="Learning area" required>
-                <select
-                  value={formSubjectId}
-                  onChange={(event) => setFormSubjectId(event.target.value)}
-                  className={selectClass}
-                >
-                  <option value="">Choose a learning area…</option>
-                  {(options.data?.subjects ?? []).map((subject) => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            ) : null}
-
-            {formResponsibility === 'assistant_class_teacher' ? (
-              <Field
-                label="Assistant rights"
-                hint="Management covers attendance, learners and class communication for this stream only"
-              >
-                <select
-                  value={formCanManage ? 'manage' : 'view'}
-                  onChange={(event) => setFormCanManage(event.target.value === 'manage')}
-                  className={selectClass}
-                >
-                  <option value="manage">May manage the stream</option>
-                  <option value="view">View only</option>
-                </select>
-              </Field>
-            ) : null}
-          </div>
-
-          {formError ? (
-            <p
-              role="alert"
-              className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          <Field
+            label="Stream"
+            required
+            hint="Each stream carries its own teaching team"
+          >
+            <select
+              value={formStreamId}
+              onChange={(event) => setFormStreamId(event.target.value)}
+              disabled={!formClassId}
+              className={selectClass}
             >
-              {formError}
-            </p>
+              <option value="">
+                {formClassId ? 'Choose a stream…' : 'Choose a class first'}
+              </option>
+              {streamsInFormClass.map((stream) => (
+                <option key={stream.id} value={stream.id}>
+                  {stream.code} — {stream.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Teacher" required>
+            <select
+              value={formTeacherId}
+              onChange={(event) => setFormTeacherId(event.target.value)}
+              className={selectClass}
+            >
+              <option value="">Choose a teacher…</option>
+              {(options.data?.teachers ?? []).map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {personName(teacher)}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Responsibility" required>
+            <select
+              value={formResponsibility}
+              onChange={(event) =>
+                setFormResponsibility(event.target.value as Responsibility)
+              }
+              className={selectClass}
+            >
+              <option value="main_class_teacher">Main class teacher</option>
+              <option value="assistant_class_teacher">Assistant class teacher</option>
+              <option value="subject_teacher">Learning-area teacher</option>
+            </select>
+          </Field>
+
+          {formResponsibility === 'subject_teacher' ? (
+            <Field label="Learning area" required>
+              <select
+                value={formSubjectId}
+                onChange={(event) => setFormSubjectId(event.target.value)}
+                className={selectClass}
+              >
+                <option value="">Choose a learning area…</option>
+                {(options.data?.subjects ?? []).map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
           ) : null}
 
-          <div className="mt-5 flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex h-9 items-center rounded-md bg-primary px-3.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+          {formResponsibility === 'assistant_class_teacher' ? (
+            <Field
+              label="Assistant rights"
+              hint="Management covers attendance and communication"
             >
-              {saving ? 'Saving…' : 'Create allocation'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="inline-flex h-9 items-center rounded-md border border-input px-3.5 text-sm font-semibold transition-colors hover:bg-accent"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : null}
+              <select
+                value={formCanManage ? 'manage' : 'view'}
+                onChange={(event) => setFormCanManage(event.target.value === 'manage')}
+                className={selectClass}
+              >
+                <option value="manage">May manage the stream</option>
+                <option value="view">View only</option>
+              </select>
+            </Field>
+          ) : null}
+        </div>
+
+        {formError ? (
+          <p
+            role="alert"
+            className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 px-3.5 py-2 text-sm text-destructive font-medium"
+          >
+            {formError}
+          </p>
+        ) : null}
+      </FloatingFormModal>
 
       {options.loading ? (
         <LoadingState label="Loading allocation options" />

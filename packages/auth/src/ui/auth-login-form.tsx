@@ -131,8 +131,8 @@ export function LoginForm({ appId, schoolName, forgotPasswordHref }: LoginFormPr
       submitLoadingLabel="Signing in…"
     >
       <div className="space-y-1.5">
-        <label htmlFor={`${appId}-email`} className="block text-sm font-medium text-foreground">
-          Email
+        <label htmlFor={`${appId}-email`} className="form-label">
+          Email address
         </label>
         <input
           id={`${appId}-email`}
@@ -141,23 +141,20 @@ export function LoginForm({ appId, schoolName, forgotPasswordHref }: LoginFormPr
           required
           autoComplete="username"
           autoFocus
-          placeholder="admin@school.edu"
-          className="h-11 w-full rounded-lg border border-input bg-background px-3.5 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60"
+          placeholder="yourname@school.edu"
+          className="form-input border-input disabled:pointer-events-none disabled:opacity-60"
         />
       </div>
 
       <div className="space-y-1.5">
         <div className="flex items-baseline justify-between gap-3">
-          <label
-            htmlFor={`${appId}-password`}
-            className="block text-sm font-medium text-foreground"
-          >
+          <label htmlFor={`${appId}-password`} className="form-label">
             Password
           </label>
           {forgotPasswordHref ? (
             <a
               href={forgotPasswordHref}
-              className="text-xs font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="text-xs font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
             >
               Forgot password?
             </a>
@@ -168,17 +165,17 @@ export function LoginForm({ appId, schoolName, forgotPasswordHref }: LoginFormPr
             id={`${appId}-password`}
             name="password"
             type={showPassword ? 'text' : 'password'}
-            placeholder="Your password"
+            placeholder="Enter your password"
             required
             autoComplete="current-password"
-            className="h-11 w-full rounded-lg border border-input bg-background px-3.5 pr-11 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60"
+            className="form-input border-input pr-12 disabled:pointer-events-none disabled:opacity-60"
           />
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             aria-label={showPassword ? 'Hide password' : 'Show password'}
             aria-pressed={showPassword}
-            className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {showPassword ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
           </button>
@@ -187,7 +184,8 @@ export function LoginForm({ appId, schoolName, forgotPasswordHref }: LoginFormPr
 
       {schoolName ? (
         <p className="text-xs text-muted-foreground">
-          Signing in to <span className="font-medium text-foreground">{schoolName}</span>
+          Signing in to{' '}
+          <span className="font-semibold text-foreground">{schoolName}</span>
         </p>
       ) : null}
     </AuthForm>

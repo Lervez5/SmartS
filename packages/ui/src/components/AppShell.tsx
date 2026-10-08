@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, CalendarRange, ChevronDown, LifeBuoy, LogOut, Menu } from 'lucide-react';
+import { Bell, CalendarRange, ChevronDown, ChevronRight, LifeBuoy, LogOut, Menu } from 'lucide-react';
 import { cn } from '@schoolos/utils';
 import {
   visibleSections,
@@ -293,15 +293,15 @@ export function NavItemLink({
       title={collapsed ? item.label : undefined}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
-        'group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors',
+        'group relative flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-semibold transition-all duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         collapsed && 'justify-center px-0',
         isActive
-          ? 'bg-primary/10 text-primary'
-          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          ? 'bg-primary/12 text-primary font-bold shadow-2xs'
+          : 'text-muted-foreground/90 hover:bg-muted/60 hover:text-foreground'
       )}
     >
-      <NavIcon name={item.icon} className="h-4 w-4 shrink-0" />
+      <NavIcon name={item.icon} className={cn('h-4.5 w-4.5 shrink-0 transition-transform duration-150 group-hover:scale-105', isActive ? 'text-primary' : 'text-muted-foreground')} />
       {collapsed ? (
         <span className="sr-only">{item.label}</span>
       ) : (
@@ -326,20 +326,84 @@ export function SidebarSection({
   collapsed: boolean;
   onNavigate?: () => void;
 }) {
+  const pathname = usePathname() ?? '';
+  const hasActiveItem = React.useMemo(() => {
+    return section.items.some(
+      (item) => item.href === pathname || (item.href !== '/' && pathname.startsWith(`${item.href}/`))
+    );
+  }, [section.items, pathname]);
+
+  const [isOpen, setIsOpen] = React.useState(true);
+
+  // Auto-expand section when navigating to an active item inside it
+  React.useEffect(() => {
+    if (hasActiveItem) {
+      setIsOpen(true);
+    }
+  }, [hasActiveItem]);
+
+  const hasGroups = React.useMemo(() => {
+    return section.items.some((item) => Boolean(item.group));
+  }, [section.items]);
+
+  const groupedItems = React.useMemo(() => {
+    if (!hasGroups) return null;
+    const map = new Map<string, NavItemLike[]>();
+    for (const item of section.items) {
+      const g = item.group || 'General';
+      if (!map.has(g)) map.set(g, []);
+      map.get(g)!.push(item);
+    }
+    return Array.from(map.entries());
+  }, [section.items, hasGroups]);
+
   return (
     <div className="py-1">
       {collapsed ? (
-        <div className="mx-2 my-2 h-px bg-border" aria-hidden />
+        <div className="mx-2 my-2 h-px bg-border/40" aria-hidden />
       ) : (
-        <p className="px-2.5 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">
-          {section.label}
-        </p>
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          className="group flex w-full items-center justify-between px-2.5 pb-1.5 pt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/70 hover:text-foreground transition-colors rounded-lg hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          aria-expanded={isOpen}
+        >
+          <span>{section.label}</span>
+          <span className="text-muted-foreground/50 group-hover:text-foreground transition-transform duration-150">
+            {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          </span>
+        </button>
       )}
-      <nav className="space-y-0.5" aria-label={section.label}>
-        {section.items.map((item) => (
-          <NavItemLink key={item.id} item={item} collapsed={collapsed} onNavigate={onNavigate} />
-        ))}
-      </nav>
+
+      {(isOpen || collapsed) && (
+        <nav
+          className={cn(
+            'space-y-0.5 transition-all duration-200',
+            !collapsed && !isOpen && 'hidden'
+          )}
+          aria-label={section.label}
+        >
+          {hasGroups && groupedItems && !collapsed ? (
+            groupedItems.map(([groupName, groupItems], idx) => (
+              <div key={groupName} className="space-y-0.5">
+                <p className={cn(
+                  "px-3 pt-2.5 pb-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest",
+                  idx > 0 && "mt-2 border-t border-border/20 pt-3"
+                )}>
+                  {groupName}
+                </p>
+                {groupItems.map((item) => (
+                  <NavItemLink key={item.id} item={item} collapsed={collapsed} onNavigate={onNavigate} />
+                ))}
+              </div>
+            ))
+          ) : (
+            section.items.map((item) => (
+              <NavItemLink key={item.id} item={item} collapsed={collapsed} onNavigate={onNavigate} />
+            ))
+          )}
+        </nav>
+      )}
     </div>
   );
 }
@@ -376,7 +440,7 @@ export function Sidebar({
     <>
       {mobileOpen ? (
         <div
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs lg:hidden"
           onClick={onMobileClose}
           aria-hidden
         />
@@ -384,16 +448,18 @@ export function Sidebar({
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex h-dvh shrink-0 flex-col border-r bg-card',
+          'fixed inset-y-0 left-0 z-50 flex h-dvh shrink-0 flex-col',
+          'border-r border-border/50 bg-card/95 backdrop-blur-md shadow-xs',
           'transition-[width,transform] duration-200 lg:static lg:h-auto lg:translate-x-0',
           collapsed ? 'w-[68px]' : 'w-64',
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         )}
         aria-label="Main navigation"
       >
+        {/* Brand mark at top of sidebar */}
         <div
           className={cn(
-            'flex h-16 shrink-0 items-center border-b px-3',
+            'flex h-16 shrink-0 items-center border-b border-border/40 px-4',
             collapsed && 'justify-center px-0'
           )}
         >
@@ -406,7 +472,7 @@ export function Sidebar({
           />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">
           {sections.map((section) => (
             <SidebarSection
               key={section.id}
@@ -417,26 +483,27 @@ export function Sidebar({
           ))}
         </div>
 
-        <div className="hidden shrink-0 space-y-0.5 border-t p-2 lg:block">
+        {/* Modern SaaS Footer without harsh lines */}
+        <div className="hidden shrink-0 space-y-1 p-3 border-t border-border/30 bg-muted/20 lg:block">
           <button
             type="button"
             onClick={onToggle}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-muted-foreground/80 transition-all hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <NavIcon
               name={collapsed ? 'chevron-right' : 'chevron-left'}
               className="h-4 w-4 shrink-0"
             />
-            {collapsed ? <span className="sr-only">Expand sidebar</span> : <span>Collapse</span>}
+            {collapsed ? <span className="sr-only">Expand sidebar</span> : <span>Collapse sidebar</span>}
           </button>
 
           <button
             type="button"
             onClick={onLogout}
             className={cn(
-              'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium',
-              'text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive',
+              'flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold',
+              'text-muted-foreground/80 transition-all hover:bg-destructive/10 hover:text-destructive',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               collapsed && 'justify-center px-0'
             )}
@@ -490,38 +557,34 @@ export function TopNavbar({
     useAcademicSession();
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
-      {/* ---------- Zone 1: brand, anchored left ---------- */}
-      <div className="flex min-w-0 shrink items-center gap-2">
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border/50 bg-background/80 px-4 backdrop-blur-xl backdrop-saturate-150 sm:px-6 shadow-2xs">
+      {/* ---------- Zone 1: Mobile toggle & Portal Context Badge (No duplicate BrandMark) ---------- */}
+      <div className="flex min-w-0 shrink items-center gap-3">
         <button
           type="button"
           onClick={onMobileMenu}
           aria-label="Open navigation"
-          className="-ml-1.5 rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
+          className="-ml-1 rounded-xl p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
         >
-          <Menu className="h-[22px] w-[22px]" />
+          <Menu className="h-5 w-5" />
         </button>
 
-        {/*
-          Same identity as the sidebar: the school's configured logo and name
-          with the portal beneath it, so the two never disagree. Below `sm`
-          the navbar keeps the name but drops the portal line, because the
-          academic context and actions need the width - the mobile drawer
-          carries the full pair.
-        */}
-        <BrandMark
-          logoUrl={logoUrl}
-          schoolName={schoolName}
-          portalName={portalName}
-          size="sm"
-          className="hidden sm:flex"
-        />
-        <BrandMark
-          logoUrl={logoUrl}
-          schoolName={schoolName}
-          size="sm"
-          className="flex min-w-0 sm:hidden"
-        />
+        {/* On mobile drawers, show BrandMark. On desktop, show a sleek portal badge so text isn't repeated! */}
+        <div className="lg:hidden flex items-center">
+          <BrandMark
+            logoUrl={logoUrl}
+            schoolName={schoolName}
+            portalName={portalName}
+            size="sm"
+          />
+        </div>
+
+        <div className="hidden lg:flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            {portalName}
+          </span>
+        </div>
       </div>
 
       {/* ---------- Zone 2: academic context, centred ---------- */}
@@ -539,16 +602,16 @@ export function TopNavbar({
       </div>
 
       {/* ---------- Zone 3: actions and user, anchored right ---------- */}
-      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5">
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
         {typeof notificationCount === 'number' ? (
           <a
             href={notificationsHref}
             aria-label={`Notifications${notificationCount > 0 ? `, ${notificationCount} unread` : ''}`}
-            className="relative rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="relative rounded-xl p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Bell className="h-5 w-5" />
             {notificationCount > 0 ? (
-              <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+              <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground shadow-xs">
                 {notificationCount > 99 ? '99+' : notificationCount}
               </span>
             ) : null}
@@ -559,7 +622,7 @@ export function TopNavbar({
 
         <QuickActions actions={quickActions} />
 
-        <div className="mx-0.5 hidden h-6 w-px bg-border sm:block" aria-hidden />
+        <div className="mx-1 hidden h-5 w-px bg-border/60 sm:block" aria-hidden />
 
         <UserMenu
           user={user}

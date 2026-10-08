@@ -70,7 +70,9 @@ export function BrandMark({
     <span className={cn('flex min-w-0 items-center gap-2.5', className)}>
       <span
         className={cn(
-          'flex shrink-0 items-center justify-center overflow-hidden bg-primary font-bold text-primary-foreground',
+          'flex shrink-0 items-center justify-center overflow-hidden font-bold text-white',
+          'bg-gradient-to-br from-primary to-emerald-700',
+          'shadow-[0_3px_10px_rgba(26,122,72,0.30)]',
           dimensions.box
         )}
       >
@@ -101,7 +103,7 @@ export function BrandMark({
             {schoolName ?? 'School Management Platform'}
           </span>
           {portalName ? (
-            <span className={cn('block truncate text-muted-foreground', dimensions.sub)}>
+            <span className={cn('block truncate font-semibold text-primary/70', dimensions.sub)}>
               {portalName}
             </span>
           ) : null}

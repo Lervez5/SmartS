@@ -1,11 +1,16 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import '@/styles/globals.css';
 import { AuthSessionGate, AuthProvider } from '@schoolos/auth';
 import { ThemeProvider } from '@schoolos/auth/ui';
 import { Toaster } from '@schoolos/ui';
 
-const inter = Inter({ subsets: ['latin'] });
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+  weight: ['300', '400', '500', '600', '700', '800'],
+});
 
 export const metadata: Metadata = {
   title: 'Teacher Portal - School OS',
@@ -15,7 +20,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={plusJakartaSans.className}>
         <ThemeProvider>
           <AuthProvider>
             <AuthSessionGate>{children}</AuthSessionGate>

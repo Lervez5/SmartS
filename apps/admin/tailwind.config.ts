@@ -7,6 +7,7 @@ export default {
     './src/components/**/*.{js,ts,jsx,tsx}',
     './src/app/**/*.{js,ts,jsx,tsx}',
     '../../packages/ui/src/**/*.{js,ts,jsx,tsx}',
+    '../../packages/auth/src/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     container: {
@@ -52,9 +53,10 @@ export default {
           foreground: 'hsl(var(--card-foreground))',
         },
         brand: {
-          DEFAULT: '#16a34a',
-          light: '#4ade80',
-          dark: '#166534',
+          DEFAULT: '#1a7a48',
+          light: '#34d975',
+          dark: '#0d4a2b',
+          muted: '#d1fae5',
         },
       },
       borderRadius: {

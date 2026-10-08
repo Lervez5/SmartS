@@ -51,6 +51,8 @@ export interface NavItem {
   icon?: string;
   /** Sort order within the section. Lower first. */
   order?: number;
+  /** Sub-heading grouping inside a parent section. */
+  group?: string;
   /**
    * False when the backend capability does not exist yet. The route still
    * resolves so the sidebar is honest about the shape of the platform, but the
@@ -1051,7 +1053,7 @@ const ADMIN_NAV: NavSection[] = [
      */
     id: 'finance',
     label: 'Financials',
-    permissions: ['finance.view'],
+    permissions: ['finance.view', 'finance.manage', 'expenses.view', 'expenses.manage', 'inventory.view', 'users.view'],
     items: [
       {
         id: 'adm.finance.payments',
@@ -1059,6 +1061,7 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/finance/payments',
         permissions: ['finance.payments'],
         icon: 'credit-card',
+        group: 'Financial Records',
         order: 1,
         implemented: false,
         gap: 'A payment is a Receipt row, and the Receipt model exists with method, paidBy and receivedAt, but there is no /api/finance/payments or /api/finance/receipts route. Recording and listing payments both have to be built.',
@@ -1069,6 +1072,7 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/finance/invoices',
         permissions: ['finance.view'],
         icon: 'receipt',
+        group: 'Financial Records',
         order: 2,
       },
       {
@@ -1077,6 +1081,7 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/finance',
         permissions: ['finance.view'],
         icon: 'scale',
+        group: 'Financial Records',
         order: 3,
       },
       {
@@ -1085,6 +1090,7 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/finance/credit-notes',
         permissions: ['finance.manage'],
         icon: 'file-minus',
+        group: 'Financial Records',
         order: 4,
         implemented: false,
         gap: 'No CreditNote model exists. SchoolFinanceSettings.creditNotesEnabled is configuration only, and there is no route to raise, number or apply a credit note against an invoice.',
@@ -1095,6 +1101,7 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/finance/refunds',
         permissions: ['finance.refunds'],
         icon: 'undo-2',
+        group: 'Financial Records',
         order: 5,
         implemented: false,
         gap: 'No Refund model exists. SchoolFinanceSettings.refundsEnabled is configuration only, and a refund would have to reference both the original Receipt and the Invoice it reverses.',
@@ -1105,6 +1112,7 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/finance/reconciliation',
         permissions: ['finance.reconcile'],
         icon: 'git-compare-arrows',
+        group: 'Financial Records',
         order: 6,
         implemented: false,
         gap: 'No reconciliation domain exists. SchoolFinanceSettings.reconciliationEnabled is a stored switch, but there is no Reconciliation model, no statement import, and no route to match a statement line against recorded activity.',
@@ -1115,6 +1123,7 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/finance/cheque-register',
         permissions: ['finance.manage'],
         icon: 'file-text',
+        group: 'Financial Records',
         order: 7,
         implemented: false,
         gap: 'Cheques are not represented anywhere. Receipt.method is documented as cash | mpesa | bank_transfer | card, with no cheque value, and there is no Cheque model to hold a number, a payee or a deposit date.',
@@ -1125,30 +1134,21 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/finance/ledger',
         permissions: ['finance.view'],
         icon: 'book-open-text',
+        group: 'Financial Records',
         order: 8,
         implemented: false,
         gap: 'There is no ledger to read. No Account, LedgerEntry or JournalEntry model exists, so income and expenditure are only ever aggregates over invoices, receipts and expenses rather than postings to accounts.',
       },
-    ],
-  },
-  {
-    /**
-     * Fee configuration, sitting under Financials.
-     *
-     * A subsection rather than more top-level entries: these govern how money
-     * is charged, which is a different question from tracking what is owed.
-     */
-    id: 'feeConfiguration',
-    label: 'Fee Configuration',
-    permissions: ['finance.manage'],
-    items: [
+
+      /* Fee Configuration */
       {
         id: 'adm.fees.structures',
         label: 'Fee Structures',
         href: '/admin/fees/structures',
         permissions: ['finance.manage'],
         icon: 'layers',
-        order: 1,
+        group: 'Fee Configuration',
+        order: 9,
         implemented: false,
         gap: 'No FeeStructure model exists. SchoolFinanceSettings.feeCategories is a flat list of names with no amounts, so there is nothing describing what a class of learner is charged per term or per year.',
       },
@@ -1158,7 +1158,8 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/fees/categories',
         permissions: ['finance.manage'],
         icon: 'tag',
-        order: 2,
+        group: 'Fee Configuration',
+        order: 10,
         implemented: false,
         gap: 'The category list exists as SchoolFinanceSettings.feeCategories, a JSON array edited under School Configuration \u2192 Finance. It has no domain behind it: no per-category amount, ordering or default, so a category cannot be charged or reported on.',
       },
@@ -1168,7 +1169,8 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/fees/terms',
         permissions: ['finance.manage', 'academics.view'],
         icon: 'calendar-range',
-        order: 3,
+        group: 'Fee Configuration',
+        order: 11,
       },
       {
         id: 'adm.fees.late-policy',
@@ -1176,7 +1178,8 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/fees/late-policy',
         permissions: ['finance.manage'],
         icon: 'clock',
-        order: 4,
+        group: 'Fee Configuration',
+        order: 12,
         implemented: false,
         gap: 'SchoolFinanceSettings.latePaymentPenalty holds a single percentage and arrearsGraceDays a single day count. There is no policy record, so tiered penalties, a grace ladder or per-category rules cannot be expressed.',
       },
@@ -1186,7 +1189,8 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/fees/mpesa',
         permissions: ['finance.manage'],
         icon: 'smartphone',
-        order: 5,
+        group: 'Fee Configuration',
+        order: 13,
         implemented: false,
         gap: 'No M-Pesa configuration exists. paymentMethods in SchoolFinanceSettings merely lists "mpesa" as an accepted string, with no till, shortcode, callback or provider setting.',
       },
@@ -1196,7 +1200,8 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/fees/discounts',
         permissions: ['finance.manage'],
         icon: 'percent',
-        order: 6,
+        group: 'Fee Configuration',
+        order: 14,
         implemented: false,
         gap: 'SchoolFinanceSettings.discountsEnabled is a boolean with no rule behind it. There is no Discount model, so nothing states who qualifies, for what proportion, or over which period.',
       },
@@ -1206,7 +1211,8 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/fees/plans',
         permissions: ['finance.manage'],
         icon: 'calendar-clock',
-        order: 7,
+        group: 'Fee Configuration',
+        order: 15,
         implemented: false,
         gap: 'No instalment or schedule model exists. SchoolFinanceSettings.allowPartialPayments permits a part payment, but nothing records an agreed plan of instalments or tracks one.',
       },
@@ -1216,30 +1222,21 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/transport',
         permissions: ['transport.view', 'finance.view'],
         icon: 'bus',
-        order: 8,
+        group: 'Fee Configuration',
+        order: 16,
       },
-    ],
-  },
-  {
-    /**
-     * Procurement, sitting under Financials alongside fee configuration.
-     *
-     * What the school spends money on, as distinct from what it charges:
-     * suppliers and purchase commitments on one side, petty cash on the other.
-     */
-    id: 'procurement',
-    label: 'Procurement',
-    permissions: ['expenses.manage'],
-    items: [
+
+      /* Procurement */
       {
         id: 'adm.procurement.orders',
-        label: 'Procurement',
+        label: 'Procurement Orders',
         href: '/admin/procurement',
         permissions: ['expenses.manage', 'expenses.view'],
         icon: 'shopping-cart',
-        order: 1,
+        group: 'Procurement',
+        order: 17,
         implemented: false,
-        gap: 'Nothing about purchasing is modelled. There is no Supplier, so nothing records who a school buys from; no PurchaseOrder or LPO, so there is no commitment to track; and no Voucher, so an approved payment has no document. The Expense model records money already spent, not the commitment to spend it.',
+        gap: 'Nothing about purchasing is modelled.',
       },
       {
         id: 'adm.procurement.petty-cash',
@@ -1247,27 +1244,21 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/procurement/petty-cash',
         permissions: ['expenses.manage', 'expenses.view'],
         icon: 'wallet',
-        order: 2,
+        group: 'Procurement',
+        order: 18,
         implemented: false,
-        gap: 'Petty cash has no float to reconcile. There is no PettyCash or PettyCashTransaction model, so nothing holds an opening balance, a custodian or a float that must be replenished, and Expense records a spent amount without the float it came from.',
+        gap: 'Petty cash has no float to reconcile.',
       },
-    ],
-  },
-  {
-    /**
-     * Operations - what the school owns and keeps, day to day.
-     */
-    id: 'operations',
-    label: 'Operations',
-    permissions: ['inventory.view', 'expenses.view'],
-    items: [
+
+      /* Operations & Assets */
       {
         id: 'adm.operations.assets',
         label: 'Asset Register',
         href: '/admin/inventory',
         permissions: ['inventory.view', 'inventory.manage'],
         icon: 'package',
-        order: 1,
+        group: 'Operations & Assets',
+        order: 19,
       },
       {
         id: 'adm.operations.stores',
@@ -1275,9 +1266,10 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/inventory/stores',
         permissions: ['inventory.view', 'inventory.manage'],
         icon: 'warehouse',
-        order: 2,
+        group: 'Operations & Assets',
+        order: 20,
         implemented: false,
-        gap: 'Assets are a register of things the school owns; a store is stock it holds. There is no Store, StockItem or movement model, so nothing records what is on a shelf, what left it, or what was reordered.',
+        gap: 'Assets are a register of things the school owns; a store is stock it holds.',
       },
       {
         id: 'adm.operations.bursaries',
@@ -1285,9 +1277,10 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/operations/bursaries',
         permissions: ['finance.manage', 'expenses.manage'],
         icon: 'graduation-cap',
-        order: 3,
+        group: 'Operations & Assets',
+        order: 21,
         implemented: false,
-        gap: 'No Bursary model exists. SchoolFinanceSettings holds no bursary policy, so nothing states who is eligible, how much is awarded, or which budget it comes from.',
+        gap: 'No Bursary model exists.',
       },
       {
         id: 'adm.operations.capitation',
@@ -1295,9 +1288,10 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/operations/capitation',
         permissions: ['finance.manage', 'finance.view'],
         icon: 'landmark',
-        order: 4,
+        group: 'Operations & Assets',
+        order: 22,
         implemented: false,
-        gap: 'Capitation is a receipt of government funding per learner, and nothing models it. There is no Capitation record, rate or term, so funds received from the ministry cannot be reconciled against learners.',
+        gap: 'Capitation is a receipt of government funding per learner.',
       },
       {
         id: 'adm.operations.budgets',
@@ -1305,29 +1299,23 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/operations/budgets',
         permissions: ['finance.manage', 'finance.view'],
         icon: 'chart-pie',
-        order: 5,
+        group: 'Operations & Assets',
+        order: 23,
         implemented: false,
-        gap: 'No Budget or BudgetLine model exists. Spend is only ever an aggregate over expenses, so there is no envelope to set a limit against or report a variance to.',
+        gap: 'No Budget or BudgetLine model exists.',
       },
-    ],
-  },
-  {
-    /**
-     * Compliance - what the school owes the regulator, and who approved what.
-     */
-    id: 'compliance',
-    label: 'Compliance',
-    permissions: ['users.view', 'finance.manage'],
-    items: [
+
+      /* Compliance & Audits */
       {
         id: 'adm.compliance.statutory',
         label: 'Statutory Returns',
         href: '/admin/compliance/statutory-returns',
         permissions: ['finance.manage', 'reports.export'],
         icon: 'file-check',
-        order: 1,
+        group: 'Compliance & Audits',
+        order: 24,
         implemented: false,
-        gap: 'No submission record exists. There is nothing to hold a return period, its due date, the figure filed, or whether it was accepted, so a school cannot show what it has submitted or what is outstanding.',
+        gap: 'No submission record exists.',
       },
       {
         id: 'adm.compliance.approvals',
@@ -1335,9 +1323,10 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/compliance/approvals',
         permissions: ['finance.manage', 'expenses.manage'],
         icon: 'stamp',
-        order: 2,
+        group: 'Compliance & Audits',
+        order: 25,
         implemented: false,
-        gap: 'No approval model exists. Expense has a status but no approver, no decision and no note, so nothing records who authorised a payment or on what grounds.',
+        gap: 'No approval model exists.',
       },
       {
         id: 'adm.compliance.audit',
@@ -1345,7 +1334,8 @@ const ADMIN_NAV: NavSection[] = [
         href: '/admin/audit-logs',
         permissions: ['users.view'],
         icon: 'scroll-text',
-        order: 3,
+        group: 'Compliance & Audits',
+        order: 26,
       },
     ],
   },
@@ -1922,6 +1912,7 @@ export interface NavItemLike {
   roles?: UserRole[];
   icon?: string;
   order?: number;
+  group?: string;
   implemented?: boolean;
   gap?: string;
 }
@@ -1945,16 +1936,24 @@ export function visibleSections(
   const out: NavSectionResult[] = [];
 
   for (const section of sections) {
-    // A section heading is itself a claim about authority: "Fee Configuration" is
-    // an accounting surface, so a role that cannot manage fees should not see
-    // it even when one of its items passes on a wider permission. Without this
-    // a DEAN landed in Fee Configuration through academics.view.
     if (!grantsAny(granted, section.permissions)) continue;
 
     const items = section.items
       .filter((item) => grantsAny(granted, item.permissions))
       .filter((item) => roleAllows(item.roles, role ?? undefined))
-      .sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+      .sort((a, b) => (a.order ?? 100) - (b.order ?? 100))
+      .map((item) => ({
+        id: item.id,
+        label: item.label,
+        href: item.href,
+        permissions: item.permissions,
+        roles: item.roles,
+        icon: item.icon,
+        order: item.order,
+        group: item.group,
+        implemented: item.implemented,
+        gap: item.gap,
+      }));
 
     if (items.length > 0) out.push({ id: section.id, label: section.label, items });
   }
