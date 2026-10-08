@@ -1,6 +1,8 @@
-# School OS - development stack
-# Runs MongoDB (replica set), Redis, and the API. Apps run via `pnpm dev`.
-version: '3.9'
+# School OS - development infrastructure
+#
+# Runs MongoDB (replica set), Redis and the API in containers.
+# The four frontends run on the host via `pnpm dev`:
+#   student :3000  teacher :3001  parent :3002  admin :3003
 
 services:
   mongodb:
@@ -51,43 +53,6 @@ services:
       - ./services/api/uploads:/app/uploads
       - ./services/api:/app
       - /app/node_modules
-
-  # Role-specific frontends - WHO uses the system.
-  parent:
-    build: ./apps/parent
-    command: ['pnpm', 'dev', '--', '--port', '3000']
-    depends_on:
-      - api
-    ports:
-      - '3000:3000'
-    env_file: .env
-
-  student:
-    build: ./apps/student
-    command: ['pnpm', 'dev', '--', '--port', '3001']
-    depends_on:
-      - api
-    ports:
-      - '3001:3001'
-    env_file: .env
-
-  teacher:
-    build: ./apps/teacher
-    command: ['pnpm', 'dev', '--', '--port', '3002']
-    depends_on:
-      - api
-    ports:
-      - '3002:3002'
-    env_file: .env
-
-  admin:
-    build: ./apps/admin
-    command: ['pnpm', 'dev', '--', '--port', '3003']
-    depends_on:
-      - api
-    ports:
-      - '3003:3003'
-    env_file: .env
 
 volumes:
   mongodb_data:

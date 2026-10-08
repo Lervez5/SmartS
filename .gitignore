@@ -42,7 +42,6 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Uploads / local data
-backend/uploads/*
 uploads/*
 services/api/uploads/*
 !**/uploads/.gitkeep
@@ -67,6 +66,5 @@ scratch/
 # Husky
 .husky/_/
 
-# Legacy sources kept on disk as migration reference, not tracked
-backend/
+# Legacy source kept on disk as migration reference, not tracked
 frontend-kids/
