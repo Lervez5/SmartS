@@ -66,6 +66,7 @@ export async function listUsers() {
       // profile for every account in the register.
       studentProfile: { select: { id: true } },
       staffProfile: { select: { id: true } },
+      parentProfile: { select: { id: true } },
     },
   });
 }

@@ -862,8 +862,6 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['parents.view'],
         icon: 'users',
         order: 4,
-        implemented: false,
-        gap: 'GET /api/parents is a stub returning a planned placeholder. ParentProfile and ParentChildLink exist in the schema but have no route.',
       },
       {
         id: 'adm.attendance',
