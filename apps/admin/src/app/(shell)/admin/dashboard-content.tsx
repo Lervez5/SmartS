@@ -607,7 +607,7 @@ function AdministrationOverview() {
         <h2 className="text-base font-semibold text-foreground">Bulk provisioning</h2>
         <GapState
           concept="User imports"
-          detail="POST /api/users/bulk requires users.import and accepts a payload, but there is no import screen, no file parser and no job runner behind it. Accounts are currently provisioned one invitation at a time."
+          detail="There is no bulk endpoint at all. The users module exposes no import or bulk route, and POST /api/students enrols one account at a time, so importing a cohort needs a bulk route, a parser and a job runner before it can exist. The users.import permission is granted but gates nothing yet."
         />
       </section>
     </div>

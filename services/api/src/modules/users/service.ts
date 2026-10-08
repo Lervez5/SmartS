@@ -48,6 +48,11 @@ export async function listUsersService() {
     name: u.name,
     isActive: u.status === 'active',
     invitationStatus: u.status === 'pending' ? 'pending' : 'accepted',
+    // Whether the account already carries a learner profile. Enrolment
+    // (POST /api/students) attaches a profile to an existing account and
+    // rejects one that already has it, so a caller needs to know which
+    // accounts are still eligible without fetching every profile first.
+    hasStudentProfile: Boolean(u.studentProfile),
   }));
 }
 

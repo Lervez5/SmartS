@@ -61,6 +61,10 @@ export async function listUsers() {
     orderBy: { createdAt: 'desc' },
     include: {
       roleMemberships: { include: { role: true } },
+      // Selected rather than included: enrolment only needs to know whether a
+      // profile exists, and selecting the scalar avoids pulling the whole
+      // profile for every account in the register.
+      studentProfile: { select: { id: true } },
     },
   });
 }
