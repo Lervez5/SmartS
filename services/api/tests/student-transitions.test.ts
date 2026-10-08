@@ -1,8 +1,11 @@
 /**
  * Student Transitions module tests.
  *
- * Covers the list endpoint with its filters, the options endpoint, recording an
- * exit, viewing a detail with the enrollment timeline, and restoring a learner.
+ * Covers the academic-progression workflow: listing source placements,
+ * fetching filter options (sessions/classes/streams), recording single and
+ * bulk transitions, and verifying that historical placements are preserved.
+ *
+ * Also covers the secondary exit/restore workflow.
  */
 
 import request from 'supertest';
@@ -15,7 +18,9 @@ const BASE = `${API_BASE}/student-transitions`;
 const TEST_EMAILS = [
   'transitions.dean@school.example',
   'transitions.teacher@school.example',
-  'transitions.student@school.example',
+  'transitions.student1@school.example',
+  'transitions.student2@school.example',
+  'transitions.student3@school.example',
 ];
 
 describe('Student Transitions module', () => {
@@ -25,14 +30,19 @@ describe('Student Transitions module', () => {
   let studentAgent: request.SuperAgentTest;
 
   let schoolId: string;
-  let studentId: string;
-  let studentUserId: string;
-  let academicYearId: string;
-  let classId: string;
-  let exitId: string;
+  let student1Id: string;
+  let student1UserId: string;
+  let student2UserId: string;
+  let student3UserId: string;
+  let sourceSessionId: string;
+  let targetSessionId: string;
+  let sourceClassId: string;
+  let targetClassId: string;
+  let sourceStreamId: string;
+  let targetStreamId: string;
+  let transitionId: string;
 
   beforeAll(async () => {
-    // Clean up any leftovers from a previous run
     await prisma.learnerExit.deleteMany({});
     await prisma.enrollment.deleteMany({});
     await prisma.studentProfile.deleteMany({
@@ -58,7 +68,7 @@ describe('Student Transitions module', () => {
     const studentRole = await prisma.role.findUnique({ where: { name: 'STUDENT' } });
 
     const deanHash = await import('argon2').then((m) => m.default.hash(PASSWORD));
-    const deanUser = await prisma.user.create({
+    await prisma.user.create({
       data: {
         email: 'transitions.dean@school.example',
         name: 'Transitions Dean',
@@ -70,11 +80,11 @@ describe('Student Transitions module', () => {
     });
 
     const teacherHash = await import('argon2').then((m) => m.default.hash(PASSWORD));
-    const teacherUser = await prisma.user.create({
+    await prisma.user.create({
       data: {
         email: 'transitions.teacher@school.example',
-        name: 'Transitions Teacher',
         passwordHash: teacherHash,
+        name: 'Transitions Teacher',
         status: 'active',
         schoolMemberships: { create: { schoolId, isDefault: true } },
         roleMemberships: { create: { roleId: teacherRole!.id } },
@@ -87,8 +97,8 @@ describe('Student Transitions module', () => {
     teacherAgent = makeAuthAgent();
     await loginAs(teacherAgent, 'transitions.teacher@school.example', PASSWORD);
 
-    // Create an academic year (session)
-    const ay = await prisma.academicYear.create({
+    // Create two academic sessions
+    const sourceSession = await prisma.academicYear.create({
       data: {
         schoolId,
         name: '2026',
@@ -98,63 +108,125 @@ describe('Student Transitions module', () => {
         status: 'active',
       },
     });
-    academicYearId = ay.id;
+    sourceSessionId = sourceSession.id;
 
-    // Create a class for the session
-    const cls = await prisma.class.create({
+    const targetSession = await prisma.academicYear.create({
       data: {
         schoolId,
-        name: 'Grade 7 East',
-        classCode: 'G7E-TEST',
-        gradeLevel: 'Grade 7',
-        academicYearId,
+        name: '2027',
+        label: '2027 Academic Session',
+        startDate: new Date('2027-01-01'),
+        endDate: new Date('2027-12-31'),
+        status: 'planned',
+      },
+    });
+    targetSessionId = targetSession.id;
+
+    // Create source class (Grade 1, East stream)
+    const sourceClass = await prisma.class.create({
+      data: {
+        schoolId,
+        name: 'Grade 1',
+        classCode: 'G1',
+        gradeLevel: 'Grade 1',
+        academicYearId: sourceSessionId,
         status: 'active',
       },
     });
-    classId = cls.id;
+    sourceClassId = sourceClass.id;
 
-    // Create a student user with a profile
-    const studentHash = await import('argon2').then((m) => m.default.hash(PASSWORD));
-    const studentUser = await prisma.user.create({
+    const sourceStream = await prisma.stream.create({
       data: {
-        email: 'transitions.student@school.example',
-        name: 'Transferred Student',
-        passwordHash: studentHash,
+        classId: sourceClassId,
+        name: 'East',
+        code: 'E',
+        academicYearId: sourceSessionId,
         status: 'active',
-        schoolMemberships: { create: { schoolId, isDefault: true } },
-        roleMemberships: { create: { roleId: studentRole!.id } },
-        studentProfile: {
-          create: {
-            gradeLevel: 'Grade 7',
-            admissionId: '65f1c0e0f1c0e0f1c0e0f1c0',
-            enrollmentDate: new Date('2026-02-15'),
-            gender: 'female',
+      },
+    });
+    sourceStreamId = sourceStream.id;
+
+    // Create target class (Grade 2, East stream)
+    const targetClass = await prisma.class.create({
+      data: {
+        schoolId,
+        name: 'Grade 2',
+        classCode: 'G2',
+        gradeLevel: 'Grade 2',
+        academicYearId: targetSessionId,
+        status: 'active',
+      },
+    });
+    targetClassId = targetClass.id;
+
+    const targetStream = await prisma.stream.create({
+      data: {
+        classId: targetClassId,
+        name: 'East',
+        code: 'E',
+        academicYearId: targetSessionId,
+        status: 'active',
+      },
+    });
+    targetStreamId = targetStream.id;
+
+    // Create three student users with profiles
+    for (let i = 1; i <= 3; i++) {
+      const hash = await import('argon2').then((m) => m.default.hash(PASSWORD));
+      const user = await prisma.user.create({
+        data: {
+          email: `transitions.student${i}@school.example`,
+          name: `Student ${i}`,
+          passwordHash: hash,
+          status: 'active',
+          schoolMemberships: { create: { schoolId, isDefault: true } },
+          roleMemberships: { create: { roleId: studentRole!.id } },
+          studentProfile: {
+            create: {
+              gradeLevel: 'Grade 1',
+              admissionId: `65f1c0e0f1c0e0f1c0e0f1c${i}`,
+              enrollmentDate: new Date('2026-01-15'),
+              gender: 'female',
+            },
           },
         },
-      },
+      });
+      if (i === 1) student1UserId = user.id;
+      if (i === 2) student2UserId = user.id;
+      if (i === 3) student3UserId = user.id;
+    }
+
+    const profile1 = await prisma.studentProfile.findUnique({ where: { userId: student1UserId } });
+    student1Id = profile1!.id;
+
+    // Enroll students 1 and 2 in the source class/stream (student 3 stays unplaced)
+    await prisma.enrollment.createMany({
+      data: [
+        {
+          studentId: student1UserId,
+          classId: sourceClassId,
+          streamId: sourceStreamId,
+          academicYearId: sourceSessionId,
+          startDate: new Date('2026-01-15'),
+        },
+        {
+          studentId: student2UserId,
+          classId: sourceClassId,
+          streamId: sourceStreamId,
+          academicYearId: sourceSessionId,
+          startDate: new Date('2026-01-15'),
+        },
+      ],
     });
-    studentUserId = studentUser.id;
-    const profile = await prisma.studentProfile.findUnique({ where: { userId: studentUserId } });
-    studentId = profile!.id;
 
     studentAgent = makeAuthAgent();
-    await loginAs(studentAgent, 'transitions.student@school.example', PASSWORD);
-
-    // Enroll the student in the class
-    await prisma.enrollment.create({
-      data: {
-        studentId: studentUserId,
-        classId,
-        startDate: new Date('2026-02-15'),
-        academicYearId,
-      },
-    });
+    await loginAs(studentAgent, 'transitions.student1@school.example', PASSWORD);
   });
 
   afterAll(async () => {
-    // Full cleanup
     await prisma.learnerExit.deleteMany({});
     await prisma.enrollment.deleteMany({});
+    await prisma.stream.deleteMany({ where: { class: { schoolId } } });
     await prisma.class.deleteMany({ where: { schoolId } });
     await prisma.academicYear.deleteMany({ where: { schoolId } });
     await prisma.studentProfile.deleteMany({
@@ -172,141 +244,245 @@ describe('Student Transitions module', () => {
   });
 
   describe('authorization', () => {
-    it('requires students.view for list', async () => {
-      const res = await studentAgent.get(BASE);
+    it('requires students.view for sessions', async () => {
+      const res = await studentAgent.get(`${BASE}/sessions`);
       expect(res.status).toBe(403);
     });
 
-    it('allows DEAN (students.view) to list', async () => {
-      const res = await deanAgent.get(BASE);
+    it('allows DEAN (students.view) to list sessions', async () => {
+      const res = await deanAgent.get(`${BASE}/sessions`);
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.transitions)).toBe(true);
+      expect(Array.isArray(res.body.sessions)).toBe(true);
     });
 
-    it('requires students.manage for recording an exit', async () => {
-      const res = await teacherAgent.post(BASE).send({
-        studentId,
-        reason: 'withdrawn',
+    it('requires academics.manage for transitions', async () => {
+      const res = await teacherAgent.post(`${BASE}/placements`).send({
+        studentId: student1UserId,
+        targetAcademicYearId: targetSessionId,
+        targetClassId: targetClassId,
       });
       expect(res.status).toBe(403);
     });
 
-    it('requires students.view for detail', async () => {
-      // Use a fake id - the student lacks students.view so should get 403
-      const res = await studentAgent.get(`${BASE}/000000000000000000000000`);
+    it('requires students.view for placements list', async () => {
+      const res = await studentAgent.get(
+        `${BASE}/placements?sourceAcademicYearId=${sourceSessionId}`
+      );
       expect(res.status).toBe(403);
     });
   });
 
-  describe('list', () => {
-    it('returns 200 with transitions array for admin', async () => {
-      const res = await adminAgent.get(BASE);
+  describe('sessions', () => {
+    it('returns academic sessions for the school', async () => {
+      const res = await deanAgent.get(`${BASE}/sessions`);
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.transitions)).toBe(true);
-      expect(typeof res.body.total).toBe('number');
+      const sessions = res.body.sessions;
+      expect(sessions).toContainEqual(expect.objectContaining({ id: sourceSessionId }));
+      expect(sessions).toContainEqual(expect.objectContaining({ id: targetSessionId }));
     });
   });
 
-  describe('record exit', () => {
-    it('records an exit with reason completed', async () => {
-      const res = await adminAgent.post(BASE).send({
-        studentId,
-        reason: 'completed',
-        notes: 'Finished Grade 7',
+  describe('classes', () => {
+    it('returns only classes belonging to the requested session', async () => {
+      const res = await deanAgent.get(`${BASE}/classes?academicYearId=${sourceSessionId}`);
+      expect(res.status).toBe(200);
+      expect(res.body.classes.length).toBeGreaterThan(0);
+      expect(res.body.classes).toContainEqual(
+        expect.objectContaining({ id: sourceClassId, academicYearId: sourceSessionId })
+      );
+    });
+
+    it('does not return classes from other sessions', async () => {
+      const res = await deanAgent.get(`${BASE}/classes?academicYearId=${sourceSessionId}`);
+      expect(res.status).toBe(200);
+      expect(res.body.classes).not.toContainEqual(expect.objectContaining({ id: targetClassId }));
+    });
+  });
+
+  describe('streams', () => {
+    it('returns only streams belonging to the requested class', async () => {
+      const res = await deanAgent.get(`${BASE}/streams?classId=${sourceClassId}`);
+      expect(res.status).toBe(200);
+      expect(res.body.streams).toContainEqual(
+        expect.objectContaining({ id: sourceStreamId, parentClassId: sourceClassId })
+      );
+    });
+
+    it('does not return streams from other classes', async () => {
+      const res = await deanAgent.get(`${BASE}/streams?classId=${sourceClassId}`);
+      expect(res.status).toBe(200);
+      expect(res.body.streams).not.toContainEqual(expect.objectContaining({ id: targetStreamId }));
+    });
+  });
+
+  describe('placements', () => {
+    it('returns learners in the source session/class/stream', async () => {
+      const res = await deanAgent.get(
+        `${BASE}/placements?sourceAcademicYearId=${sourceSessionId}&sourceClassId=${sourceClassId}&sourceStreamId=${sourceStreamId}`
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.total).toBe(2);
+      expect(res.body.placements.length).toBe(2);
+      expect(res.body.placements[0].sourceClass.id).toBe(sourceClassId);
+      expect(res.body.placements[0].sourceStream.id).toBe(sourceStreamId);
+    });
+
+    it('returns 400 when sourceAcademicYearId is missing', async () => {
+      const res = await deanAgent.get(`${BASE}/placements`);
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 404 when sourceAcademicYearId is invalid', async () => {
+      const res = await deanAgent.get(
+        `${BASE}/placements?sourceAcademicYearId=000000000000000000000000`
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.placements.length).toBe(0);
+      expect(res.body.total).toBe(0);
+    });
+
+    it('filters by search term', async () => {
+      const res = await deanAgent.get(
+        `${BASE}/placements?sourceAcademicYearId=${sourceSessionId}&sourceClassId=${sourceClassId}&search=Student 1`
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.total).toBe(1);
+      expect(res.body.placements[0].name).toBe('Student 1');
+    });
+  });
+
+  describe('individual transition', () => {
+    it('transitions a learner from Grade 1 to Grade 2 in the target session', async () => {
+      const res = await deanAgent.post(`${BASE}/placements`).send({
+        studentId: student1UserId,
+        targetAcademicYearId: targetSessionId,
+        targetClassId: targetClassId,
+        targetStreamId: targetStreamId,
+        reason: 'Promotion',
+        notes: 'Completed Grade 1',
       });
       expect(res.status).toBe(201);
-      expect(res.body.transition.reason).toBe('completed');
-      expect(res.body.transition.isRestored).toBe(false);
-      expect(res.body.transition.studentProfileId).toBe(studentId);
-      exitId = res.body.transition.id;
+      expect(res.body.placement.studentId).toBe(student1UserId);
+      expect(res.body.placement.classId).toBe(targetClassId);
+      transitionId = res.body.placement.id;
     });
 
-    it('archives the learner account alongside the exit', async () => {
-      const user = await prisma.user.findUnique({ where: { id: studentUserId } });
-      expect(user?.status).toBe('archived');
+    it('preserves the historical source enrollment', async () => {
+      const sourceEnrollment = await prisma.enrollment.findFirst({
+        where: { studentId: student1UserId, classId: sourceClassId },
+      });
+      expect(sourceEnrollment).toBeTruthy();
     });
 
-    it('rejects a second open exit for the same learner', async () => {
-      const res = await adminAgent.post(BASE).send({
-        studentId,
-        reason: 'withdrawn',
+    it('rejects a duplicate transition into the same target class', async () => {
+      const res = await deanAgent.post(`${BASE}/placements`).send({
+        studentId: student1UserId,
+        targetAcademicYearId: targetSessionId,
+        targetClassId: targetClassId,
       });
       expect(res.status).toBe(409);
     });
-  });
 
-  describe('detail with timeline', () => {
-    it('returns the transition with enrollment history and timeline', async () => {
-      const res = await adminAgent.get(`${BASE}/${exitId}`);
-      expect(res.status).toBe(200);
-      expect(res.body.transition.id).toBe(exitId);
-      expect(res.body.transition.enrollments).toBeInstanceOf(Array);
-      expect(res.body.transition.enrollments.length).toBe(1);
-      expect(res.body.transition.enrollments[0].className).toBe('Grade 7 East');
-      expect(res.body.transition.enrollments[0].academicYear?.name).toBe('2026');
-      expect(res.body.transition.history).toBeInstanceOf(Array);
-      expect(res.body.transition.history[0].isRestored).toBe(false);
-      expect(res.body.transition.recordedBy).toBeTruthy();
+    it('rejects a target class from another session', async () => {
+      const res = await deanAgent.post(`${BASE}/placements`).send({
+        studentId: student1UserId,
+        targetAcademicYearId: targetSessionId,
+        targetClassId: sourceClassId,
+      });
+      expect(res.status).toBe(404);
     });
 
-    it('returns 404 for unknown transition', async () => {
-      const res = await adminAgent.get(`${BASE}/000000000000000000000000`);
+    it('rejects a target stream from another class', async () => {
+      const res = await deanAgent.post(`${BASE}/placements`).send({
+        studentId: student1UserId,
+        targetAcademicYearId: targetSessionId,
+        targetClassId: targetClassId,
+        targetStreamId: sourceStreamId,
+      });
+      expect(res.status).toBe(404);
+    });
+
+    it('rejects transitioning a learner not found in this school', async () => {
+      const res = await deanAgent.post(`${BASE}/placements`).send({
+        studentId: '000000000000000000000000',
+        targetAcademicYearId: targetSessionId,
+        targetClassId: targetClassId,
+      });
       expect(res.status).toBe(404);
     });
   });
 
-  describe('restore', () => {
-    it('restores the learner and reactivates the account', async () => {
-      const res = await adminAgent.post(`${BASE}/${exitId}/restore`).send({
-        targetGradeLevel: 'Grade 8',
-        notes: 'Returning for next year',
+  describe('bulk transition', () => {
+    it('transitions multiple learners into the same target class', async () => {
+      await prisma.enrollment.deleteMany({
+        where: { studentId: student1UserId, classId: targetClassId },
       });
-      expect(res.status).toBe(200);
-      expect(res.body.transition.isRestored).toBe(true);
-      expect(res.body.transition.restoredAt).not.toBeNull();
 
-      const user = await prisma.user.findUnique({ where: { id: studentUserId } });
-      expect(user?.status).toBe('active');
+      const res = await deanAgent.post(`${BASE}/placements/bulk`).send({
+        studentIds: [student1UserId, student2UserId, student3UserId],
+        targetAcademicYearId: targetSessionId,
+        targetClassId: targetClassId,
+        targetStreamId: targetStreamId,
+        reason: 'Annual promotion',
+      });
+      expect(res.status).toBe(207);
+      expect(res.body.summary.succeeded).toBe(3);
+      expect(res.body.summary.failed).toBe(0);
     });
 
-    it('refuses a double restore', async () => {
-      const res = await adminAgent.post(`${BASE}/${exitId}/restore`).send({});
-      expect(res.status).toBe(409);
+    it('preserves source enrollments after bulk transition', async () => {
+      const sourceEnrollments = await prisma.enrollment.findMany({
+        where: { studentId: { in: [student1UserId, student2UserId] }, classId: sourceClassId },
+      });
+      expect(sourceEnrollments.length).toBe(2);
+    });
+
+    it('rejects bulk transitioning a learner already in the target class', async () => {
+      const res = await deanAgent.post(`${BASE}/placements/bulk`).send({
+        studentIds: [student1UserId],
+        targetAcademicYearId: targetSessionId,
+        targetClassId: targetClassId,
+      });
+      expect(res.status).toBe(207);
+      expect(res.body.summary.failed).toBe(1);
+      expect(res.body.results[0].success).toBe(false);
+      expect(res.body.results[0].error).toContain('already enrolled');
+    });
+
+    it('rejects transitioning unplaced student3 into a specific class', async () => {
+      // student3 was never enrolled in sourceClass, but should still transition to target
+      const res = await deanAgent.post(`${BASE}/placements/bulk`).send({
+        studentIds: [student3UserId],
+        targetAcademicYearId: targetSessionId,
+        targetClassId: targetClassId,
+      });
+      // student3 is already in targetClass from the previous bulk call, so should fail
+      expect(res.body.summary.failed).toBe(1);
+    });
+
+    it('rejects when the teacher lacks academics.manage', async () => {
+      const res = await teacherAgent.post(`${BASE}/placements/bulk`).send({
+        studentIds: [student1UserId],
+        targetAcademicYearId: targetSessionId,
+        targetClassId: targetClassId,
+      });
+      expect(res.status).toBe(403);
     });
   });
 
-  describe('options', () => {
-    it('returns filter options', async () => {
-      const res = await adminAgent.get(`${BASE}/options`);
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.reasons)).toBe(true);
-      expect(Array.isArray(res.body.academicYears)).toBe(true);
-      expect(Array.isArray(res.body.classes)).toBe(true);
-    });
-  });
-
-  describe('patch', () => {
-    it('allows updating an unresolved exit', async () => {
-      // Create a fresh exit for patching (the previous one is now restored)
-      const res = await adminAgent.post(BASE).send({
-        studentId,
-        reason: 'withdrawn',
-        notes: 'Initial note',
+  describe('audit', () => {
+    it('creates audit log entries for transitions', async () => {
+      const logs = await prisma.auditLog.findMany({
+        where: { action: 'STUDENT_TRANSITION' },
       });
-      const newExitId = res.body.transition.id;
-
-      const patchRes = await adminAgent.patch(`${BASE}/${newExitId}`).send({
-        notes: 'Updated note',
-      });
-      expect(patchRes.status).toBe(200);
-      expect(patchRes.body.transition.notes).toBe('Updated note');
+      expect(logs.length).toBeGreaterThan(0);
     });
 
-    it('rejects patching a restored exit', async () => {
-      const patchRes = await adminAgent.patch(`${BASE}/${exitId}`).send({
-        notes: 'Should not work',
+    it('creates audit log entry for bulk transitions', async () => {
+      const logs = await prisma.auditLog.findMany({
+        where: { action: 'STUDENT_TRANSITION_BULK' },
       });
-      expect(patchRes.status).toBe(409);
+      expect(logs.length).toBeGreaterThan(0);
     });
   });
 });

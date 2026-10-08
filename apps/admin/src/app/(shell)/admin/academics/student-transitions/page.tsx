@@ -14,7 +14,6 @@ import {
   Field,
   FloatingFormModal,
   LoadingState,
-  NavIcon,
   SectionHeader,
   Select,
   StatusPill,
@@ -25,23 +24,45 @@ import {
   type StatusTone,
 } from '@schoolos/ui';
 
-interface StudentForSelect {
+interface AcademicSession {
   id: string;
-  name: string | null;
-  firstName: string | null;
-  lastName: string | null;
-  email: string;
+  name: string;
+  label: string | null;
+  startDate: string;
+  endDate: string;
+  status: string;
+}
+
+interface SessionOption {
+  value: string;
+  label: string;
+}
+
+interface ClassOption {
+  id: string;
+  name: string;
+  code: string;
+  label: string;
   gradeLevel: string | null;
+  academicYearId: string | null;
+  status: string;
 }
 
-interface StudentsResponse {
-  students?: StudentForSelect[];
-}
-
-interface TransitionRecord {
+interface StreamOption {
   id: string;
-  studentProfileId: string;
-  userId: string;
+  name: string;
+  code: string;
+  parentClassId: string;
+  parentClassName: string | null;
+  parentGradeLevel: string | null;
+  academicYearId: string | null;
+  status: string;
+}
+
+interface PlacementRecord {
+  id: string;
+  studentId: string | null;
+  userId: string | null;
   name: string | null;
   firstName: string | null;
   lastName: string | null;
@@ -54,97 +75,21 @@ interface TransitionRecord {
   enrollmentDate: string | null;
   gradeLevel: string | null;
   accountStatus: string;
-  reason: 'completed' | 'transferred' | 'withdrawn';
-  exitDate: string;
-  lastGradeLevel: string | null;
-  lastStream: string | null;
-  destination: string | null;
-  notes: string | null;
-  recordedAt: string;
-  recordedById: string | null;
-  restoredAt: string | null;
-  restoredById: string | null;
-  isRestored: boolean;
-  academicYearId: string | null;
-  academicYear: { id: string; name: string; label?: string | null } | null;
-  currentClass: { id: string; name: string; classCode?: string | null; gradeLevel?: string | null } | null;
+  sourceAcademicYear: { id: string; name: string; label: string | null } | null;
+  sourceClass: {
+    id: string;
+    name: string;
+    classCode: string | null;
+    gradeLevel: string | null;
+  } | null;
+  sourceStream: { id: string; name: string; code: string } | null;
+  startDate: string;
 }
 
-interface TransitionsResponse {
-  transitions?: TransitionRecord[];
-  total?: number;
+interface PlacementsResponse {
+  placements: PlacementRecord[];
+  total: number;
 }
-
-interface OptionsResponse {
-  reasons?: Array<{ value: string; count: number }>;
-  academicYears?: Array<{ value: string; label: string }>;
-  classes?: Array<{ value: string; label: string; gradeLevel?: string | null }>;
-}
-
-interface ClassesResponse {
-  classes?: Array<{ id: string; name: string; gradeLevel?: string | null }>;
-}
-
-interface EnrollmentEntry {
-  id: string;
-  classId: string;
-  className: string | null;
-  classCode: string | null;
-  gradeLevel: string | null;
-  streamId: string | null;
-  streamCode: string | null;
-  streamName: string | null;
-  academicYearId: string | null;
-  academicYear: { id: string; name: string; label: string | null } | null;
-  startDate: string | null;
-  createdAt: string;
-}
-
-interface TransitionDetail {
-  id: string;
-  studentProfileId: string;
-  userId: string;
-  name: string | null;
-  firstName: string | null;
-  lastName: string | null;
-  email: string;
-  phone: string | null;
-  avatar: string | null;
-  admissionId: string | null;
-  dateOfBirth: string | null;
-  gender: string | null;
-  enrollmentDate: string | null;
-  gradeLevel: string | null;
-  accountStatus: string;
-  reason: 'completed' | 'transferred' | 'withdrawn';
-  exitDate: string;
-  lastGradeLevel: string | null;
-  lastStream: string | null;
-  destination: string | null;
-  notes: string | null;
-  recordedAt: string;
-  recordedById: string | null;
-  recordedBy: { id: string; name: string | null; email: string } | null;
-  restoredAt: string | null;
-  restoredById: string | null;
-  restoredBy: { id: string; name: string | null; email: string } | null;
-  isRestored: boolean;
-  academicYear: { id: string; name: string; label: string | null } | null;
-  enrollments: EnrollmentEntry[];
-  history: TransitionRecord[];
-}
-
-const REASON_LABEL: Record<string, string> = {
-  completed: 'Completed',
-  transferred: 'Transferred',
-  withdrawn: 'Withdrawn',
-};
-
-const REASON_TONE: Record<string, StatusTone> = {
-  completed: 'success',
-  transferred: 'info',
-  withdrawn: 'warning',
-};
 
 const ACCOUNT_TONE: Record<string, StatusTone> = {
   active: 'success',
@@ -153,13 +98,13 @@ const ACCOUNT_TONE: Record<string, StatusTone> = {
   archived: 'neutral',
 };
 
-const SORTS = [
-  { value: 'exit_desc', label: 'Most recent exit' },
-  { value: 'exit_asc', label: 'Oldest exit' },
-  { value: 'name_asc', label: 'Name (A–Z)' },
-  { value: 'name_desc', label: 'Name (Z–A)' },
-  { value: 'reason', label: 'Reason (A–Z)' },
-];
+const STATUS_TONE: Record<string, StatusTone> = {
+  active: 'success',
+  pending: 'info',
+  suspended: 'danger',
+  archived: 'neutral',
+  inactive: 'warning',
+};
 
 function formatDate(value?: string | null): string {
   if (!value) return '-';
@@ -169,136 +114,226 @@ function formatDate(value?: string | null): string {
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function displayName(record: { name?: string | null; firstName?: string | null; lastName?: string | null } | null): string {
+function displayName(
+  record: { name?: string | null; firstName?: string | null; lastName?: string | null } | null
+): string {
   if (!record) return '';
   return record.name ?? [record.firstName, record.lastName].filter(Boolean).join(' ') ?? '';
 }
 
-interface TimelineEntry {
-  type: 'enrolled' | 'class_placement' | 'exit' | 'restore';
-  label: string;
-  date: string | null;
-  detail: string;
-}
-
-function buildTimeline(detail: TransitionDetail): TimelineEntry[] {
-  const items: TimelineEntry[] = [];
-
-  if (detail.enrollmentDate) {
-    items.push({
-      type: 'enrolled',
-      label: 'Enrolled',
-      date: detail.enrollmentDate,
-      detail: `into ${detail.gradeLevel || detail.lastGradeLevel || 'school'}`,
-    });
-  }
-
-  for (const e of detail.enrollments) {
-    const when = e.startDate ?? e.createdAt;
-    const label = e.academicYear
-      ? `${e.className ?? 'Class'} - ${e.academicYear.name}`
-      : e.className ?? 'A class';
-    items.push({
-      type: 'class_placement',
-      label: e.streamCode ? `${label}, Stream ${e.streamCode}` : label,
-      date: when,
-      detail: [e.classCode, e.gradeLevel].filter(Boolean).join(' · ') || '-',
-    });
-  }
-
-  for (const h of detail.history) {
-    items.push({
-      type: 'exit',
-      label: `Exited (${REASON_LABEL[h.reason] ?? h.reason})`,
-      date: h.exitDate,
-      detail: [h.destination, h.lastGradeLevel, h.lastStream].filter(Boolean).join(' · ') || '-',
-    });
-    if (h.restoredAt) {
-      items.push({
-        type: 'restore',
-        label: 'Restored',
-        date: h.restoredAt,
-        detail: h.notes || '-',
-      });
-    }
-  }
-
-  return items.sort((a, b) => {
-    const ta = a.date ? new Date(a.date).getTime() : 0;
-    const tb = b.date ? new Date(b.date).getTime() : 0;
-    return ta - tb;
-  });
+function sessionLabel(s: { name: string; label: string | null }): string {
+  return s.label ? `${s.name} — ${s.label}` : s.name;
 }
 
 export default function StudentTransitionsPage() {
   const { can } = useAuth();
   const canView = can('students.view');
-  const canManage = can('students.manage');
+  const canManage = can('academics.manage');
 
-  const [query, setQuery] = React.useState('');
+  const [sourceAcademicYearId, setSourceAcademicYearId] = React.useState('');
+  const [sourceClassId, setSourceClassId] = React.useState('');
+  const [sourceStreamId, setSourceStreamId] = React.useState('');
+  const [search, setSearch] = React.useState('');
   const [debounced, setDebounced] = React.useState('');
-  const [reason, setReason] = React.useState('');
-  const [academicYearId, setAcademicYearId] = React.useState('');
-  const [dateFrom, setDateFrom] = React.useState('');
-  const [dateTo, setDateTo] = React.useState('');
-  const [showRestored, setShowRestored] = React.useState(false);
-  const [sort, setSort] = React.useState('exit_desc');
-  const [selectedId, setSelectedId] = React.useState<string | null>(null);
 
-  const [recording, setRecording] = React.useState(false);
-  const [recordForm, setRecordForm] = React.useState({
-    studentId: '',
-    reason: '',
-    exitDate: '',
-    destination: '',
-    lastGradeLevel: '',
-    lastStream: '',
-    notes: '',
-  });
-  const [restoring, setRestoring] = React.useState<TransitionRecord | null>(null);
-  const [restoreForm, setRestoreForm] = React.useState({
-    targetGradeLevel: '',
-    classId: '',
-    notes: '',
-  });
+  const [targetAcademicYearId, setTargetAcademicYearId] = React.useState('');
+  const [targetClassId, setTargetClassId] = React.useState('');
+  const [targetStreamId, setTargetStreamId] = React.useState('');
+  const [transitionReason, setTransitionReason] = React.useState('');
+  const [transitionNotes, setTransitionNotes] = React.useState('');
+
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+  const [showTransitionModal, setShowTransitionModal] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(query), 250);
+    const timer = window.setTimeout(() => setDebounced(search), 250);
     return () => window.clearTimeout(timer);
-  }, [query]);
+  }, [search]);
 
-  const params = new URLSearchParams({ sort });
-  if (debounced) params.set('search', debounced);
-  if (reason) params.set('reason', reason);
-  if (academicYearId) params.set('academicYearId', academicYearId);
-  if (dateFrom) params.set('dateFrom', dateFrom);
-  if (dateTo) params.set('dateTo', dateTo);
-  if (showRestored) params.set('includeRestored', 'true');
-  params.set('limit', '200');
-
-  const { data, loading, error, refetch } = useApi<TransitionsResponse>(
-    canView ? `/api/student-transitions?${params.toString()}` : null
+  const sessions = useApi<{ sessions: AcademicSession[] }>('/api/student-transitions/sessions');
+  const sourceClasses = useApi<{ classes: ClassOption[] }>(
+    sourceAcademicYearId
+      ? `/api/student-transitions/classes?academicYearId=${sourceAcademicYearId}`
+      : null
   );
-  const options = useApi<OptionsResponse>(
-    canView ? '/api/student-transitions/options' : null
+  const sourceStreams = useApi<{ streams: StreamOption[] }>(
+    sourceClassId ? `/api/student-transitions/streams?classId=${sourceClassId}` : null
   );
-  const detail = useApi<TransitionDetail>(
-    canView && selectedId ? `/api/student-transitions/${selectedId}` : null
+  const targetClasses = useApi<{ classes: ClassOption[] }>(
+    targetAcademicYearId
+      ? `/api/student-transitions/classes?academicYearId=${targetAcademicYearId}`
+      : null
+  );
+  const targetStreams = useApi<{ streams: StreamOption[] }>(
+    targetClassId ? `/api/student-transitions/streams?classId=${targetClassId}` : null
   );
 
-  const students = useApi<StudentsResponse>(canManage ? '/api/students' : null);
-  const classes = useApi<ClassesResponse>(canManage ? '/api/classes' : null);
+  const placementsParams = new URLSearchParams();
+  if (sourceAcademicYearId) placementsParams.set('sourceAcademicYearId', sourceAcademicYearId);
+  if (sourceClassId) placementsParams.set('sourceClassId', sourceClassId);
+  if (sourceStreamId) placementsParams.set('sourceStreamId', sourceStreamId);
+  if (debounced) placementsParams.set('search', debounced);
+  placementsParams.set('limit', '500');
 
-  const transitions = React.useMemo(() => data?.transitions ?? [], [data]);
-  const total = data?.total ?? transitions.length;
+  const placements = useApi<PlacementsResponse>(
+    canView && sourceAcademicYearId
+      ? `/api/student-transitions/placements?${placementsParams.toString()}`
+      : null
+  );
 
-  const completed = transitions.filter((r) => r.reason === 'completed').length;
-  const transferred = transitions.filter((r) => r.reason === 'transferred').length;
-  const withdrawn = transitions.filter((r) => r.reason === 'withdrawn').length;
-  const restoredCount = transitions.filter((r) => r.isRestored).length;
+  const allSessions = React.useMemo(() => sessions.data?.sessions ?? [], [sessions.data]);
+  const sourceClassOptions = React.useMemo(
+    () => sourceClasses.data?.classes ?? [],
+    [sourceClasses.data]
+  );
+  const sourceStreamOptions = React.useMemo(
+    () => sourceStreams.data?.streams ?? [],
+    [sourceStreams.data]
+  );
+  const targetClassOptions = React.useMemo(
+    () => targetClasses.data?.classes ?? [],
+    [targetClasses.data]
+  );
+  const targetStreamOptions = React.useMemo(
+    () => targetStreams.data?.streams ?? [],
+    [targetStreams.data]
+  );
 
-  const columns: Array<DataTableColumn<TransitionRecord>> = [
+  const learnerCount = placements.data?.total ?? 0;
+
+  React.useEffect(() => {
+    if (sourceClassId && !sourceStreamId) {
+      const stream = sourceStreamOptions.find((s) => s.parentClassId === sourceClassId);
+      setSourceStreamId('');
+    }
+  }, [sourceClassId, sourceStreamOptions, sourceStreamId]);
+
+  React.useEffect(() => {
+    if (targetClassId && !targetStreamId) {
+      setTargetStreamId('');
+    }
+  }, [targetClassId, targetStreamId]);
+
+  const sessionOptions: SessionOption[] = allSessions.map((s) => ({
+    value: s.id,
+    label: sessionLabel(s),
+  }));
+
+  const selectedClass = targetClassOptions.find((c) => c.id === targetClassId);
+  const selectedStream = targetStreamOptions.find((s) => s.id === targetStreamId);
+
+  const allSelected =
+    selectedIds.size > 0 && placements.data?.placements.every((p) => selectedIds.has(p.id));
+  const someSelected = selectedIds.size > 0 && !allSelected;
+
+  const transitionItems = placements.data?.placements.filter((p) => selectedIds.has(p.id)) ?? [];
+
+  async function executeTransition() {
+    if (transitionItems.length === 0) {
+      notify.error('Select at least one learner to transition.');
+      return;
+    }
+    if (!targetAcademicYearId || !targetClassId) {
+      notify.error('Select a target Academic Session and Grade/Class.');
+      return;
+    }
+
+    const studentIds = transitionItems
+      .map((p) => p.userId ?? p.studentId)
+      .filter(Boolean) as string[];
+
+    setBusy(true);
+    try {
+      const res = await fetch('/api/student-transitions/placements/bulk', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentIds,
+          targetAcademicYearId,
+          targetClassId,
+          ...(targetStreamId ? { targetStreamId } : {}),
+          ...(transitionReason.trim() ? { reason: transitionReason.trim() } : {}),
+          ...(transitionNotes.trim() ? { notes: transitionNotes.trim() } : {}),
+        }),
+      });
+
+      const body = (await res.json().catch(() => null)) as {
+        summary?: { total: number; succeeded: number; failed: number };
+        results?: Array<{ studentId: string; success: boolean; error?: string }>;
+        error?: { message?: string };
+      } | null;
+
+      if (!res.ok) {
+        notify.error(body?.error?.message ?? `Transition failed (HTTP ${res.status}).`);
+        return;
+      }
+
+      const failed = body?.results?.filter((r) => !r.success) ?? [];
+      const succeeded = body?.summary?.succeeded ?? 0;
+
+      if (failed.length > 0) {
+        notify.error(
+          `${succeeded} learner(s) transitioned. ${failed.length} failed: ${failed.map((f) => f.error ?? 'unknown').join('; ')}.`
+        );
+      } else {
+        notify.success(
+          `${succeeded} ${succeeded === 1 ? 'learner was' : 'learners were'} transitioned successfully.`
+        );
+      }
+
+      setShowTransitionModal(false);
+      setSelectedIds(new Set());
+      setTransitionReason('');
+      setTransitionNotes('');
+      setTargetClassId('');
+      setTargetStreamId('');
+      placements.refetch();
+    } catch {
+      notify.error('Could not reach the API. Check that it is running.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!canView) {
+    return (
+      <div className="space-y-6">
+        <SectionHeader title="Student Transitions" />
+        <ErrorState
+          title="You do not have access to student transitions"
+          message="Viewing academic placements requires students.view. Your role does not hold it, and the API refuses the request independently of this screen."
+        />
+      </div>
+    );
+  }
+
+  const columns: Array<DataTableColumn<PlacementRecord>> = [
+    {
+      id: 'select',
+      header: '',
+      cell: (row) => {
+        const checked = selectedIds.has(row.id);
+        return (
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={(e) => {
+              const next = new Set(selectedIds);
+              if (e.target.checked) {
+                next.add(row.id);
+              } else {
+                next.delete(row.id);
+              }
+              setSelectedIds(next);
+            }}
+            className="h-4 w-4"
+          />
+        );
+      },
+      sortValue: () => 0,
+    },
     {
       id: 'learner',
       header: 'Learner',
@@ -321,12 +356,8 @@ export default function StudentTransitionsPage() {
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-foreground">{name || 'Unnamed'}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {[
-                  row.dateOfBirth ? `b. ${formatDate(row.dateOfBirth)}` : null,
-                  row.enrollmentDate ? `joined ${formatDate(row.enrollmentDate)}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ') || row.email}
+                <span className="font-mono">{row.admissionId}</span>
+                {row.gradeLevel ? ` · ${row.gradeLevel}` : ''}
               </p>
             </div>
           </div>
@@ -335,566 +366,400 @@ export default function StudentTransitionsPage() {
       sortValue: (row) => displayName(row),
     },
     {
-      id: 'reason',
-      header: 'Exit Reason',
+      id: 'source-placement',
+      header: 'Current Placement',
       cell: (row) => (
         <div className="min-w-0">
-          <StatusPill
-            label={REASON_LABEL[row.reason] ?? row.reason}
-            tone={REASON_TONE[row.reason] ?? 'neutral'}
-          />
-          {row.reason === 'transferred' && row.destination ? (
-            <p className="mt-1 truncate text-xs text-muted-foreground">to {row.destination}</p>
-          ) : null}
-        </div>
-      ),
-      sortValue: (row) => row.reason,
-    },
-    {
-      id: 'level',
-      header: 'Last Level',
-      cell: (row) => (
-        <div className="min-w-0">
-          <p className="truncate text-sm text-foreground">{row.lastGradeLevel || 'Not recorded'}</p>
+          <p className="truncate text-sm text-foreground">
+            {row.sourceClass?.name ?? 'Not placed'}
+            {row.sourceStream ? ` · Stream ${row.sourceStream.code}` : ''}
+          </p>
           <p className="truncate text-xs text-muted-foreground">
-            {row.lastStream ? `Stream ${row.lastStream}` : 'No stream recorded'}
+            {row.sourceAcademicYear
+              ? `${sessionLabel(row.sourceAcademicYear)} · ${formatDate(row.startDate)}`
+              : '-'}
           </p>
         </div>
       ),
-      sortValue: (row) => row.lastGradeLevel ?? '',
-    },
-    {
-      id: 'date',
-      header: 'Exit Date',
-      cell: (row) => <span className="text-sm text-foreground">{formatDate(row.exitDate)}</span>,
-      sortValue: (row) => row.exitDate,
     },
     {
       id: 'status',
-      header: 'Account',
+      header: 'Status',
       cell: (row) => (
-        <StatusPill
-          label={row.isRestored ? 'Restored' : row.accountStatus}
-          tone={row.isRestored ? 'success' : ACCOUNT_TONE[row.accountStatus] ?? 'neutral'}
-        />
+        <StatusPill label={row.accountStatus} tone={ACCOUNT_TONE[row.accountStatus] ?? 'neutral'} />
       ),
-      sortValue: (row) => (row.isRestored ? 'restored' : row.accountStatus),
+      sortValue: (row) => row.accountStatus,
     },
   ];
-
-  async function recordExit() {
-    const { studentId, reason: r, exitDate, destination, lastGradeLevel, lastStream, notes } = recordForm;
-    if (!studentId || !r) {
-      notify.error('Select a student and choose an exit reason.');
-      return;
-    }
-    if (r === 'transferred' && !destination.trim()) {
-      notify.error('A transfer needs a destination school.');
-      return;
-    }
-
-    setBusy(true);
-    try {
-      const res = await fetch('/api/student-transitions', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId,
-          reason: r,
-          ...(exitDate ? { exitDate } : {}),
-          ...(lastGradeLevel.trim() ? { lastGradeLevel: lastGradeLevel.trim() } : {}),
-          ...(lastStream.trim() ? { lastStream: lastStream.trim() } : {}),
-          ...(destination.trim() ? { destination: destination.trim() } : {}),
-          ...(notes.trim() ? { notes: notes.trim() } : {}),
-        }),
-      });
-
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-        notify.error(body?.error?.message ?? `Could not record the exit (HTTP ${res.status}).`);
-        return;
-      }
-
-      notify.success('Exit recorded for the learner');
-      setRecording(false);
-      setRecordForm({
-        studentId: '', reason: '', exitDate: '', destination: '', lastGradeLevel: '', lastStream: '', notes: '',
-      });
-      refetch();
-      detail.refetch();
-    } catch {
-      notify.error('Could not reach the API. Check that it is running.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function restore() {
-    if (!restoring) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/student-transitions/${restoring.id}/restore`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...(restoreForm.targetGradeLevel.trim() ? { targetGradeLevel: restoreForm.targetGradeLevel.trim() } : {}),
-          ...(restoreForm.classId ? { classId: restoreForm.classId } : {}),
-          ...(restoreForm.notes.trim() ? { notes: restoreForm.notes.trim() } : {}),
-        }),
-      });
-
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-        notify.error(body?.error?.message ?? `The restore was refused (HTTP ${res.status}).`);
-        return;
-      }
-
-      notify.success(`${displayName(restoring)} returned to the active roll`);
-      setRestoring(null);
-      setRestoreForm({ targetGradeLevel: '', classId: '', notes: '' });
-      setSelectedId(null);
-      refetch();
-      detail.refetch();
-    } catch {
-      notify.error('Could not reach the API. Check that it is running.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (!canView) {
-    return (
-      <div className="space-y-6">
-        <SectionHeader title="Student Transitions" />
-        <ErrorState
-          title="You do not have access to student transitions"
-          message="Viewing transitions requires students.view. Your role does not hold it, and the API refuses the request independently of this screen."
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
       <SectionHeader
         title="Student Transitions"
-        description={`Academic lifecycle of learners - enrollments, class placements, exits and restorations. ${total === 1 ? '1 record' : `${total} records`} on the transition log.`}
-        action={
-          canManage ? (
-            <Button
-              variant="default"
-              size="md"
-              onClick={() => setRecording(true)}
-              className="inline-flex items-center gap-1.5"
+        description="Progress learners from one Academic Session, Grade/Class, and Stream into another. The previous placement is preserved as historical data."
+      />
+
+      <div className="space-y-4">
+        <h3 className="text-sm font-medium text-foreground">Source Placement</h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div>
+            <label
+              className="block text-xs font-medium text-muted-foreground"
+              htmlFor="source-session"
             >
-              <NavIcon name="file-minus" className="h-4 w-4" />
-              Record an Exit
-            </Button>
-          ) : null
+              Academic Session
+            </label>
+            <Select
+              value={sourceAcademicYearId}
+              onChange={(e) => {
+                setSourceAcademicYearId(e.target.value);
+                setSourceClassId('');
+                setSourceStreamId('');
+              }}
+              id="source-session"
+            >
+              <option value="">Select source session…</option>
+              {sessionOptions.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <label
+              className="block text-xs font-medium text-muted-foreground"
+              htmlFor="source-class"
+            >
+              Grade / Class
+            </label>
+            <Select
+              value={sourceClassId}
+              onChange={(e) => {
+                setSourceClassId(e.target.value);
+                setSourceStreamId('');
+              }}
+              id="source-class"
+              disabled={!sourceAcademicYearId}
+            >
+              <option value="">All classes in session</option>
+              {sourceClassOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <label
+              className="block text-xs font-medium text-muted-foreground"
+              htmlFor="source-stream"
+            >
+              Stream
+            </label>
+            <Select
+              value={sourceStreamId}
+              onChange={(e) => setSourceStreamId(e.target.value)}
+              id="source-stream"
+              disabled={!sourceClassId}
+            >
+              <option value="">All streams</option>
+              {sourceStreamOptions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.code})
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      <DashboardCard
+        title="Matching Learners"
+        value={learnerCount}
+        icon="users-round"
+        tone="accent"
+        description={
+          sourceAcademicYearId
+            ? `${sourceClasses.data?.classes.find((c) => c.id === sourceClassId)?.label ?? sessionLabel(allSessions.find((s) => s.id === sourceAcademicYearId) ?? { name: '', label: null })} · ${debounced ? `Search: "${debounced}"` : 'All learners in source'}`
+            : 'Select a source Academic Session to see learners ready for progression'
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <DashboardCard title="On the roll" value={total} icon="arrow-right-left" tone="accent" description="Students with a transition recorded" />
-        <DashboardCard title="Completed" value={completed} icon="check" tone="success" description="Finished their level" />
-        <DashboardCard title="Transferred" value={transferred} icon="arrow-right-left" description="Moved to another school" />
-        <DashboardCard title="Withdrawn" value={withdrawn} icon="triangle-alert" tone={withdrawn > 0 ? 'warning' : 'default'} description="Left before completing" />
-        <DashboardCard title="Restored" value={restoredCount} icon="undo-2" tone="success" description="Returned to the active roll" />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="space-y-3">
-          {loading ? (
-            <LoadingState label="Loading transitions" />
-          ) : error ? (
-            <ErrorState
-              title="Could not load transitions"
-              message="GET /api/student-transitions requires students.view. Confirm the API is running and that your session still holds the permission."
-              onRetry={refetch}
-            />
-          ) : (
-            <DataTable
-              caption="Student transitions"
-              columns={columns}
-              rows={transitions}
-              rowKey={(row) => row.id}
-              pageSize={15}
-              onRowClick={(row) => setSelectedId(row.id)}
-              toolbar={
-                <ContextFilterBar
-                  search={{
-                    value: query,
-                    onChange: setQuery,
-                    placeholder: 'Search by name, email or admission no.…',
-                  }}
-                  filters={[
-                    {
-                      id: 'reason',
-                      label: 'Exit Reason',
-                      value: reason,
-                      options: (options.data?.reasons ?? []).map((r) => ({
-                        value: r.value,
-                        label: `${REASON_LABEL[r.value] ?? r.value} (${r.count})`,
-                      })),
-                      onChange: setReason,
-                      allLabel: 'All reasons',
-                    },
-                    {
-                      id: 'session',
-                      label: 'Academic Session',
-                      value: academicYearId,
-                      options: options.data?.academicYears ?? [],
-                      onChange: setAcademicYearId,
-                      allLabel: 'All sessions',
-                    },
-                    {
-                      id: 'sort',
-                      label: 'Sort by',
-                      value: sort,
-                      options: SORTS,
-                      onChange: setSort,
-                      allowAll: false,
-                    },
-                  ]}
-                  actions={
-                    <div className="flex items-end gap-2">
-                      <label className="block text-xs font-medium text-muted-foreground" htmlFor="date-from">
-                        From
-                      </label>
-                      <input
-                        id="date-from"
-                        type="date"
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
-                        className="h-9 w-40 rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      />
-                      <label className="block text-xs font-medium text-muted-foreground" htmlFor="date-to">
-                        To
-                      </label>
-                      <input
-                        id="date-to"
-                        type="date"
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                        className="h-9 w-40 rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      />
-                      <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                        <input
-                          type="checkbox"
-                          checked={showRestored}
-                          onChange={(e) => setShowRestored(e.target.checked)}
-                          className="h-4 w-4"
-                        />
-                        Restored
-                      </label>
-                    </div>
-                  }
-                />
-              }
-              empty={
-                <EmptyState
-                  title={
-                    transitions.length === 0 && !debounced && !reason && !academicYearId && !dateFrom && !dateTo
-                      ? 'No student transitions yet'
-                      : 'No transitions match these filters'
-                  }
-                  description={
-                    transitions.length === 0 && !debounced && !reason && !academicYearId && !dateFrom && !dateTo
-                      ? 'Exits and restores will appear here as they are recorded.'
-                      : 'Adjust the search or filters above.'
-                  }
-                  icon="arrow-right-left"
-                />
-              }
-            />
-          )}
-        </div>
-
-        <div>
-          {selectedId && detail.loading ? (
-            <LoadingState label="Loading learner detail" />
-          ) : selectedId && detail.error ? (
-            <ErrorState
-              title="Could not load the learner detail"
-              message="Select another row or try again."
-              onRetry={() => detail.refetch()}
-            />
-          ) : selectedId && detail.data ? (
-            <DetailPanel
-              detail={detail.data}
-              onRestore={() => setRestoring(transitions.find((r) => r.id === selectedId) ?? null)}
-              canManage={canManage}
-            />
-          ) : (
-            <EmptyState
-              title="Select a transition"
-              description="Click a row to view the learner's identity card and lifecycle timeline."
-              icon="mouse-pointer"
-            />
-          )}
-        </div>
-      </div>
-
-      <FloatingFormModal
-        isOpen={recording}
-        onClose={() => {
-          setRecording(false);
-          setRecordForm({
-            studentId: '', reason: '', exitDate: '', destination: '', lastGradeLevel: '', lastStream: '', notes: '',
-          });
-        }}
-        title="Record an Exit"
-        description="Archives the learner's account and records the reason and destination. The learner's attendance, grades, documents and parent links stay attached to the same profile record."
-        icon="file-minus"
-        submitLabel="Record exit"
-        isSubmitting={busy}
-        onSubmit={recordExit}
-        size="lg"
-      >
-        <div className="grid grid-cols-1 gap-4">
-          <Field label="Learner" hint="Select the student leaving the school">
-            <Select
-              value={recordForm.studentId}
-              onChange={(e) => setRecordForm({ ...recordForm, studentId: e.target.value })}
+      <div className="space-y-2">
+        <h3 className="text-sm font-medium text-foreground">Target Placement</h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div>
+            <label
+              className="block text-xs font-medium text-muted-foreground"
+              htmlFor="target-session"
             >
-              <option value="">Select a learner…</option>
-              {(students.data?.students ?? []).map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.name || [row.firstName, row.lastName].filter(Boolean).join(' ') || row.email}
-                  {row.gradeLevel ? ` - ${row.gradeLevel}` : ''}
+              Target Academic Session
+            </label>
+            <Select
+              value={targetAcademicYearId}
+              onChange={(e) => {
+                setTargetAcademicYearId(e.target.value);
+                setTargetClassId('');
+                setTargetStreamId('');
+              }}
+              id="target-session"
+            >
+              <option value="">Select target session…</option>
+              {sessionOptions
+                .filter((s) => s.value !== sourceAcademicYearId)
+                .map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+            </Select>
+          </div>
+          <div>
+            <label
+              className="block text-xs font-medium text-muted-foreground"
+              htmlFor="target-class"
+            >
+              Target Grade / Class
+            </label>
+            <Select
+              value={targetClassId}
+              onChange={(e) => {
+                setTargetClassId(e.target.value);
+                setTargetStreamId('');
+              }}
+              id="target-class"
+              disabled={!targetAcademicYearId}
+            >
+              <option value="">Select target class…</option>
+              {targetClassOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
                 </option>
               ))}
             </Select>
-          </Field>
-          <Field label="Exit Reason" required>
-            <Select
-              value={recordForm.reason}
-              onChange={(e) => setRecordForm({ ...recordForm, reason: e.target.value })}
-            >
-              <option value="">Choose a reason…</option>
-              <option value="completed">Completed</option>
-              <option value="transferred">Transferred</option>
-              <option value="withdrawn">Withdrawn</option>
-            </Select>
-          </Field>
-          <Field label="Exit Date" hint="Defaults to today if left blank">
-            <TextInput
-              type="date"
-              value={recordForm.exitDate}
-              onChange={(e) => setRecordForm({ ...recordForm, exitDate: e.target.value })}
-            />
-          </Field>
-          {recordForm.reason === 'transferred' ? (
-            <Field label="Destination School" hint="Where the learner is moving to">
-              <TextInput
-                value={recordForm.destination}
-                onChange={(e) => setRecordForm({ ...recordForm, destination: e.target.value })}
-                placeholder="e.g. Green Valley Secondary"
-              />
-            </Field>
-          ) : null}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Last Grade Level" hint="Defaults to current level">
-              <TextInput
-                value={recordForm.lastGradeLevel}
-                onChange={(e) => setRecordForm({ ...recordForm, lastGradeLevel: e.target.value })}
-              />
-            </Field>
-            <Field label="Stream" hint="Optional free-text stream">
-              <TextInput
-                value={recordForm.lastStream}
-                onChange={(e) => setRecordForm({ ...recordForm, lastStream: e.target.value })}
-              />
-            </Field>
           </div>
-          <Field label="Notes">
-            <TextInput
-              value={recordForm.notes}
-              onChange={(e) => setRecordForm({ ...recordForm, notes: e.target.value })}
-              placeholder="Optional context for the record…"
-            />
-          </Field>
+          <div>
+            <label
+              className="block text-xs font-medium text-muted-foreground"
+              htmlFor="target-stream"
+            >
+              Target Stream
+            </label>
+            <Select
+              value={targetStreamId}
+              onChange={(e) => setTargetStreamId(e.target.value)}
+              id="target-stream"
+              disabled={!targetClassId}
+            >
+              <option value="">None (no stream)</option>
+              {targetStreamOptions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.code})
+                </option>
+              ))}
+            </Select>
+          </div>
         </div>
-      </FloatingFormModal>
+      </div>
 
-      <FloatingFormModal
-        isOpen={canManage && Boolean(restoring)}
-        onClose={() => {
-          setRestoring(null);
-          setRestoreForm({ targetGradeLevel: '', classId: '', notes: '' });
-        }}
-        title={`Restore ${displayName(restoring) || restoring?.email || ''}`}
-        description="This reactivates the account, returns the learner to the active roll and stamps the exit as reversed."
-        icon="undo-2"
-        submitLabel="Restore learner"
-        isSubmitting={busy}
-        onSubmit={restore}
-        size="md"
-      >
-        <div className="grid grid-cols-1 gap-4">
+      <div className="flex items-end justify-between gap-3">
+        <div className="flex items-end gap-3">
           <Field
-            label="Grade to return into"
-            hint={`Defaults to ${restoring?.lastGradeLevel ?? 'their last level'}`}
+            label="Transition Reason"
+            hint="Optional — e.g. Promotion, Re-enrolment, Stream change"
           >
             <TextInput
-              value={restoreForm.targetGradeLevel}
-              onChange={(e) => setRestoreForm({ ...restoreForm, targetGradeLevel: e.target.value })}
-              placeholder={restoring?.lastGradeLevel ?? 'Year 7'}
+              value={transitionReason}
+              onChange={(e) => setTransitionReason(e.target.value)}
+              placeholder="e.g. Annual promotion"
+              className="w-64"
             />
           </Field>
-          <Field label="Class" hint="Optional class placement">
-            <Select
-              value={restoreForm.classId}
-              onChange={(e) => setRestoreForm({ ...restoreForm, classId: e.target.value })}
-            >
-              <option value="">Do not place in a class</option>
-              {(classes.data?.classes ?? []).map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.name}
-                  {row.gradeLevel ? ` - ${row.gradeLevel}` : ''}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Notes" hint="Optional note for the restore record">
+          <Field label="Notes" hint="Optional — visible in the audit log">
             <TextInput
-              value={restoreForm.notes}
-              onChange={(e) => setRestoreForm({ ...restoreForm, notes: e.target.value })}
-              placeholder="e.g. Re-enrolled mid-year for Grade 8"
+              value={transitionNotes}
+              onChange={(e) => setTransitionNotes(e.target.value)}
+              placeholder="Optional context…"
+              className="w-64"
             />
           </Field>
+        </div>
+        <Button
+          variant={canManage ? 'default' : 'default'}
+          size="md"
+          disabled={!canManage || selectedIds.size === 0 || !targetAcademicYearId || !targetClassId}
+          onClick={() => setShowTransitionModal(true)}
+        >
+          {selectedIds.size > 0
+            ? `Transition ${selectedIds.size} Learner${selectedIds.size > 1 ? 's' : ''}`
+            : 'Transition Learners'}
+        </Button>
+      </div>
+
+      {sourceAcademicYearId ? (
+        <DataTable
+          caption="Learners in source placement"
+          columns={columns}
+          rows={placements.data?.placements ?? []}
+          rowKey={(row) => row.id}
+          pageSize={25}
+          toolbar={
+            <ContextFilterBar
+              search={{
+                value: debounced,
+                onChange: setSearch,
+                placeholder: 'Search by name, admission number…',
+              }}
+              filters={[
+                {
+                  id: 'source-class',
+                  label: 'Class',
+                  value: sourceClassId,
+                  options: sourceClassOptions.map((c) => ({ value: c.id, label: c.label })),
+                  onChange: setSourceClassId,
+                  allLabel: 'All classes',
+                },
+                {
+                  id: 'source-stream',
+                  label: 'Stream',
+                  value: sourceStreamId,
+                  options: sourceStreamOptions.map((s) => ({
+                    value: s.id,
+                    label: `${s.name} (${s.code})`,
+                  })),
+                  onChange: setSourceStreamId,
+                  allLabel: 'All streams',
+                },
+              ]}
+              actions={
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  {selectedIds.size > 0 ? (
+                    <>
+                      <span>{selectedIds.size} selected</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedIds(new Set())}
+                        className="underline"
+                      >
+                        Clear
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+              }
+            />
+          }
+          empty={
+            <EmptyState
+              title={
+                placements.data?.placements.length === 0 &&
+                !debounced &&
+                !sourceClassId &&
+                !sourceStreamId
+                  ? 'No learners found in this session'
+                  : 'No learners match these filters'
+              }
+              description={
+                placements.data?.placements.length === 0 &&
+                !debounced &&
+                !sourceClassId &&
+                !sourceStreamId
+                  ? 'Select a different Academic Session or check the class/stream filters.'
+                  : 'Adjust the search or filters above.'
+              }
+              icon="users-round"
+            />
+          }
+        />
+      ) : (
+        <div className="py-12 text-center">
+          <EmptyState
+            title="Select a source Academic Session"
+            description="Choose the session learners are currently in to begin progressing them."
+            icon="calendar"
+          />
+        </div>
+      )}
+
+      <FloatingFormModal
+        isOpen={showTransitionModal}
+        onClose={() => {
+          setShowTransitionModal(false);
+        }}
+        title="Confirm Academic Transition"
+        description="This creates a new enrollment for the target placement while preserving the learner's previous placement as historical data."
+        icon="arrow-right-left"
+        submitLabel="Confirm Transitions"
+        isSubmitting={busy}
+        onSubmit={executeTransition}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs font-medium uppercase text-muted-foreground">From</p>
+              <p className="mt-1 text-sm font-medium text-foreground">
+                {sessionLabel(
+                  allSessions.find((s) => s.id === sourceAcademicYearId) ?? {
+                    name: '—',
+                    label: null,
+                  }
+                )}
+              </p>
+              {selectedClass && selectedClass?.gradeLevel ? (
+                <p className="text-xs text-muted-foreground">
+                  {sourceClassOptions.find((c) => c.id === sourceClassId)?.label ?? '—'}
+                </p>
+              ) : null}
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs font-medium uppercase text-muted-foreground">To</p>
+              <p className="mt-1 text-sm font-medium text-foreground">
+                {sessionLabel(
+                  allSessions.find((s) => s.id === targetAcademicYearId) ?? {
+                    name: '—',
+                    label: null,
+                  }
+                )}
+              </p>
+              {selectedClass ? (
+                <p className="text-xs text-muted-foreground">{selectedClass.label}</p>
+              ) : null}
+              {selectedStream ? (
+                <p className="text-xs text-muted-foreground">
+                  Stream: {selectedStream.name} ({selectedStream.code})
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              {transitionItems.length} learner(s) selected
+            </p>
+            <div className="mt-2 max-h-40 overflow-y-auto">
+              {transitionItems.map((p) => (
+                <div key={p.id} className="flex items-center gap-2 py-1 text-sm">
+                  <span className="w-5 text-center text-muted-foreground">•</span>
+                  <span>{displayName(p)}</span>
+                  <span className="text-xs text-muted-foreground">{p.admissionId}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+            <p className="font-medium">Historical academic records preserved</p>
+            <p className="mt-1">
+              Attendance, assessments, marks, results, and reports for the source session remain
+              tied to the original placement. Future records will resolve from the target placement.
+              The learner's permanent identity, admission number, parent links, documents, and
+              Central Auth identity are never duplicated.
+            </p>
+          </div>
         </div>
       </FloatingFormModal>
-    </div>
-  );
-}
-
-interface DetailPanelProps {
-  detail: TransitionDetail;
-  onRestore: () => void;
-  canManage: boolean;
-}
-
-function DetailPanel({ detail, onRestore, canManage }: DetailPanelProps) {
-  const timeline = buildTimeline(detail);
-  const name = displayName(detail);
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <h2 className="text-lg font-semibold text-foreground">Learner Detail</h2>
-        {canManage && !detail.isRestored ? (
-          <Button variant="default" size="sm" onClick={onRestore}>
-            <NavIcon name="undo-2" className="h-4 w-4" />
-            Restore learner
-          </Button>
-        ) : null}
-      </div>
-
-      <div className="rounded-lg border bg-card p-5">
-        <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xl font-bold text-muted-foreground">
-            {detail.avatar ? (
-              <span
-                role="img"
-                aria-label=""
-                className="h-full w-full bg-cover bg-center"
-                style={{ backgroundImage: `url(${detail.avatar})` }}
-              />
-            ) : (
-              initialsOf(name || detail.email)
-            )}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-lg font-semibold text-foreground">{name || 'Unnamed'}</p>
-            <p className="text-sm text-muted-foreground">{detail.email}</p>
-            {detail.phone ? <p className="text-sm text-muted-foreground">{detail.phone}</p> : null}
-          </div>
-          <div className="flex shrink-0 gap-2">
-            <StatusPill
-              label={detail.isRestored ? 'Restored' : detail.accountStatus}
-              tone={detail.isRestored ? 'success' : ACCOUNT_TONE[detail.accountStatus] ?? 'neutral'}
-            />
-            <StatusPill
-              label={REASON_LABEL[detail.reason] ?? detail.reason}
-              tone={REASON_TONE[detail.reason] ?? 'neutral'}
-            />
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-          <div>
-            <span className="text-muted-foreground">Admission #</span>
-            <span className="ml-2 font-mono text-xs">
-              {detail.admissionId ? detail.admissionId.slice(-8).toUpperCase() : '-'}
-            </span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Grade Level</span>
-            <span className="ml-2">{detail.gradeLevel || detail.lastGradeLevel || '-'}</span>
-          </div>
-        <div>
-          <span className="text-muted-foreground">Enrollment Date</span>
-          <span className="ml-2">{formatDate(detail.enrollmentDate)}</span>
-        </div>
-        {detail.enrollments[0]?.className ? (
-          <div>
-            <span className="text-muted-foreground">Last Class</span>
-            <span className="ml-2">{detail.enrollments[0].className}</span>
-          </div>
-        ) : null}
-          <div>
-            <span className="text-muted-foreground">Exit Date</span>
-            <span className="ml-2">{formatDate(detail.exitDate)}</span>
-          </div>
-          {detail.destination ? (
-            <div>
-              <span className="text-muted-foreground">Destination</span>
-              <span className="ml-2">{detail.destination}</span>
-            </div>
-          ) : null}
-        </div>
-
-        {detail.notes ? (
-          <div className="mt-4">
-            <span className="block text-xs font-medium text-muted-foreground">Notes</span>
-            <p className="mt-1 text-sm text-foreground">{detail.notes}</p>
-          </div>
-        ) : null}
-      </div>
-
-      <div>
-        <h3 className="mb-3 text-sm font-semibold text-foreground">Lifecycle Timeline</h3>
-        <ol className="relative ml-2 border-l border-muted pl-4">
-          {timeline.map((item, i) => (
-            <li key={`${item.type}-${i}`} className="mb-4 last:mb-0">
-              <div className="absolute -ml-2 h-4 w-4 rounded-full border-2 border-background bg-primary"></div>
-              <div className="ml-2">
-                <p className="text-xs font-medium uppercase text-muted-foreground">{item.label}</p>
-                <p className="text-sm font-medium text-foreground">
-                  {item.date ? formatDate(item.date) : '-'}
-                </p>
-                <p className="text-xs text-muted-foreground">{item.detail}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </div>
-
-      <div className="flex gap-2 text-xs text-muted-foreground">
-        <span>Recorded by {detail.recordedBy?.name ?? detail.recordedBy?.email ?? '-'}</span>
-        <span>·</span>
-        <span>{formatDate(detail.recordedAt)}</span>
-        {detail.restoredAt ? (
-          <>
-            <span>·</span>
-            <span>Restored by {detail.restoredBy?.name ?? detail.restoredBy?.email ?? '-'}</span>
-            <span>{formatDate(detail.restoredAt)}</span>
-          </>
-        ) : null}
-      </div>
     </div>
   );
 }
