@@ -26,6 +26,7 @@ import { asyncHandler } from '../../shared/asyncHandler';
 import { ApiError } from '../../shared/logger';
 import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
 import { resolveBand } from '../academics/grading';
+import { resolveScaleForGradeLevel, loadBands, resolveRacefieldBand, resolveRacefieldForScore } from '../grading/racefield';
 import { resolveClassResponsibility } from '../classes/scope';
 import {
   currentSessionId,
@@ -361,6 +362,7 @@ router.get(
             subjectId: true,
             value: true,
             competencyLevel: true,
+            racefieldBand: true,
             gradedAt: true,
           },
         })
@@ -390,6 +392,7 @@ router.get(
             subjectId: area.id,
             score: row ? row.value : null,
             competencyLevel: row?.competencyLevel ?? null,
+            racefieldBand: row?.racefieldBand ?? null,
             savedAt: row?.gradedAt ?? null,
           };
         }),
@@ -462,6 +465,11 @@ router.put(
       throw new ApiError(400, 'Some results were for learners not enrolled in this class.');
     }
 
+    const learners = await prisma.user.findMany({
+      where: { id: { in: payload.results.map((r) => r.studentId) } },
+      select: { id: true, studentProfile: { select: { gradeLevel: true } } },
+    });
+
     // Duplicate cells within one submission would race each other on the unique
     // key, so they are rejected rather than silently collapsed.
     const seen = new Set<string>();
@@ -527,6 +535,16 @@ router.put(
         const percent = max !== null && max > 0 ? (result.score / max) * 100 : null;
         const band = percent === null ? null : resolveBand(percent, bands);
 
+        const learner = learners.find((l) => l.id === result.studentId);
+        const learnerGradeLevel = learner?.studentProfile?.gradeLevel ?? null;
+
+        const racefield = await resolveRacefieldForScore({
+          schoolId,
+          score: result.score,
+          maxScore: max,
+          gradeLevel: learnerGradeLevel,
+        });
+
         const data = {
           studentId: result.studentId,
           subjectId: result.subjectId,
@@ -536,6 +554,8 @@ router.put(
           value: result.score,
           competencyLevel: band?.level ?? null,
           competencyBandId: band?.bandId ?? null,
+          racefieldScaleId: racefield?.scaleId ?? null,
+          racefieldBandId: racefield?.bandId ?? null,
           gradedBy: req.user!.id,
         };
 

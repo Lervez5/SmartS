@@ -32,6 +32,7 @@ import {
   COMPETENCY_LABELS,
   getCompetencyBands,
 } from '../academics/grading';
+import { getActiveScales } from '../grading/racefield';
 
 export const router: Router = Router();
 
@@ -133,7 +134,7 @@ router.get(
     const grades = assessmentIds.length
       ? await prisma.grade.findMany({
           where: { examinationId: { in: assessmentIds } },
-          select: { competencyLevel: true, scale: true, value: true },
+          select: { competencyLevel: true, scale: true, value: true, racefieldBand: { select: { label: true } }, classId: true },
         })
       : [];
 
@@ -157,11 +158,18 @@ router.get(
           : null,
         description: band?.description ?? null,
         count,
-        // Share of graded results, not of learners, so a learner graded in two
-        // learning areas is counted in both, which is what the figure describes.
         percent: gradedTotal > 0 ? Math.round((count / gradedTotal) * 1000) / 10 : null,
       };
     });
+
+    // Racefield distribution: count by the stored Racefield band label.
+    const racefieldCounts = new Map<string, number>();
+    for (const grade of grades) {
+      const label = grade.racefieldBand?.label ?? null;
+      if (!label) continue;
+      racefieldCounts.set(label, (racefieldCounts.get(label) ?? 0) + 1);
+    }
+    const racefieldGradedTotal = [...racefieldCounts.values()].reduce((sum, n) => sum + n, 0);
 
     res.json({
       context: {
@@ -172,20 +180,25 @@ router.get(
       metrics: {
         assessments: assessments.length,
         resultsEntered: scoredAttempts.length,
-        // Attempts that exist but carry no score, so progress is visible.
         resultsPending: attempts.length - scoredAttempts.length,
         awaitingResults,
         schoolAverage,
         gradesCovered: gradeLevels.length,
       },
       gradeLevels,
-      // Explicit rather than implied: with no bands configured there is no
-      // distribution to show, and empty bars would read as "no results yet".
       grading: {
         bandsConfigured: bands.length > 0,
         scale: bands.length > 0 ? 'cbc-competency' : null,
         gradedResults: gradedTotal,
         distribution,
+        racefield: {
+          gradedResults: racefieldGradedTotal,
+          distribution: [...racefieldCounts.entries()].map(([label, count]) => ({
+            label,
+            count,
+            percent: racefieldGradedTotal > 0 ? Math.round((count / racefieldGradedTotal) * 1000) / 10 : null,
+          })),
+        },
       },
       recent: assessments.slice(0, query.limit ?? 8).map((a) => ({
         id: a.id,

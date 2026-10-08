@@ -918,6 +918,50 @@ model CompetencyBand {
   @@index([schoolId])
 }
 
+/// The Racefield grading standard applied to a school, tied to a grade/level
+/// range so the correct scale is resolved automatically from the learner's
+/// actual grade rather than chosen by hand.
+///
+/// Each scale carries its own ordered bands. The engine resolves which scale
+/// applies from the learner's grade level, then resolves the band from the
+/// normalised score.
+model RacefieldScale {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId  String   @db.ObjectId
+  name      String
+  gradeMin  Int
+  gradeMax  Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bands   RacefieldBand[]
+  grades  Grade[]
+
+  @@unique([schoolId, gradeMin])
+  @@index([schoolId])
+}
+
+/// One band within a Racefield scale.
+///
+/// `minScore` and `maxScore` are the inclusive boundaries on the normalised
+/// 0-100 score, not on the raw mark. A 20-point paper is therefore comparable
+/// to a 100-point one.
+model RacefieldBand {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  scale     RacefieldScale @relation(fields: [scaleId], references: [id], onDelete: Cascade)
+  scaleId   String   @db.ObjectId
+  label     String
+  minScore  Float
+  maxScore  Float
+  createdAt DateTime @default(now())
+
+  grades Grade[]
+
+  @@index([scaleId])
+}
+
 /// A subdivision of a class.
 ///
 /// A stream never replaces the class: attendance, timetabling and assessment all
@@ -991,6 +1035,13 @@ model Grade {
   competencyLevel  CompetencyLevel?
   competencyBand   CompetencyBand?  @relation(fields: [competencyBandId], references: [id])
   competencyBandId String?          @db.ObjectId
+  /// The Racefield grading scale applied when the grade was recorded.
+  racefieldScale   RacefieldScale?  @relation(fields: [racefieldScaleId], references: [id])
+  racefieldScaleId String?          @db.ObjectId
+  /// The Racefield band this score falls into, resolved from the learner's
+  /// grade level and the active Racefield scale.
+  racefieldBand    RacefieldBand?   @relation(fields: [racefieldBandId], references: [id])
+  racefieldBandId  String?          @db.ObjectId
   comment          String?
   gradedAt         DateTime         @default(now())
   gradedBy         String?          @db.ObjectId
@@ -1430,6 +1481,7 @@ model School {
   securitySettings     SchoolSecuritySettings?
   glowSettings         SchoolGlowSettings?
   competencyBands      CompetencyBand[]
+  racefieldScales      RacefieldScale[]
   academicYears        AcademicYear[]
   classes              Class[]
   subjects             Subject[]

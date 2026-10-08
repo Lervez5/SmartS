@@ -6,6 +6,7 @@ import { requirePermissions } from '../../middleware/rbac';
 import { asyncHandler } from '../../shared/asyncHandler';
 import { ApiError } from '../../shared/logger';
 import { assertGradingPolicyExists, resolveCompetencyForScore } from '../academics/grading';
+import { resolveRacefieldForScore } from '../grading/racefield';
 import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
 
 /**
@@ -570,6 +571,17 @@ router.put(
 
         if (!isGraded || score === null) continue;
 
+        const studentIds = payload.records
+          .filter((r) => r.score !== null && r.graded !== false)
+          .map((r) => r.studentId);
+        const students = studentIds.length
+          ? await prisma.user.findMany({
+              where: { id: { in: studentIds } },
+              select: { id: true, studentProfile: { select: { gradeLevel: true } } },
+            })
+          : [];
+        const gradeLevelById = new Map(students.map((s) => [s.id, s.studentProfile?.gradeLevel ?? null]));
+
         // Derived, never typed by hand: the level follows from the score and the
         // school's configured bands.
         const resolved = await resolveCompetencyForScore(
@@ -577,6 +589,13 @@ router.put(
           score,
           exam.maxScore
         );
+
+        const racefield = await resolveRacefieldForScore({
+          schoolId: schoolScopeOf(req).schoolId,
+          score,
+          maxScore: exam.maxScore,
+          gradeLevel: gradeLevelById.get(record.studentId) ?? null,
+        });
 
         await tx.grade.create({
           data: {
@@ -588,6 +607,8 @@ router.put(
             value: exam.maxScore && exam.maxScore > 0 ? (score / exam.maxScore) * 100 : score,
             competencyLevel: resolved?.level ?? null,
             competencyBandId: resolved?.bandId ?? null,
+            racefieldScaleId: racefield?.scaleId ?? null,
+            racefieldBandId: racefield?.bandId ?? null,
             gradedBy: req.user!.id,
           },
         });

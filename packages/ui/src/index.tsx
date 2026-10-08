@@ -28,3 +28,5 @@ export * from './components/Modal';
 export * from './components/FloatingFormModal';
 export * from './components/BrandLoader';
 export * from './components/PortalLayout';
+export * from './components/grading/LearnerResultsView';
+export * from './components/grading/ParentResultsView';
