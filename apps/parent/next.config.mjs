@@ -31,7 +31,7 @@ const nextConfig = {
     return config;
   },
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '/api',
     NEXT_PUBLIC_APP_NAME: 'Parent Portal',
     NEXT_PUBLIC_PORTAL: 'parent',
     NEXT_PUBLIC_PORT: '3002',
