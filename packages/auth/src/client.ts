@@ -16,7 +16,7 @@
  * request.
  *
  * An absolute URL is still honoured when one is supplied, because a deployed
- * portal may genuinely need to talk to a different host — but it must be a host
+ * portal may genuinely need to talk to a different host - but it must be a host
  * the browser will attach the session cookie to, or every call is unauthenticated.
  */
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';

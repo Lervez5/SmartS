@@ -19,7 +19,7 @@ import {
 } from '@schoolos/ui';
 
 /**
- * Academic Sessions — the school year and its academic periods.
+ * Academic Sessions - the school year and its academic periods.
  *
  * Reads `GET /api/academic-sessions`, which is the authoritative session system
  * the admin navbar also selects from, so a session managed here is the same
@@ -64,10 +64,10 @@ const SESSION_TONE: Record<string, StatusTone> = {
 };
 
 function formatDate(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
-    ? '—'
+    ? '-'
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -214,7 +214,7 @@ export default function AdminAcademicSessionsPage() {
             />
             <DashboardCard
               title="Current session"
-              value={active === 1 ? (sessions.find((s) => s.isActive)?.name ?? '—') : active}
+              value={active === 1 ? (sessions.find((s) => s.isActive)?.name ?? '-') : active}
               icon="check"
               tone={active === 1 ? 'success' : 'warning'}
               description={

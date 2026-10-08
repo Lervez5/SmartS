@@ -151,7 +151,7 @@ function auditSafe(area: SettingsArea, before: unknown, after: unknown) {
  *
  * The settings records carry `id`, `schoolId` and `updatedAt` alongside the
  * configuration. They are storage identity, not configuration, and the area
- * schemas are strict objects — so echoing a read straight back failed with
+ * schemas are strict objects - so echoing a read straight back failed with
  * "Unrecognized key(s) in object".
  */
 const RECORD_METADATA_KEYS = new Set(['id', 'schoolId', 'createdAt', 'updatedAt']);
@@ -162,7 +162,7 @@ const RECORD_METADATA_KEYS = new Set(['id', 'schoolId', 'createdAt', 'updatedAt'
  * Two normalisations, both required for a read to be writable back:
  *
  *  1. `null` keys are dropped. Every unset optional column comes back from
- *     Mongo as `null`, while the schemas declare `.optional()` — which permits
+ *     Mongo as `null`, while the schemas declare `.optional()` - which permits
  *     an absent key but rejects an explicit `null`. Removing the key means "no
  *     opinion" and leaves the stored value alone.
  *  2. Record metadata is dropped, because it is not configuration.
@@ -338,7 +338,7 @@ export async function updatePersonalSettings(userId: string, input: unknown) {
 /**
  * Ensures a settings record exists for every area of a school.
  *
- * A read already falls back to `DEFAULTS`, so a missing record is not an error —
+ * A read already falls back to `DEFAULTS`, so a missing record is not an error -
  * but it does mean a freshly seeded school has nothing to administer, and the
  * areas nobody visits stay absent indefinitely. Provisioning writes the defaults
  * once so every area is inspectable and editable.

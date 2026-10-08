@@ -7,6 +7,8 @@ import {
   exportController,
 } from './controller';
 import { requireRole, requirePermissions } from '../../middleware/rbac';
+import { requireSchoolScope } from '../settings/scope';
+import { router as summativeRouter } from './summative';
 
 export const router: Router = Router();
 
@@ -33,3 +35,6 @@ router.get('/analytics', requirePermissions('reports.view'), (req, res, next) =>
 router.post('/export', requirePermissions('reports.export'), (req, res, next) => {
   exportController(req, res).catch(next);
 });
+
+/** Summative overview, mounted with the rest of reporting and school-scoped. */
+router.use('/', requireSchoolScope(), summativeRouter);

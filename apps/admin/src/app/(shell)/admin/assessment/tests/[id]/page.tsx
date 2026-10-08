@@ -65,10 +65,10 @@ const LIFECYCLE_TONE = {
 } as const;
 
 function formatDate(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
-    ? '—'
+    ? '-'
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -245,7 +245,7 @@ export default function AdminAssessmentDetailPage() {
         />
         <DashboardCard
           title="Average"
-          value={assessment.averagePercent !== null ? `${assessment.averagePercent}%` : '—'}
+          value={assessment.averagePercent !== null ? `${assessment.averagePercent}%` : '-'}
           icon="trending-up"
           tone={pending > 0 ? 'warning' : 'success'}
           description={pending > 0 ? `${pending} not yet scored` : 'All scored'}
@@ -287,7 +287,7 @@ export default function AdminAssessmentDetailPage() {
             {
               field: 'Grade / class',
               value: assessment.class
-                ? [assessment.class.name, assessment.class.gradeLevel].filter(Boolean).join(' — ')
+                ? [assessment.class.name, assessment.class.gradeLevel].filter(Boolean).join(' - ')
                 : 'No class',
             },
             { field: 'Assessment type', value: assessment.assessmentType ?? 'Not set' },
@@ -295,14 +295,14 @@ export default function AdminAssessmentDetailPage() {
             { field: 'End date', value: formatDate(assessment.endDate) },
             {
               field: 'Duration',
-              value: assessment.duration ? `${assessment.duration} minutes` : '—',
+              value: assessment.duration ? `${assessment.duration} minutes` : '-',
             },
             {
               field: 'Maximum score',
               value:
                 assessment.maxScore !== null && assessment.maxScore !== undefined
                   ? String(assessment.maxScore)
-                  : '—',
+                  : '-',
             },
             { field: 'Lifecycle', value: `${assessment.lifecycle} (stored: ${assessment.status})` },
           ]}

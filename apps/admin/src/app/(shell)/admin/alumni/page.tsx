@@ -25,7 +25,7 @@ import {
 } from '@schoolos/ui';
 
 /**
- * Alumni Office — learners who have left the school.
+ * Alumni Office - learners who have left the school.
  *
  * Reads `GET /api/alumni`, which lists `LearnerExit` records joined to the
  * learner's existing StudentProfile and user. The learner keeps one identity
@@ -109,10 +109,10 @@ const SORTS = [
 ];
 
 function formatDate(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
-    ? '—'
+    ? '-'
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -225,7 +225,7 @@ export default function AdminAlumniPage() {
             {row.admissionId.slice(-8).toUpperCase()}
           </span>
         ) : (
-          <span className="text-muted-foreground">—</span>
+          <span className="text-muted-foreground">-</span>
         ),
     },
     {
@@ -376,7 +376,7 @@ export default function AdminAlumniPage() {
                     icon: 'eye',
                   },
                   // Reuses the existing ID card route, which is already keyed
-                  // on the student profile — the same record the exit points at.
+                  // on the student profile - the same record the exit points at.
                   {
                     id: 'id-card',
                     label: `ID card for ${displayName(row) || row.email}`,
@@ -490,7 +490,7 @@ export default function AdminAlumniPage() {
                     {(classes.data ?? []).map((row) => (
                       <option key={row.id} value={row.id}>
                         {row.name}
-                        {row.gradeLevel ? ` — ${row.gradeLevel}` : ''}
+                        {row.gradeLevel ? ` - ${row.gradeLevel}` : ''}
                       </option>
                     ))}
                   </Select>

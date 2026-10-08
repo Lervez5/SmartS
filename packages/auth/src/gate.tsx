@@ -30,7 +30,7 @@ export function AuthSessionGate({ children }: { children: React.ReactNode }) {
       // Awaited, not fired and forgotten. Reading the store on the next line
       // instead would race the read, and a rehydration landing after
       // `/auth/me` resolved would overwrite the fresh session with the stored
-      // snapshot — which presented as being signed out on the next render.
+      // snapshot - which presented as being signed out on the next render.
       try {
         await useAuthStore.persist.rehydrate();
       } catch {
