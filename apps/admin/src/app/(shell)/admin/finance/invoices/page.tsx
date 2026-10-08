@@ -76,6 +76,7 @@ export default function AdminFinanceInvoicesPage() {
   const [statusFilter, setStatusFilter] = React.useState('');
 
   const { data, loading, error } = useApi<InvoicesResponse>(
+    // listInvoicesSchema caps limit at 200; a larger value is a 400, not a clamp.
     allowed ? '/api/finance/invoices?limit=200' : '/api/finance/invoices?denied=1'
   );
 

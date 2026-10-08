@@ -1036,6 +1036,71 @@ const ADMIN_NAV: NavSection[] = [
   },
   {
     /**
+     * Finance.
+     *
+     * Ordered as the money moves: what was paid, what was billed, what is still
+     * owed, then the instruments that adjust a bill. Only Invoices has a working
+     * endpoint today; the rest state their missing dependency rather than
+     * showing an empty table.
+     *
+     * Balances Registry sits at /admin/finance because that is the accountant's
+     * landing route, and a per-learner receivables ledger is what an accountant
+     * opens it for.
+     */
+    id: 'finance',
+    label: 'Finance',
+    permissions: ['finance.view'],
+    items: [
+      {
+        id: 'adm.finance.payments',
+        label: 'Payments',
+        href: '/admin/finance/payments',
+        permissions: ['finance.payments'],
+        icon: 'credit-card',
+        order: 1,
+        implemented: false,
+        gap: 'A payment is a Receipt row, and the Receipt model exists with method, paidBy and receivedAt, but there is no /api/finance/payments or /api/finance/receipts route. Recording and listing payments both have to be built.',
+      },
+      {
+        id: 'adm.finance.invoices',
+        label: 'Invoices',
+        href: '/admin/finance/invoices',
+        permissions: ['finance.view'],
+        icon: 'receipt',
+        order: 2,
+      },
+      {
+        id: 'adm.finance.balances',
+        label: 'Balances Registry',
+        href: '/admin/finance',
+        permissions: ['finance.view'],
+        icon: 'scale',
+        order: 3,
+      },
+      {
+        id: 'adm.finance.credit-notes',
+        label: 'Credit Notes',
+        href: '/admin/finance/credit-notes',
+        permissions: ['finance.manage'],
+        icon: 'file-minus',
+        order: 4,
+        implemented: false,
+        gap: 'No CreditNote model exists. SchoolFinanceSettings.creditNotesEnabled is configuration only, and there is no route to raise, number or apply a credit note against an invoice.',
+      },
+      {
+        id: 'adm.finance.refunds',
+        label: 'Refunds',
+        href: '/admin/finance/refunds',
+        permissions: ['finance.refunds'],
+        icon: 'undo-2',
+        order: 5,
+        implemented: false,
+        gap: 'No Refund model exists. SchoolFinanceSettings.refundsEnabled is configuration only, and a refund would have to reference both the original Receipt and the Invoice it reverses.',
+      },
+    ],
+  },
+  {
+    /**
      * Reports.
      *
      * Both items point at real endpoints: GET /api/reporting/financial and
