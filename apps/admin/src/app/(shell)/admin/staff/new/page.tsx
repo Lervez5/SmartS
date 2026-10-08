@@ -18,7 +18,7 @@ import {
 } from '@schoolos/ui';
 
 /**
- * Add Staff — attach a staff profile to an existing account.
+ * Add Staff - attach a staff profile to an existing account.
  *
  * `POST /api/staff` takes a `userId` and creates the StaffProfile; it does not
  * create accounts. Accounts are provisioned separately, so this screen lists the
@@ -85,7 +85,7 @@ export default function AdminAddStaffPage() {
     {
       id: 'role',
       header: 'Current role',
-      cell: (row) => (row.role ? <StatusPill label={roleLabel(row.role)} tone="neutral" /> : '—'),
+      cell: (row) => (row.role ? <StatusPill label={roleLabel(row.role)} tone="neutral" /> : '-'),
       hideBelow: 'sm',
     },
     {

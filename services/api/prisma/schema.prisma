@@ -361,6 +361,63 @@ model Exercise {
   createdAt  DateTime @default(now())
 }
 
+// ====================================================================
+// ACADEMIC SESSIONS
+//
+// An AcademicYear is the school's academic session (2026, 2026/27). A Term is
+// an individual academic period inside a session, so the two are kept
+// distinct rather than collapsed into one record.
+//
+// The session is the unit that other domains are measured against: invoices and
+// receipts are counted within a session's dates, and learner enrolments are
+// attributed to the session they joined in. That makes the session the shared
+// context the admin navbar resolves and the other modules read.
+// ====================================================================
+
+enum AcademicSessionStatus {
+  planned
+  active
+  completed
+  archived
+}
+
+enum TermStatus {
+  planned
+  active
+  completed
+}
+
+model AcademicYear {
+  id        String                @id @default(auto()) @map("_id") @db.ObjectId
+  name      String                @unique // e.g. 2026
+  label     String? // display label, e.g. "2026 Academic Session"
+  startDate DateTime
+  endDate   DateTime
+  /// Only one session is `active` at a time; the service enforces it.
+  status    AcademicSessionStatus @default(planned)
+  terms     Term[]
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@index([status])
+}
+
+model Term {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  academicYearId String       @db.ObjectId
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  name           String // e.g. "Term 1"
+  termNumber     Int
+  startDate      DateTime
+  endDate        DateTime
+  status         TermStatus   @default(planned)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([academicYearId, termNumber])
+  @@index([status])
+}
+
 model Course {
   id                 String             @id @default(auto()) @map("_id") @db.ObjectId
   title              String

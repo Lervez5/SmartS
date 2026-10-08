@@ -1231,8 +1231,6 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['academics.view'],
         icon: 'calendar-range',
         order: 1,
-        implemented: false,
-        gap: 'No AcademicYear or Term model exists. SchoolAcademicSettings.currentAcademicYearId is a free-text string with no target collection, so sessions and terms cannot be listed, created or closed.',
       },
       {
         id: 'adm.teacher-allocation',
@@ -1829,11 +1827,6 @@ export const CBC_GAPS: ReadonlyArray<{ concept: string; missing: string }> = [
   {
     concept: 'Grading scale',
     missing: 'No GradeScale model. Grade.scale is a Prisma enum with three fixed values.',
-  },
-  {
-    concept: 'Academic Year / Term',
-    missing:
-      'No AcademicYear or Term model. SchoolAcademicSettings.currentAcademicYearId is a dangling string.',
   },
   {
     concept: 'Grade / Level',

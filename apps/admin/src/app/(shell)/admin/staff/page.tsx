@@ -21,7 +21,7 @@ import {
 } from '@schoolos/ui';
 
 /**
- * School Staff — the faculty and administrative directory.
+ * School Staff - the faculty and administrative directory.
  *
  * Reads `GET /api/staff`, which is gated by `staff.view` and returns
  * StaffProfile joined to User. Two independent states come back and are shown
@@ -93,10 +93,10 @@ function displayName(member: StaffMember): string {
 }
 
 function formatDate(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
-    ? '—'
+    ? '-'
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -191,7 +191,7 @@ export default function AdminSchoolStaffPage() {
       header: 'Role',
       cell: (row) =>
         row.roles.length === 0 ? (
-          <span className="text-muted-foreground">—</span>
+          <span className="text-muted-foreground">-</span>
         ) : (
           <div className="flex flex-wrap items-center gap-1">
             {row.roles.map((r) => (
@@ -435,7 +435,7 @@ export default function AdminSchoolStaffPage() {
           <p className="text-xs text-muted-foreground">
             Employment and account access are separate: employment comes from the staff record,
             access from the Central Auth account. Account activation and deactivation have no
-            endpoint yet, so access can be read here but not changed from this screen — the role
+            endpoint yet, so access can be read here but not changed from this screen - the role
             action changes what the member can do, not whether they can sign in.
           </p>
         </>

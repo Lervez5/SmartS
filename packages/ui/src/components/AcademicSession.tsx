@@ -52,25 +52,25 @@ const AcademicSessionContext = React.createContext<AcademicSessionValue | null>(
 
 const STORAGE_KEY = 'smarts-academic-session';
 
-/**
- * Derives the session list from the academic settings record.
- *
- * Exported so the shape is testable and so a future AcademicYear model can
- * replace this function without touching any consumer.
- */
-export function sessionsFromSettings(
-  settings: {
-    currentAcademicYearId?: string | null;
-    academicYearFormat?: string | null;
-    termsPerYear?: number | null;
-  } | null
-): AcademicSession[] {
-  if (!settings) return [];
-  const id = (settings.currentAcademicYearId ?? '').trim();
-  if (!id) return [];
+/** Shape of `GET /api/academic-sessions`, the authoritative session system. */
+export interface AcademicSessionRecord {
+  id: string;
+  name: string;
+  label?: string | null;
+  startDate?: string;
+  endDate?: string;
+  status: 'planned' | 'active' | 'completed' | 'archived';
+  isActive?: boolean;
+  termCount?: number;
+}
 
-  const label = (settings.academicYearFormat ?? '').trim() || id;
-  return [{ id, label, status: 'active' }];
+/** Projects an API session onto the shape the selector renders. */
+export function sessionFromRecord(record: AcademicSessionRecord): AcademicSession {
+  return {
+    id: record.id,
+    label: record.label?.trim() || record.name,
+    status: record.status === 'active' ? 'active' : 'archived',
+  };
 }
 
 export function AcademicSessionProvider({
@@ -86,19 +86,16 @@ export function AcademicSessionProvider({
 
   const load = React.useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch('/api/settings/academic', {
+      // The authoritative session system. This replaced reading
+      // SchoolAcademicSettings.currentAcademicYearId, which is free text with no
+      // record behind it, so the navbar had nothing real to select from.
+      const res = await fetch('/api/academic-sessions?sort=start_desc&limit=50', {
         credentials: 'include',
         signal,
       });
       if (!res.ok) return;
-      const body = (await res.json()) as {
-        settings?: {
-          currentAcademicYearId?: string | null;
-          academicYearFormat?: string | null;
-          termsPerYear?: number | null;
-        } | null;
-      };
-      setSessions(sessionsFromSettings(body.settings ?? null));
+      const body = (await res.json()) as { sessions?: AcademicSessionRecord[] };
+      setSessions((body.sessions ?? []).map(sessionFromRecord));
     } catch {
       // A failure leaves the selector empty rather than guessing a session.
     }
@@ -119,9 +116,10 @@ export function AcademicSessionProvider({
         const stored = window.localStorage.getItem(STORAGE_KEY);
         if (stored && sessions.some((s) => s.id === stored)) return stored;
       } catch {
-        // Storage is a convenience; fall through to the configured session.
+        // Storage is a convenience; fall through to the real current session.
       }
-      return sessions[0].id;
+      // Prefer the session the backend marks active over simply the newest.
+      return (sessions.find((s) => s.status === 'active') ?? sessions[0]).id;
     });
   }, [sessions]);
 
@@ -140,7 +138,7 @@ export function AcademicSessionProvider({
       sessionId,
       setSessionId,
       current: sessions.find((s) => s.id === sessionId) ?? null,
-      configuredId: sessions[0]?.id ?? null,
+      configuredId: sessions.find((s) => s.status === 'active')?.id ?? null,
       ready,
       isUnset: ready && sessions.length === 0,
       canEdit,

@@ -26,9 +26,9 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -69,27 +69,66 @@ function loadRootEnv() {
  * `@prisma/client`'s main file sits directly in its own package directory, so
  * one `dirname` is the right step, not two.
  */
-function generatedSchemaCandidates() {
-  const candidates = [];
+/**
+ * Every location that holds a generated client.
+ *
+ * `prisma generate` writes to the generator's `output`, which is
+ * `services/api/node_modules/.prisma/client`. Under pnpm the app does NOT load
+ * that: `require('@prisma/client')` resolves through the symlink into the
+ * pnpm store, so the copy the runtime actually reads lives under
+ * `.pnpm/.../@prisma/client/.prisma/client`.
+ *
+ * Leaving the two out of step is how a schema change silently fails to take
+ * effect at runtime while `tsc` still type-checks against the fresh one. Both
+ * are generated, and both are drift-checked.
+ */
+function generatedClientDirs() {
+  const dirs = [];
 
   try {
     const require = createRequire(join(apiDir, 'package.json'));
     const clientEntry = require.resolve('@prisma/client');
-    candidates.push(join(dirname(clientEntry), '.prisma', 'client', 'schema.prisma'));
+    dirs.push(join(dirname(clientEntry), '.prisma', 'client'));
   } catch {
-    // @prisma/client not resolvable; fall through to the static candidates.
+    // @prisma/client not resolvable yet; the static paths below still apply.
   }
 
-  // The generator in schema.prisma writes to `../node_modules/.prisma/client`,
-  // relative to services/api.
-  candidates.push(join(apiDir, 'node_modules', '.prisma', 'client', 'schema.prisma'));
-  candidates.push(join(repoRoot, 'node_modules', '.prisma', 'client', 'schema.prisma'));
+  dirs.push(join(apiDir, 'node_modules', '.prisma', 'client'));
+  dirs.push(join(repoRoot, 'node_modules', '.prisma', 'client'));
 
-  return candidates;
+  return [...new Set(dirs)];
 }
 
-function generatedSchemaPath() {
-  return generatedSchemaCandidates().find((path) => existsSync(path)) ?? null;
+/** The generator's declared output, where `prisma generate` writes. */
+function generateOutputDir() {
+  try {
+    const schema = readFileSync(schemaPath, 'utf8');
+    const match = schema.match(/output\s*=\s*"([^"]+)"/);
+    // The path is relative to the prisma/ directory holding the schema.
+    if (match) return resolve(dirname(schemaPath), match[1]);
+  } catch {
+    // Fall through to the conventional location.
+  }
+  return join(apiDir, 'node_modules', '.prisma', 'client');
+}
+
+/** Copies the freshly generated client to every location the app resolves. */
+function syncGeneratedClient() {
+  const source = generateOutputDir();
+  if (!existsSync(source)) return;
+
+  for (const target of generatedClientDirs()) {
+    if (target === source) continue;
+    if (!existsSync(dirname(target))) continue;
+    try {
+      cpSync(source, target, { recursive: true, force: true });
+      console.log(`  synced generated client -> ${relative(repoRoot, target)}`);
+    } catch (error) {
+      console.warn(
+        `  could not sync generated client to ${relative(repoRoot, target)}: ${error.message}`
+      );
+    }
+  }
 }
 
 function prisma(args, { allowFailure = false } = {}) {
@@ -122,9 +161,12 @@ function writeStamp() {
 }
 
 function checkDrift() {
-  const generated = generatedSchemaPath();
+  const source = readFileSync(schemaPath, 'utf8').trim();
+  const sourceModels = (source.match(/^model /gm) ?? []).length;
+  const sourceEnums = (source.match(/^enum /gm) ?? []).length;
 
-  if (!generated) {
+  const dirs = generatedClientDirs().filter((dir) => existsSync(dir));
+  if (dirs.length === 0) {
     console.error(
       '✗ No generated Prisma client found.\n' +
         '  Run `pnpm db:generate` before building or type-checking.'
@@ -132,21 +174,26 @@ function checkDrift() {
     return false;
   }
 
-  const source = readFileSync(schemaPath, 'utf8').trim();
-  const built = readFileSync(generated, 'utf8').trim();
+  let stale = 0;
+  for (const dir of dirs) {
+    const schemaCopy = join(dir, 'schema.prisma');
+    if (!existsSync(schemaCopy)) continue;
 
-  if (source !== built) {
-    const sourceModels = (source.match(/^model /gm) ?? []).length;
+    const built = readFileSync(schemaCopy, 'utf8').trim();
+    if (built === source) continue;
+
+    stale += 1;
     const builtModels = (built.match(/^model /gm) ?? []).length;
-    const sourceEnums = (source.match(/^enum /gm) ?? []).length;
     const builtEnums = (built.match(/^enum /gm) ?? []).length;
-
-    console.error('✗ Prisma client is out of date with the schema.');
+    console.error(`✗ Generated client is out of date: ${relative(repoRoot, dir)}`);
     console.error(
       `    schema.prisma : ${sourceModels} models, ${sourceEnums} enums\n` +
         `    generated     : ${builtModels} models, ${builtEnums} enums`
     );
-    console.error('  Run `pnpm db:generate` to regenerate the client.');
+  }
+
+  if (stale > 0) {
+    console.error('  Run `pnpm db:generate` to regenerate and sync the client.');
     return false;
   }
 
@@ -161,9 +208,10 @@ function checkDrift() {
     }
   }
 
-  const models = (source.match(/^model /gm) ?? []).length;
-  const enums = (source.match(/^enum /gm) ?? []).length;
-  console.log(`✓ Prisma schema valid and in sync (${models} models, ${enums} enums)`);
+  console.log(
+    `✓ Prisma schema valid and in sync (${sourceModels} models, ${sourceEnums} enums, ` +
+      `${dirs.length} client location${dirs.length === 1 ? '' : 's'})`
+  );
   return true;
 }
 
@@ -183,12 +231,14 @@ function main() {
       prisma(['format']);
       // Formatting changes the source, so the client is now stale by definition.
       prisma(['generate']);
+      syncGeneratedClient();
       writeStamp();
       break;
     }
 
     case 'generate': {
       prisma(['generate']);
+      syncGeneratedClient();
       writeStamp();
       break;
     }

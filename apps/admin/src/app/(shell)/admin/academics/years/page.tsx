@@ -1,29 +1,354 @@
 'use client';
 
+import * as React from 'react';
+import { useApi } from '@schoolos/hooks';
 import { useAuth } from '@schoolos/auth';
-import { GapScreen } from '@schoolos/ui';
+import {
+  ActionButtons,
+  ContextFilterBar,
+  DashboardCard,
+  DataTable,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PrimaryActionButton,
+  SectionHeader,
+  StatusPill,
+  type DataTableColumn,
+  type StatusTone,
+} from '@schoolos/ui';
 
 /**
- * Academic Years & Terms - admin portal.
+ * Academic Sessions — the school year and its academic periods.
  *
- * The navigation entry and this route exist so the CBC platform shape is
- * visible. The backend capability is not implemented:
+ * Reads `GET /api/academic-sessions`, which is the authoritative session system
+ * the admin navbar also selects from, so a session managed here is the same
+ * session every other module resolves.
  *
- *   No AcademicYear or Term model exists. SchoolAcademicSettings.currentAcademicYearId is a dangling string with no target collection.
- *
- * The page states the gap rather than rendering an empty table, which would
- * read as "no data yet" when in fact no endpoint exists.
+ * The Data Summary counts are computed server-side from live collections:
+ * invoices by issue date, receipts by when they were received, and learners by
+ * enrolment date, each falling inside the session's own date range. Nothing
+ * here is a stored total or a placeholder.
  */
-export default function Page() {
-  const { user, permissions } = useAuth();
+interface SessionRecord {
+  id: string;
+  name: string;
+  label?: string | null;
+  startDate: string;
+  endDate: string;
+  status: 'planned' | 'active' | 'completed' | 'archived';
+  isActive: boolean;
+  termCount: number;
+  terms: Array<{
+    id: string;
+    name: string;
+    termNumber: number;
+    status: 'planned' | 'active' | 'completed';
+  }>;
+  data: {
+    invoiceCount: number;
+    receiptCount: number;
+    learnerCount: number;
+  };
+}
+
+interface SessionsResponse {
+  sessions?: SessionRecord[];
+}
+
+const SESSION_TONE: Record<string, StatusTone> = {
+  active: 'success',
+  planned: 'info',
+  completed: 'neutral',
+  archived: 'neutral',
+};
+
+function formatDate(value?: string | null): string {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime())
+    ? '—'
+    : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+export default function AdminAcademicSessionsPage() {
+  const { can } = useAuth();
+  const allowed = can('academics.view');
+
+  const [query, setQuery] = React.useState('');
+  const [debounced, setDebounced] = React.useState('');
+  const [status, setStatus] = React.useState('');
+
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(query), 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  const params = new URLSearchParams({ sort: 'start_desc' });
+  if (debounced) params.set('search', debounced);
+  if (status) params.set('status', status);
+  params.set('limit', '200');
+
+  const { data, loading, error } = useApi<SessionsResponse>(
+    allowed ? `/api/academic-sessions?${params.toString()}` : '/api/academic-sessions?denied=1'
+  );
+
+  const sessions = React.useMemo(() => data?.sessions ?? [], [data]);
+
+  const active = sessions.filter((s) => s.status === 'active').length;
+  const planned = sessions.filter((s) => s.status === 'planned').length;
+  const totalTerms = sessions.reduce((sum, s) => sum + s.termCount, 0);
+
+  const columns: Array<DataTableColumn<SessionRecord>> = [
+    {
+      id: 'identity',
+      header: 'Session Identity',
+      cell: (row) => (
+        <div className="flex items-center gap-2.5">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">{row.label || row.name}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              <span className="font-mono">{row.name}</span>
+              {' · '}
+              {row.termCount === 1 ? '1 term' : `${row.termCount} terms`}
+            </p>
+          </div>
+          {row.isActive ? <StatusPill label="Current" tone="success" /> : null}
+        </div>
+      ),
+      sortValue: (row) => row.name,
+    },
+    {
+      id: 'start',
+      header: 'Start Date',
+      cell: (row) => formatDate(row.startDate),
+      sortValue: (row) => row.startDate,
+    },
+    {
+      id: 'end',
+      header: 'End Date',
+      cell: (row) => formatDate(row.endDate),
+      sortValue: (row) => row.endDate,
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (row) => <StatusPill label={row.status} tone={SESSION_TONE[row.status] ?? 'neutral'} />,
+      sortValue: (row) => row.status,
+    },
+    {
+      id: 'data',
+      header: 'Data Summary',
+      cell: (row) => (
+        <div className="flex flex-wrap items-center gap-1">
+          <span
+            className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs text-foreground"
+            title="Invoices issued within this session"
+          >
+            {row.data.invoiceCount} inv
+          </span>
+          <span
+            className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs text-foreground"
+            title="Payments received within this session"
+          >
+            {row.data.receiptCount} pay
+          </span>
+          <span
+            className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs text-foreground"
+            title="Learners who enrolled within this session"
+          >
+            {row.data.learnerCount} learners
+          </span>
+        </div>
+      ),
+    },
+  ];
+
+  if (!allowed) {
+    return (
+      <div className="space-y-6">
+        <SectionHeader title="Academic Sessions" />
+        <ErrorState
+          title="You do not have access to academic configuration"
+          message="Managing academic sessions requires academics.view to read and academics.manage to write. Your role does not hold them, and the API refuses the request independently of this screen."
+        />
+      </div>
+    );
+  }
 
   return (
-    <GapScreen
-      app="admin"
-      path="/admin/academics/years"
-      permissions={permissions}
-      role={(user?.role ?? 'DEAN') as never}
-      title="Academic Years & Terms"
-    />
+    <div className="space-y-6">
+      <SectionHeader
+        title="Academic Sessions"
+        description="The school’s academic sessions and their terms. The active session is what the navbar and every downstream module resolve."
+        action={
+          can('academics.manage') ? (
+            <PrimaryActionButton
+              href="/admin/academics/years/new"
+              label="Create Session"
+              icon="plus"
+              title="Creates an academic session via POST /api/academic-sessions."
+            />
+          ) : null
+        }
+      />
+
+      {loading ? (
+        <LoadingState label="Loading academic sessions" />
+      ) : error ? (
+        <ErrorState
+          title="Could not load academic sessions"
+          message="GET /api/academic-sessions requires academics.view. Confirm the API is running and that your session still holds the permission."
+        />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <DashboardCard
+              title="Sessions"
+              value={sessions.length}
+              icon="calendar-range"
+              tone="accent"
+              description={
+                debounced || status ? 'Matching the current filters' : 'All sessions on record'
+              }
+            />
+            <DashboardCard
+              title="Current session"
+              value={active === 1 ? (sessions.find((s) => s.isActive)?.name ?? '—') : active}
+              icon="check"
+              tone={active === 1 ? 'success' : 'warning'}
+              description={
+                active === 1
+                  ? 'Resolved by the navbar and other modules'
+                  : active === 0
+                    ? 'No session is active'
+                    : 'More than one session is active'
+              }
+            />
+            <DashboardCard
+              title="Planned"
+              value={planned}
+              icon="calendar-days"
+              description="Not yet started"
+            />
+            <DashboardCard
+              title="Terms defined"
+              value={totalTerms}
+              icon="layers"
+              description="Across all sessions"
+            />
+          </div>
+
+          {active === 0 && sessions.length > 0 ? (
+            <p
+              role="alert"
+              className="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300"
+            >
+              No session is active, so the navbar has nothing to select and assessments, attendance
+              and reporting have no current period to resolve against. Activate one to restore that
+              context.
+            </p>
+          ) : null}
+
+          <DataTable
+            caption="Academic sessions with their live data summary"
+            columns={columns}
+            rows={sessions}
+            rowKey={(row) => row.id}
+            pageSize={15}
+            onRowClick={(row) => {
+              window.location.href = `/admin/academics/years/${row.id}`;
+            }}
+            renderRowActions={(row) => (
+              <ActionButtons
+                items={[
+                  {
+                    id: 'view',
+                    label: `View ${row.name}`,
+                    href: `/admin/academics/years/${row.id}`,
+                    icon: 'eye',
+                  },
+                  ...(can('academics.manage')
+                    ? [
+                        {
+                          id: 'edit',
+                          label: `Edit ${row.name}`,
+                          href: `/admin/academics/years/${row.id}/edit`,
+                          icon: 'pencil',
+                        },
+                        // Activating is offered only on a non-active session, and
+                        // deactivating only on the active one. The API also
+                        // demotes the previous session when one is activated.
+                        ...(row.isActive
+                          ? [
+                              {
+                                id: 'deactivate',
+                                label: `Deactivate ${row.name}`,
+                                href: `/admin/academics/years/${row.id}/edit?setStatus=completed`,
+                                icon: 'circle-alert',
+                              },
+                            ]
+                          : [
+                              {
+                                id: 'activate',
+                                label: `Activate ${row.name}`,
+                                href: `/admin/academics/years/${row.id}/edit?setStatus=active`,
+                                icon: 'check',
+                              },
+                            ]),
+                      ]
+                    : []),
+                ]}
+              />
+            )}
+            toolbar={
+              <ContextFilterBar
+                search={{
+                  value: query,
+                  onChange: setQuery,
+                  placeholder: 'Search by session name or label…',
+                }}
+                filters={[
+                  {
+                    id: 'status',
+                    label: 'Status',
+                    value: status,
+                    options: [
+                      { value: 'active', label: 'Active' },
+                      { value: 'planned', label: 'Planned' },
+                      { value: 'completed', label: 'Completed' },
+                      { value: 'archived', label: 'Archived' },
+                    ],
+                    onChange: setStatus,
+                    allLabel: 'All statuses',
+                  },
+                ]}
+              />
+            }
+            empty={
+              <EmptyState
+                title={
+                  sessions.length === 0 && !debounced && !status
+                    ? 'No academic sessions yet'
+                    : 'No sessions match these filters'
+                }
+                description={
+                  sessions.length === 0 && !debounced && !status
+                    ? 'Create the first session so the rest of the platform has a current period to resolve against.'
+                    : 'Adjust the search or status filter above.'
+                }
+                icon="calendar-range"
+              />
+            }
+          />
+
+          <p className="text-xs text-muted-foreground">
+            Data summary counts records whose own dates fall inside each session: invoices by issue
+            date, payments by the day they were received, learners by enrolment date. A record
+            outside every session&rsquo;s range is not counted by any of them.
+          </p>
+        </>
+      )}
+    </div>
   );
 }
