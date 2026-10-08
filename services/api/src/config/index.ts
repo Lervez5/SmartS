@@ -8,7 +8,8 @@ import { z } from 'zod';
 // before parsing, and ESM hoists imports, so the loading lives here rather than
 // in the server entrypoint.
 const here = dirname(fileURLToPath(import.meta.url));
-const rootEnv = resolve(here, '../../../../.env');
+const repoRoot = resolve(here, '../../../..');
+const rootEnv = resolve(repoRoot, '.env');
 if (existsSync(rootEnv)) {
   loadEnv({ path: rootEnv });
 } else {
@@ -71,7 +72,10 @@ export const config = {
   },
   storage: {
     provider: parsed.STORAGE_PROVIDER,
-    localRoot: parsed.STORAGE_LOCAL_ROOT,
+    // Resolved against the repo root rather than left relative: the API can be
+    // started from the repo root or from services/api, and a relative path
+    // quietly nested uploads under services/api/services/api instead.
+    localRoot: resolve(repoRoot, parsed.STORAGE_LOCAL_ROOT),
     s3Bucket: parsed.STORAGE_S3_BUCKET,
     s3Region: parsed.STORAGE_S3_REGION,
     s3AccessKeyId: parsed.STORAGE_S3_ACCESS_KEY_ID,

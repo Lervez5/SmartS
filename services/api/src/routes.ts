@@ -40,6 +40,7 @@ import { router as auditLogsRouter } from './modules/audit-logs';
 import { router as rolesRouter } from './modules/roles';
 import { router as settingsRouter } from './modules/settings';
 import { router as publicRouter } from './modules/public';
+import { router as uploadsRouter } from './modules/uploads';
 export const router: Router = Router();
 
 router.use('/auth', authRouter);
@@ -48,6 +49,9 @@ router.use('/invitations', invitationsRouter);
 // Mounted before requireAuth: the sign-in screen has no session yet and still
 // needs the school name, logo and academic session to render.
 router.use('/public', publicRouter);
+
+// The raw body parser for this path is registered in app.ts before the JSON one.
+router.use('/uploads', uploadsRouter);
 
 router.use(requireAuth);
 

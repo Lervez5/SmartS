@@ -32,13 +32,16 @@ const IMAGE_TYPES = [
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
+/** Branding images the school can supply. */
+const BRANDING_KINDS = ['logo', 'favicon', 'cover'] as const;
+
 async function handleUpload(req: Request, res: Response): Promise<void> {
   const contentType = String(req.headers['content-type'] ?? '')
     .split(';')[0]
     .trim();
 
   if (!IMAGE_TYPES.includes(contentType)) {
-    throw new ApiError(415, 'Logo and favicon must be a PNG, JPEG, WebP, SVG or icon file');
+    throw new ApiError(415, 'The image must be a PNG, JPEG, WebP, SVG or icon file');
   }
 
   const buffer = req.body as Buffer;
@@ -49,10 +52,12 @@ async function handleUpload(req: Request, res: Response): Promise<void> {
     throw new ApiError(413, 'Image must be 5 MB or smaller');
   }
 
-  const kind = String(req.query.kind ?? 'logo');
-  if (kind !== 'logo' && kind !== 'favicon') {
-    throw new ApiError(400, 'kind must be logo or favicon');
+  // `cover` is the institution's photograph, shown on the sign-in panel.
+  const raw = String(req.query.kind ?? 'logo');
+  if (!BRANDING_KINDS.some((k) => k === raw)) {
+    throw new ApiError(400, `kind must be one of: ${BRANDING_KINDS.join(', ')}`);
   }
+  const kind = raw as (typeof BRANDING_KINDS)[number];
 
   const requested = String(req.query.filename ?? `branding.${contentType.split('/')[1] ?? 'png'}`)
     // Never trust a path from the client.

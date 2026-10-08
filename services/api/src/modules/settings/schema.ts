@@ -12,6 +12,23 @@ const hexColor = z
   .string()
   .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Use a hex colour such as #22c55e');
 
+/**
+ * Accepts a site-relative path as well as an absolute http(s) URL.
+ *
+ * An uploaded branding image is served from this origin at `/uploads/...`, not
+ * from an absolute URL, so requiring `https?://` would make every uploaded logo
+ * or photograph unsaveable. Relative paths are constrained to a single leading
+ * slash so `//evil.example` cannot be smuggled in as a protocol-relative URL.
+ */
+const optionalPathOrUrl = z
+  .string()
+  .trim()
+  .refine(
+    (v) => v === '' || /^https?:\/\/.+/i.test(v) || /^\/(?!\/)/.test(v),
+    'Must be a site-relative path or an http(s) URL'
+  )
+  .optional();
+
 const optionalUrl = z
   .string()
   .trim()
@@ -105,11 +122,11 @@ export const generalSettingsSchema = z
 
 export const brandingSettingsSchema = z
   .object({
-    logoUrl: optionalUrl,
+    logoUrl: optionalPathOrUrl,
     logoAltText: z.string().trim().max(160).optional().or(z.literal('')),
-    coverImageUrl: optionalUrl,
+    coverImageUrl: optionalPathOrUrl,
     coverImageAltText: z.string().trim().max(160).optional().or(z.literal('')),
-    faviconUrl: optionalUrl,
+    faviconUrl: optionalPathOrUrl,
     primaryColor: hexColor.optional().or(z.literal('')),
     secondaryColor: hexColor.optional().or(z.literal('')),
     accentColor: hexColor.optional().or(z.literal('')),

@@ -22,4 +22,5 @@ export * from './components/SettingsForm';
 export * from './components/settings';
 export * from './components/GapScreen';
 export * from './components/Toast';
+export * from './components/ImageUploadField';
 export * from './components/PortalLayout';

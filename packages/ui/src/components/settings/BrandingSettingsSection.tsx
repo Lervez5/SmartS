@@ -2,6 +2,7 @@
 
 import { Image as ImageIcon, LayoutTemplate, Palette } from 'lucide-react';
 import { SettingsSection, SettingsCard, Field, TextInput, TextArea, Toggle } from '../SettingsForm';
+import { ImageUploadField } from '../ImageUploadField';
 
 /**
  * Visual identity.
@@ -82,20 +83,19 @@ export function BrandingSettingsSection() {
           <>
             <SettingsCard
               title="Logo and Icon"
-              description="Used by all four portals. Upload endpoints exist for branding but are not mounted in the router yet, so paste a URL for now."
+              description="Used by all four portals. Uploads are stored under the school, so one institution's file cannot land under another's."
               icon={ImageIcon}
             >
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <Field
-                  label="Sign-in photograph URL"
+                <ImageUploadField
+                  label="Sign-in photograph"
+                  kind="cover"
+                  shape="wide"
+                  value={str(v.coverImageUrl)}
+                  altText={str(v.coverImageAltText)}
+                  onChange={(url) => set('coverImageUrl', url)}
                   hint="Shown on the admin sign-in panel. Without one, the panel falls back to a plain branded field."
-                >
-                  <TextInput
-                    value={str(v.coverImageUrl)}
-                    onChange={(e) => set('coverImageUrl', e.target.value)}
-                    placeholder="https://school.edu/campus.jpg"
-                  />
-                </Field>
+                />
                 <Field label="Photograph alt text" hint="Read by screen readers">
                   <TextInput
                     value={str(v.coverImageAltText)}
@@ -103,13 +103,14 @@ export function BrandingSettingsSection() {
                     placeholder="The school front gate"
                   />
                 </Field>
-                <Field label="Logo URL">
-                  <TextInput
-                    value={str(v.logoUrl)}
-                    onChange={(e) => set('logoUrl', e.target.value)}
-                    placeholder="https://…/logo.svg"
-                  />
-                </Field>
+                <ImageUploadField
+                  label="Logo"
+                  kind="logo"
+                  shape="square"
+                  value={str(v.logoUrl)}
+                  altText={str(v.logoAltText)}
+                  onChange={(url) => set('logoUrl', url)}
+                />
                 <Field label="Logo Alt Text" hint="Read by screen readers">
                   <TextInput
                     value={str(v.logoAltText)}
@@ -117,13 +118,13 @@ export function BrandingSettingsSection() {
                     placeholder="Greenfield Academy logo"
                   />
                 </Field>
-                <Field label="Favicon URL">
-                  <TextInput
-                    value={str(v.faviconUrl)}
-                    onChange={(e) => set('faviconUrl', e.target.value)}
-                    placeholder="https://…/favicon.ico"
-                  />
-                </Field>
+                <ImageUploadField
+                  label="Favicon"
+                  kind="favicon"
+                  shape="square"
+                  value={str(v.faviconUrl)}
+                  onChange={(url) => set('faviconUrl', url)}
+                />
               </div>
             </SettingsCard>
 
