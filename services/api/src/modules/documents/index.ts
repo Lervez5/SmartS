@@ -10,7 +10,7 @@ export const router: Router = Router();
  */
 router.get('/', requirePermissions('documents.view'), (_req, res) => {
   res.json({
-    service: 'smartsprout-api',
+    service: 'schoolos-api',
     module: 'documents',
     state: 'migrated',
   });

@@ -9,7 +9,7 @@ export const router: Router = Router();
  */
 router.get('/', (_req, res) => {
   res.json({
-    service: 'smartsprout-api',
+    service: 'schoolos-api',
     module: 'teachers',
     state: 'planned',
   });

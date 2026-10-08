@@ -3,13 +3,29 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { cn } from '@schoolos/utils';
+import { BrandMark } from './BrandMark';
 
 export interface NavbarProps {
   showSearch?: boolean;
   navbarActions?: ReactNode;
+  /** Configured school name for the brand mark. */
+  schoolName?: string | null;
+  /** Configured logo URL for the brand mark. */
+  logoUrl?: string | null;
+  /** Portal label shown beside the school name. */
+  portalLabel?: string;
+  /** Link target for the brand mark (defaults to "/"). */
+  brandHref?: string;
 }
 
-export function Navbar({ showSearch = false, navbarActions }: NavbarProps) {
+export function Navbar({
+  showSearch = false,
+  navbarActions,
+  schoolName,
+  logoUrl,
+  portalLabel,
+  brandHref = '/',
+}: NavbarProps) {
   return (
     <header
       className={cn(
@@ -23,25 +39,13 @@ export function Navbar({ showSearch = false, navbarActions }: NavbarProps) {
       )}
     >
       {/* Brand mark */}
-      <Link href="/" className="flex items-center gap-3 group">
-        <div
-          className={cn(
-            'h-10 w-10 rounded-xl flex items-center justify-center shrink-0',
-            'bg-gradient-to-br from-primary to-emerald-700',
-            'shadow-[0_4px_14px_rgba(26,122,72,0.35)]',
-            'transition-all duration-200 group-hover:shadow-[0_6px_18px_rgba(26,122,72,0.45)] group-hover:scale-[1.04]'
-          )}
-        >
-          <span className="text-white font-extrabold text-lg tracking-tight leading-none">S</span>
-        </div>
-        <div className="flex flex-col leading-tight">
-          <span className="font-extrabold text-[1.0625rem] text-slate-900 dark:text-white tracking-tight">
-            SchoolOS
-          </span>
-          <span className="text-[10px] font-semibold text-primary/80 uppercase tracking-widest hidden sm:block">
-            Learning Platform
-          </span>
-        </div>
+      <Link href={brandHref} className="flex items-center gap-3 group">
+        <BrandMark
+          logoUrl={logoUrl}
+          schoolName={schoolName}
+          portalName={portalLabel}
+          size="md"
+        />
       </Link>
 
       {/* Centre - search (optional) */}

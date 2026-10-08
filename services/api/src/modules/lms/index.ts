@@ -9,5 +9,5 @@ export const router: Router = Router();
  * TODO: implement domain endpoints.
  */
 router.get('/', requirePermissions('academics.view'), (_req, res) => {
-  res.json({ service: 'smartsprout-api', module: 'lms', state: 'migrated' });
+  res.json({ service: 'schoolos-api', module: 'lms', state: 'migrated' });
 });

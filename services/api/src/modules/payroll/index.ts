@@ -8,5 +8,5 @@ export const router: Router = Router();
  * TODO: implement domain endpoints.
  */
 router.get('/', (_req, res) => {
-  res.json({ service: 'smartsprout-api', module: 'payroll', state: 'planned' });
+  res.json({ service: 'schoolos-api', module: 'payroll', state: 'planned' });
 });
