@@ -1,7 +1,4 @@
 packages:
-  - "backend"
-  - "frontend-kids"
-  - "frontend-admin"
-  - "scripts"
-
-
+  - 'apps/*'
+  - 'packages/*'
+  - 'services/*'

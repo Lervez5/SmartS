@@ -1,0 +1,41 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "DOM.Iterable", "ES2022"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@schoolos/auth": ["../../packages/auth/src"],
+      "@schoolos/ui": ["../../packages/ui/src"],
+      "@schoolos/utils": ["../../packages/utils/src"],
+      "@schoolos/validation": ["../../packages/validation/src"],
+      "@schoolos/types": ["../../packages/types/src"],
+      "@schoolos/hooks": ["../../packages/hooks/src"]
+    },
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowJs": false,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["node"],
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": ["**/*.ts", "**/*.tsx", "next-env.d.ts", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
