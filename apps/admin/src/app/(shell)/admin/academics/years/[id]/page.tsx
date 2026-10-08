@@ -265,7 +265,7 @@ export default function AdminAcademicSessionDetailPage() {
           action={
             canManage ? (
               <a
-                href="/admin/academics/years/new"
+                href="/admin/academics/years?create=1"
                 className="rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
               >
                 Create Session

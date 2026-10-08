@@ -46,8 +46,26 @@ export const SETTINGS_AREA_LABELS: Record<SettingsArea, string> = {
   finance: 'Finance',
   subscription: 'Subscription',
   notifications: 'Notifications',
-  glow: 'Glow',
+  glow: 'Daily Glow',
   security: 'Security',
+};
+
+/**
+ * What each area is for, in one line.
+ *
+ * The page header used to carry the same sentence for all eight areas, so it
+ * told an administrator nothing about the one they had just opened. These say
+ * what the area actually governs and what it affects.
+ */
+export const SETTINGS_AREA_DESCRIPTIONS: Record<SettingsArea, string> = {
+  general: 'School identity, leadership, contact details and location.',
+  branding: 'Logo, colours and the footer printed on reports and email.',
+  academic: 'Terms, attendance rules, assessment weighting and CBC competency bands.',
+  finance: 'Currency, invoicing, payment policy and the finance switches.',
+  subscription: 'Plan and renewal details for this school’s subscription.',
+  notifications: 'Delivery channels, per-event routing and quiet hours.',
+  glow: 'Reserved configuration for the Daily Glow experience.',
+  security: 'Password policy, lockout, sessions and transport requirements.',
 };
 
 /**

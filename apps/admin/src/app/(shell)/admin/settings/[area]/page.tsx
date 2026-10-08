@@ -3,7 +3,12 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { isSettingsArea, SETTINGS_AREA_LABELS, SETTINGS_AREAS } from '@schoolos/auth';
+import {
+  isSettingsArea,
+  SETTINGS_AREA_DESCRIPTIONS,
+  SETTINGS_AREA_LABELS,
+  SETTINGS_AREAS,
+} from '@schoolos/auth';
 import { cn } from '@schoolos/utils';
 import {
   ErrorState,
@@ -61,9 +66,10 @@ export default function AdminSettingsAreaPage() {
           <h1 className="text-xl font-bold tracking-tight text-foreground">
             {SETTINGS_AREA_LABELS[area]} Settings
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            School configuration. Changes apply to every portal in the school.
-          </p>
+          {/* Says what this area governs. The same sentence used to appear on
+              all eight, which told an administrator nothing about the one they
+              had just opened. */}
+          <p className="mt-1 text-sm text-muted-foreground">{SETTINGS_AREA_DESCRIPTIONS[area]}</p>
         </div>
       </div>
 

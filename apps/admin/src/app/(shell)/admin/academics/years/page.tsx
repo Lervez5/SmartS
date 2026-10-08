@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useApi } from '@schoolos/hooks';
 import { useAuth } from '@schoolos/auth';
 import {
@@ -10,10 +11,14 @@ import {
   DataTable,
   EmptyState,
   ErrorState,
+  Field,
   LoadingState,
-  PrimaryActionButton,
+  NavIcon,
   SectionHeader,
+  SettingsCard,
   StatusPill,
+  TextInput,
+  notify,
   type DataTableColumn,
   type StatusTone,
 } from '@schoolos/ui';
@@ -89,9 +94,65 @@ export default function AdminAcademicSessionsPage() {
   if (status) params.set('status', status);
   params.set('limit', '200');
 
-  const { data, loading, error } = useApi<SessionsResponse>(
+  const { data, loading, error, refetch } = useApi<SessionsResponse>(
     allowed ? `/api/academic-sessions?${params.toString()}` : '/api/academic-sessions?denied=1'
   );
+
+  // Create Session is inline rather than a separate screen: a session is four
+  // fields, so making one in place is quicker than routing away and back.
+  // ?create=1 opens the form, so a deep link from an empty state lands on it.
+  const searchParams = useSearchParams();
+  const [creating, setCreating] = React.useState(searchParams.get('create') === '1');
+  const [newName, setNewName] = React.useState('');
+  const [newLabel, setNewLabel] = React.useState('');
+  const [newStart, setNewStart] = React.useState('');
+  const [newEnd, setNewEnd] = React.useState('');
+  const [newStatus, setNewStatus] = React.useState('planned');
+  const [saving, setSaving] = React.useState(false);
+  const [createError, setCreateError] = React.useState<string | null>(null);
+
+  async function createSession() {
+    setSaving(true);
+    setCreateError(null);
+    try {
+      const res = await fetch('/api/academic-sessions', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName.trim(),
+          label: newLabel.trim() || undefined,
+          startDate: newStart,
+          endDate: newEnd,
+          status: newStatus,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
+        setCreateError(
+          body?.error?.message ?? `Could not create the session (HTTP ${res.status}).`
+        );
+        return;
+      }
+
+      const created = (await res.json()) as { session: { name: string } };
+      notify.success(`${created.session.name} created`);
+      setCreating(false);
+      setNewName('');
+      setNewLabel('');
+      setNewStart('');
+      setNewEnd('');
+      setNewStatus('planned');
+      refetch();
+    } catch {
+      setCreateError('Could not reach the API. Check that it is running.');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const sessions = React.useMemo(() => data?.sessions ?? [], [data]);
 
@@ -183,15 +244,112 @@ export default function AdminAcademicSessionsPage() {
         description="The school’s academic sessions and their terms. The active session is what the navbar and every downstream module resolve."
         action={
           can('academics.manage') ? (
-            <PrimaryActionButton
-              href="/admin/academics/years/new"
-              label="Create Session"
-              icon="plus"
-              title="Creates an academic session via POST /api/academic-sessions."
-            />
+            <button
+              type="button"
+              onClick={() => setCreating((v) => !v)}
+              aria-expanded={creating}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <NavIcon name={creating ? 'x' : 'plus'} className="h-4 w-4" />
+              {creating ? 'Cancel' : 'Create Session'}
+            </button>
           ) : null
         }
       />
+
+      {creating ? (
+        <SettingsCard
+          title="Create academic session"
+          description="A session is the school year everything else is measured against: assessments, attendance, reporting and fees all fall inside one. Terms are added once the session exists."
+        >
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <Field label="Session identifier" required hint="Unique in this school, e.g. 2026">
+              <TextInput
+                value={newName}
+                onChange={(event) => setNewName(event.target.value)}
+                placeholder="2026"
+              />
+            </Field>
+            <Field label="Display label" hint="Optional; falls back to the identifier">
+              <TextInput
+                value={newLabel}
+                onChange={(event) => setNewLabel(event.target.value)}
+                placeholder="2026 Academic Session"
+              />
+            </Field>
+            <Field label="Status" hint="Activating completes whichever session is active">
+              <select
+                value={newStatus}
+                onChange={(event) => setNewStatus(event.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="planned">Planned</option>
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+                <option value="archived">Archived</option>
+              </select>
+            </Field>
+            <Field label="Start date" required>
+              <TextInput
+                type="date"
+                value={newStart}
+                onChange={(event) => setNewStart(event.target.value)}
+              />
+            </Field>
+            <Field
+              label="End date"
+              required
+              error={
+                newStart && newEnd && new Date(newEnd) <= new Date(newStart)
+                  ? 'End date must be after the start date'
+                  : undefined
+              }
+            >
+              <TextInput
+                type="date"
+                value={newEnd}
+                onChange={(event) => setNewEnd(event.target.value)}
+              />
+            </Field>
+          </div>
+
+          {createError ? (
+            <div
+              role="alert"
+              className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+            >
+              {createError}
+            </div>
+          ) : null}
+
+          <div className="mt-5 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={createSession}
+              disabled={
+                saving ||
+                !newName.trim() ||
+                !newStart ||
+                !newEnd ||
+                (Boolean(newStart) && Boolean(newEnd) && new Date(newEnd) <= new Date(newStart))
+              }
+              className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+            >
+              {saving ? 'Creating…' : 'Create session'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCreating(false);
+                setCreateError(null);
+              }}
+              className="rounded-md border border-input bg-background px-3.5 py-2 text-sm font-medium transition-colors hover:bg-accent"
+            >
+              Cancel
+            </button>
+          </div>
+        </SettingsCard>
+      ) : null}
 
       {loading ? (
         <LoadingState label="Loading academic sessions" />
