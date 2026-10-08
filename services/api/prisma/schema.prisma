@@ -1416,9 +1416,15 @@ model SchoolBrandingSettings {
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   schoolId String @unique @db.ObjectId
 
-  logoUrl            String?
-  logoAltText        String?
-  faviconUrl         String?
+  logoUrl     String?
+  logoAltText String?
+  faviconUrl  String?
+
+  /// A photograph of the institution, shown on the sign-in screen in place of
+  /// any generated artwork. Optional: the screen falls back to a quiet branded
+  /// panel when none is set.
+  coverImageUrl      String?
+  coverImageAltText  String?
   primaryColor       String?
   secondaryColor     String?
   accentColor        String?

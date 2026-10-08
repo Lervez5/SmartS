@@ -13,6 +13,8 @@ import { SettingsSection, SettingsCard, Field, TextInput, TextArea, Toggle } fro
  */
 interface BrandingSettings {
   logoUrl: string;
+  coverImageUrl: string;
+  coverImageAltText: string;
   logoAltText: string;
   faviconUrl: string;
   primaryColor: string;
@@ -84,6 +86,23 @@ export function BrandingSettingsSection() {
               icon={ImageIcon}
             >
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <Field
+                  label="Sign-in photograph URL"
+                  hint="Shown on the admin sign-in panel. Without one, the panel falls back to a plain branded field."
+                >
+                  <TextInput
+                    value={str(v.coverImageUrl)}
+                    onChange={(e) => set('coverImageUrl', e.target.value)}
+                    placeholder="https://school.edu/campus.jpg"
+                  />
+                </Field>
+                <Field label="Photograph alt text" hint="Read by screen readers">
+                  <TextInput
+                    value={str(v.coverImageAltText)}
+                    onChange={(e) => set('coverImageAltText', e.target.value)}
+                    placeholder="The school front gate"
+                  />
+                </Field>
                 <Field label="Logo URL">
                   <TextInput
                     value={str(v.logoUrl)}

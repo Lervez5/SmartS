@@ -90,7 +90,14 @@ export const authClient = {
   },
 
   /** Issues a reset link. Always resolves so the UI cannot enumerate accounts. */
-  async forgotPassword(email: string): Promise<void> {
+  /**
+   * Requests a reset link.
+   *
+   * The body is returned because outside production the API includes the reset
+   * URL: there is no mailbox in development, so without it the flow cannot be
+   * completed or tested at all. Production never returns it.
+   */
+  async forgotPassword(email: string): Promise<{ message: string; devResetUrl?: string }> {
     const res = await fetch(`${API_URL}/auth/forgot-password`, {
       ...credentials,
       method: 'POST',
@@ -98,6 +105,7 @@ export const authClient = {
       body: JSON.stringify({ email }),
     });
     if (!res.ok) throw await toError(res);
+    return (await res.json()) as { message: string; devResetUrl?: string };
   },
 
   async resetPassword(payload: { token: string; password: string }): Promise<void> {

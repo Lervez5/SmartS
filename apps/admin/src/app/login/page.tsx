@@ -22,6 +22,9 @@ interface BrandingResponse {
   name?: string | null;
   curriculum?: string | null;
   logoUrl?: string | null;
+  /** The institution's photograph, shown on the sign-in panel. */
+  coverImageUrl?: string | null;
+  coverImageAltText?: string | null;
   /** A configured academic session, when the school has set one. */
   academicSession?: string | null;
 }
@@ -68,18 +71,10 @@ export default function AdminLoginPage() {
       description="Manage your school's academic, financial and administrative operations."
       visual={
         <AuthVisual
-          badge={badge}
-          eyebrow="School Management Platform"
-          headline="Everything your school needs, in one place."
-          body="Learners, academics, CBC assessment, attendance, finance, staff and administration connected through one secure platform."
-          areas={[
-            'People',
-            'Financials',
-            'Administration',
-            'Summative Assessments',
-            'Smart Lab',
-            'Reports',
-          ]}
+          coverImageUrl={branding?.coverImageUrl ?? null}
+          coverImageAltText={branding?.coverImageAltText ?? null}
+          institutionName={schoolName}
+          caption="Sign in to manage your school."
         />
       }
     >

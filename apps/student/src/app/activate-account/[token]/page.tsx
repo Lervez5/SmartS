@@ -1,29 +1,14 @@
 'use client';
 
-import { ActivateAccountForm } from '@schoolos/auth';
 import { useParams } from 'next/navigation';
+import { ActivateAccountForm } from '@schoolos/auth';
 
-export default function ActivateAccountTokenPage() {
+/**
+ * Account activation. The token arrives as a path segment from the invitation
+ * link, not a query string.
+ */
+export default function ActivateAccountPage() {
   const params = useParams();
-  const token = params?.token as string;
-
-  if (!token) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-destructive">Invalid activation token</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-md space-y-6 p-8">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold">Activate Your Account</h1>
-          <p className="text-sm text-muted-foreground">Set your password to activate</p>
-        </div>
-        <ActivateAccountForm token={token} />
-      </div>
-    </div>
-  );
+  const token = typeof params?.token === 'string' ? params.token : '';
+  return <ActivateAccountForm token={token} />;
 }

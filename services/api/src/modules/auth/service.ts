@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { config } from '../../config';
 import { ApiError, logger } from '../../shared/logger';
 import { findUserByEmail, createUser, findUserByResetToken, updateUser } from './repository';
 import { AuthResult } from './types';
@@ -87,7 +88,7 @@ export async function registerService(payload: RegisterInput): Promise<AuthResul
 
 export async function forgotPasswordService(
   payload: ForgotPasswordInput
-): Promise<{ message: string }> {
+): Promise<{ message: string; devResetUrl?: string }> {
   const user = await findUserByEmail(payload.email.toLowerCase());
 
   // Account enumeration protection: always return success.
@@ -113,7 +114,19 @@ export async function forgotPasswordService(
     token,
   });
 
-  return { message: 'If the account exists, a reset link has been sent.' };
+  const message = 'If the account exists, a reset link has been sent.';
+
+  // Outside production there is no mailbox to deliver to, so the link is only
+  // ever written to the server log and the flow cannot be completed or tested.
+  // Returning it here makes the whole path checkable end to end. Never returned
+  // in production, and never derived for an unknown address, so it cannot become
+  // an account-enumeration channel.
+  if (config.env === 'production') return { message };
+
+  return {
+    message,
+    devResetUrl: `/reset-password?token=${token}`,
+  };
 }
 
 export async function resetPasswordService(

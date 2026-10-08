@@ -107,6 +107,8 @@ export const brandingSettingsSchema = z
   .object({
     logoUrl: optionalUrl,
     logoAltText: z.string().trim().max(160).optional().or(z.literal('')),
+    coverImageUrl: optionalUrl,
+    coverImageAltText: z.string().trim().max(160).optional().or(z.literal('')),
     faviconUrl: optionalUrl,
     primaryColor: hexColor.optional().or(z.literal('')),
     secondaryColor: hexColor.optional().or(z.literal('')),

@@ -267,6 +267,9 @@ export async function getSignInBranding(schoolId: string) {
     displayName: (b.portalNameOverride as string) || school.displayName || school.name,
     curriculum: school.curriculum || null,
     logoUrl: (b.logoUrl as string) || null,
+    /** The institution's photograph, shown on the sign-in panel. */
+    coverImageUrl: (b.coverImageUrl as string) || null,
+    coverImageAltText: (b.coverImageAltText as string) || null,
     faviconUrl: (b.faviconUrl as string) || null,
     primaryColor: (b.primaryColor as string) || null,
     /** A configured free-text academic session, used for the login badge. */
@@ -287,6 +290,8 @@ export async function getPublicBranding(schoolId: string) {
     name: school.name,
     displayName: school.displayName || school.name,
     logoUrl: (b.logoUrl as string) || null,
+    coverImageUrl: (b.coverImageUrl as string) || null,
+    coverImageAltText: (b.coverImageAltText as string) || null,
     faviconUrl: (b.faviconUrl as string) || null,
     primaryColor: (b.primaryColor as string) || null,
     secondaryColor: (b.secondaryColor as string) || null,

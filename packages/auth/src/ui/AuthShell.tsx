@@ -55,6 +55,8 @@ export interface AuthShellProps {
   className?: string;
   /** Shown while a Suspense-gated child resolves. */
   fallback?: React.ReactNode;
+  /** Secondary action inside the card, e.g. "Back to sign in". */
+  footer?: React.ReactNode;
 }
 
 export function AuthShell({
@@ -68,6 +70,7 @@ export function AuthShell({
   logoUrl,
   className,
   fallback,
+  footer,
 }: AuthShellProps) {
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -87,28 +90,46 @@ export function AuthShell({
           <AuthIdentity portalLabel={portalLabel} schoolName={schoolName} logoUrl={logoUrl} />
 
           <div className="flex flex-1 items-center py-10 sm:py-14">
-            <div className="mx-auto w-full max-w-sm">
-              <h1 className="text-2xl font-bold tracking-tight sm:text-[28px] sm:leading-tight">
-                {title}
-              </h1>
-              {description ? (
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
-              ) : null}
-
-              <div className="mt-7">{children}</div>
-
-              {fallback ? <div className="mt-4">{fallback}</div> : null}
-
-              {footerLink ? (
-                <div className="mt-6 text-center text-sm">
-                  <Link
-                    href={footerLink.href}
-                    className="font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {footerLink.label}
-                  </Link>
+            <div className={cn('mx-auto w-full', visual ? 'max-w-sm' : 'max-w-md')}>
+              {!visual ? (
+                /*
+                  Without a visual panel the form is lifted into a card, so the
+                  flow reads as one object rather than loose inputs on a page.
+                */
+                <div className="rounded-2xl border bg-card p-6 shadow-lg sm:p-8">
+                  <CardHeading title={title} description={description} />
+                  <div className="mt-6">{children}</div>
+                  {fallback ? <div className="mt-4">{fallback}</div> : null}
+                  {footerLink ? (
+                    <div className="mt-6 flex justify-center">
+                      <Link
+                        href={footerLink.href}
+                        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {footerLink.label}
+                      </Link>
+                    </div>
+                  ) : null}
+                  {footer ? <div className="mt-6">{footer}</div> : null}
                 </div>
-              ) : null}
+              ) : (
+                <>
+                  <CardHeading title={title} description={description} />
+                  <div className="mt-7">{children}</div>
+                  {fallback ? <div className="mt-4">{fallback}</div> : null}
+                  {footerLink ? (
+                    <div className="mt-6 text-center text-sm">
+                      <Link
+                        href={footerLink.href}
+                        className="font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {footerLink.label}
+                      </Link>
+                    </div>
+                  ) : null}
+                  {footer ? <div className="mt-6">{footer}</div> : null}
+                </>
+              )}
             </div>
           </div>
         </main>
@@ -127,15 +148,29 @@ export function AuthShell({
   );
 }
 
+/** Title and supporting line, shared by the card and the split layouts. */
+function CardHeading({ title, description }: { title: string; description?: React.ReactNode }) {
+  return (
+    <div>
+      <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{title}</h1>
+      {description ? (
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
+      ) : null}
+    </div>
+  );
+}
+
 /** School mark. Uses the configured logo and name; never a hardcoded school. */
 export function AuthIdentity({
   portalLabel,
   schoolName,
   logoUrl,
+  className,
 }: {
   portalLabel?: string;
   schoolName?: string | null;
   logoUrl?: string | null;
+  className?: string;
 }) {
   const box =
     'flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary text-sm font-bold text-primary-foreground';
@@ -150,7 +185,7 @@ export function AuthIdentity({
     : '';
 
   return (
-    <div className="flex items-center gap-3">
+    <div className={cn('flex items-center gap-3', className)}>
       <span className={box}>
         {logoUrl ? (
           <span
@@ -187,173 +222,72 @@ export function AuthIdentity({
  * statistics.
  */
 export interface AuthVisualProps {
-  /** Small badge, e.g. the configured academic session. */
-  badge?: string;
-  eyebrow: string;
-  headline: string;
-  body: string;
-  /** Coverage areas named on the panel. */
-  areas: string[];
+  /** The institution's photograph, from SchoolBrandingSettings. */
+  coverImageUrl?: string | null;
+  /** Alt text for that photograph. Falls back to the institution's name. */
+  coverImageAltText?: string | null;
+  /** Institution name, shown over the photograph. */
+  institutionName?: string | null;
+  /** One restrained line of context. */
+  caption?: string;
   className?: string;
 }
 
-export function AuthVisual({ badge, eyebrow, headline, body, areas, className }: AuthVisualProps) {
-  return (
-    <div className={cn('relative flex h-full flex-col overflow-hidden', className)}>
-      {/* Base wash */}
-      <div
-        aria-hidden
-        className="absolute inset-0 bg-[radial-gradient(circle_at_25%_15%,rgba(22,163,74,0.16),transparent_55%),radial-gradient(circle_at_80%_85%,rgba(37,99,235,0.14),transparent_55%)]"
-      />
-      <div
-        aria-hidden
-        className="absolute inset-0 opacity-[0.18] dark:opacity-[0.22]"
-        style={{
-          backgroundImage: 'radial-gradient(circle at center, currentColor 1px, transparent 1px)',
-          backgroundSize: '26px 26px',
-        }}
-      />
+export function AuthVisual({
+  coverImageUrl,
+  coverImageAltText,
+  institutionName,
+  caption,
+  className,
+}: AuthVisualProps) {
+  const name = institutionName?.trim();
 
-      {/* Badge */}
-      {badge ? (
-        <div className="relative z-10 flex justify-end p-8">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/70 px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-200">
-            <CalendarIcon className="h-3.5 w-3.5" />
-            {badge}
-          </span>
+  return (
+    <div className={cn('relative h-full w-full overflow-hidden bg-slate-900', className)}>
+      {coverImageUrl ? (
+        <>
+          {/*
+            The photograph is the institution's own, so it is given the surface
+            rather than sitting behind a colour wash. object-cover fills the
+            panel without distorting what is in the picture.
+          */}
+          <img
+            src={coverImageUrl}
+            alt={coverImageAltText?.trim() || name || 'Photograph of the school'}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          {/*
+            A scrim, strongest where the text sits. Without it a bright
+            photograph would leave the name unreadable, which is a legibility
+            problem rather than a styling preference.
+          */}
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/35 to-slate-950/20"
+          />
+        </>
+      ) : (
+        <>
+          {/* No photograph configured: a quiet branded field, not a drawing. */}
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-[radial-gradient(120%_120%_at_20%_0%,hsl(142_60%_22%),hsl(222_47%_11%)_55%,hsl(222_47%_8%))]"
+          />
+        </>
+      )}
+
+      {name || caption ? (
+        <div className="absolute inset-x-0 bottom-0 p-8 sm:p-10">
+          {name ? (
+            <p className="max-w-md text-2xl font-semibold leading-tight text-white sm:text-3xl">
+              {name}
+            </p>
+          ) : null}
+          {caption ? (
+            <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-300">{caption}</p>
+          ) : null}
         </div>
       ) : null}
-
-      {/* Illustration: a stylised campus and classroom */}
-      <div className="relative z-10 flex flex-1 items-center justify-center px-8 pb-6">
-        <CampusIllustration />
-      </div>
-
-      {/* Copy panel */}
-      <div className="relative z-10 border-t border-white/10 bg-slate-900/70 px-8 py-7 backdrop-blur dark:bg-slate-950/70">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-400">
-          {eyebrow}
-        </p>
-        <h2 className="mt-2 text-xl font-bold leading-snug text-white sm:text-2xl">{headline}</h2>
-        <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-300">{body}</p>
-
-        <ul className="mt-5 flex flex-wrap gap-2">
-          {areas.map((area) => (
-            <li
-              key={area}
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-200"
-            >
-              {area}
-            </li>
-          ))}
-        </ul>
-      </div>
     </div>
-  );
-}
-
-/**
- * Campus illustration: school building, tree, and three learners in a
- * collaborative grouping. Drawn in currentColor so it inherits the panel's
- * palette in both themes and needs no image asset.
- */
-function CampusIllustration() {
-  return (
-    <svg
-      viewBox="0 0 480 320"
-      role="img"
-      aria-label="Illustration of a school campus with learners in a collaborative group"
-      className="h-auto w-full max-w-lg text-white"
-    >
-      <defs>
-        <linearGradient id="sm-ground" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" stopOpacity="0.10" />
-          <stop offset="100%" stopColor="currentColor" stopOpacity="0.02" />
-        </linearGradient>
-        <linearGradient id="sm-block" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#22c55e" stopOpacity="0.55" />
-          <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0.45" />
-        </linearGradient>
-      </defs>
-
-      {/* Ground */}
-      <ellipse cx="240" cy="272" rx="200" ry="34" fill="url(#sm-ground)" />
-
-      {/* Main block */}
-      <g opacity="0.92">
-        <rect x="120" y="96" width="240" height="140" rx="10" fill="url(#sm-block)" />
-        {/* Roof */}
-        <path d="M110 100 L240 52 L370 100 Z" fill="#16a34a" opacity="0.7" />
-        {/* Windows */}
-        {[150, 196, 242, 288].map((x) => (
-          <g key={x}>
-            <rect x={x} y="118" width="32" height="26" rx="3" fill="#0b1220" opacity="0.45" />
-            <rect x={x} y="156" width="32" height="26" rx="3" fill="#0b1220" opacity="0.45" />
-          </g>
-        ))}
-        {/* Door */}
-        <rect x="222" y="196" width="36" height="40" rx="4" fill="#0b1220" opacity="0.55" />
-      </g>
-
-      {/* Flag pole */}
-      <g opacity="0.85">
-        <line
-          x1="96"
-          y1="236"
-          x2="96"
-          y2="120"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-        <path d="M96 124 L132 136 L96 148 Z" fill="#22c55e" />
-      </g>
-
-      {/* Tree */}
-      <g opacity="0.8">
-        <rect x="404" y="196" width="7" height="40" rx="3" fill="currentColor" opacity="0.5" />
-        <circle cx="407" cy="184" r="26" fill="#16a34a" opacity="0.45" />
-        <circle cx="386" cy="196" r="18" fill="#22c55e" opacity="0.35" />
-        <circle cx="428" cy="196" r="18" fill="#0ea5e9" opacity="0.3" />
-      </g>
-
-      {/* Learners in a collaborative group */}
-      <g>
-        {/* learner 1 */}
-        <g transform="translate(120,208)">
-          <circle cx="14" cy="12" r="11" fill="#fbbf24" />
-          <path d="M2 52c0-8 5-14 12-14s12 6 12 14v10H2Z" fill="#0ea5e9" opacity="0.85" />
-        </g>
-        {/* learner 2 */}
-        <g transform="translate(168,214)">
-          <circle cx="14" cy="12" r="11" fill="#f472b6" />
-          <path d="M2 52c0-8 5-14 12-14s12 6 12 14v10H2Z" fill="#22c55e" opacity="0.85" />
-        </g>
-        {/* learner 3 */}
-        <g transform="translate(216,210)">
-          <circle cx="14" cy="12" r="11" fill="#a78bfa" />
-          <path d="M2 52c0-8 5-14 12-14s12 6 12 14v10H2Z" fill="#f59e0b" opacity="0.85" />
-        </g>
-        {/* Teacher */}
-        <g transform="translate(300,206)">
-          <circle cx="16" cy="13" r="12" fill="#0b1220" opacity="0.6" />
-          <path d="M2 56c0-9 6-15 14-15s14 6 14 15v10H2Z" fill="#0b1220" opacity="0.55" />
-          <rect x="26" y="30" width="16" height="12" rx="2" fill="#ffffff" opacity="0.75" />
-        </g>
-        {/* Table */}
-        <rect x="112" y="266" width="200" height="9" rx="4.5" fill="currentColor" opacity="0.28" />
-      </g>
-
-      {/* Connection arc: collaboration */}
-      <path
-        d="M170 236 Q240 206 310 236"
-        fill="none"
-        stroke="#22c55e"
-        strokeWidth="2"
-        strokeDasharray="4 6"
-        strokeLinecap="round"
-        opacity="0.7"
-      />
-    </svg>
   );
 }
