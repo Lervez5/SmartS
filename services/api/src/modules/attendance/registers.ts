@@ -161,42 +161,41 @@ router.get(
       markedByClassDay.set(key, entry);
     }
 
-    const classById = new Map(classes.map((c) => [c.id, c]));
-
     const registers = days
       .flatMap((day) =>
         classes.map((cls) => {
           const key = `${cls.id}:${day}`;
           const population = populationByClassDay.get(key) ?? 0;
           const marked = markedByClassDay.get(key) ?? { count: 0, latest: null };
-          if (population === 0) return [];
+          // A day the class had nobody enrolled for is not a register at all.
+          if (population === 0) return null;
 
-          return [
-            {
-              classId: cls.id,
-              className: cls.name,
-              gradeLevel: cls.gradeLevel,
-              streams: cls.streams,
-              date: day,
-              learners: population,
-              markedCount: marked.count,
-              lastMarkedAt: marked.latest,
-              /*
-               * The real state, derived rather than stored: nothing marked yet,
-               * part of the register recorded, or the register complete. A
-               * register is complete only when every enrolled learner has a mark.
-               */
-              state:
-                marked.count === 0
-                  ? 'not_marked'
-                  : marked.count >= population
-                    ? 'complete'
-                    : 'part_marked',
-            },
-          ];
+          return {
+            classId: cls.id,
+            className: cls.name,
+            gradeLevel: cls.gradeLevel,
+            streams: cls.streams,
+            date: day,
+            learners: population,
+            markedCount: marked.count,
+            lastMarkedAt: marked.latest,
+            /*
+             * The real state, derived rather than stored: nothing marked yet,
+             * part of the register recorded, or the register complete. A
+             * register is complete only when every enrolled learner has a mark.
+             */
+            state:
+              marked.count === 0
+                ? 'not_marked'
+                : marked.count >= population
+                  ? 'complete'
+                  : 'part_marked',
+          };
         })
       )
-      .reverse();
+      .filter((row): row is NonNullable<typeof row> => row !== null)
+      // Newest day first, and alphabetical by class within a day.
+      .sort((a, b) => b.date.localeCompare(a.date) || a.className.localeCompare(b.className));
 
     res.json({
       registers: registers.slice(0, query.limit ?? 200),
