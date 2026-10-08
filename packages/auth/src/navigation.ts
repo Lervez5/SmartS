@@ -920,15 +920,6 @@ const ADMIN_NAV: NavSection[] = [
         implemented: false,
         gap: 'No CurriculumCoverage model and no coverage computation route.',
       },
-      {
-        id: 'adm.classes',
-        label: 'Classes',
-        href: '/admin/classes',
-        permissions: ['cohorts.view'],
-        icon: 'users-round',
-        order: 4,
-        implemented: false,
-      },
     ],
   },
   {
@@ -1498,6 +1489,14 @@ const ADMIN_NAV: NavSection[] = [
         order: 4,
         implemented: false,
         gap: 'No Grade model exists. Grade is a fixed Prisma enum, while StudentProfile.gradeLevel and Class.gradeLevel are free-text strings, so grades cannot be listed, ordered or renamed.',
+      },
+      {
+        id: 'adm.classes',
+        label: 'Classes',
+        href: '/admin/classes',
+        permissions: ['cohorts.view'],
+        icon: 'users-round',
+        order: 4,
       },
       {
         id: 'adm.streams',
