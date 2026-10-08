@@ -611,7 +611,7 @@ model Class {
   subject   Subject? @relation("SubjectClasses", fields: [subjectId], references: [id])
   subjectId String?  @db.ObjectId
 
-  classCode           String?              @unique
+  classCode           String?
   gradeLevel          String?
   teacher             User?                @relation("TeacherClasses", fields: [teacherId], references: [id])
   teacherId           String?              @db.ObjectId
@@ -631,6 +631,11 @@ model Class {
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   teachingAssignments TeachingAssignment[]
+
+  /// Scoped to the school: one school taking PP1 must not stop another
+  /// school from having a PP1. Nothing looks a class up by code alone.
+  @@unique([schoolId, classCode])
+  @@index([schoolId])
 }
 
 model Enrollment {

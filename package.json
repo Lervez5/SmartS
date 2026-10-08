@@ -38,6 +38,7 @@
     "db:validate": "node scripts/prisma.mjs validate",
     "db:format": "node scripts/prisma.mjs format",
     "db:check": "node scripts/prisma.mjs check",
+    "db:indexes": "pnpm --filter school-os-api run db:indexes",
     "verify": "pnpm run db:check && pnpm run format:check && pnpm run lint && pnpm run typecheck",
     "postinstall": "node scripts/prisma.mjs generate || echo 'prisma generate skipped - run pnpm db:generate once the database env is available'",
     "prepare": "husky",
