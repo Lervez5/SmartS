@@ -70,7 +70,7 @@ export function AuthShell({
   footer,
 }: AuthShellProps) {
   if (visual) {
-    /* ── Admin split-screen layout ─────────────────────────────────────────── */
+    /* - Admin split-screen layout ---------------------─ */
     return (
       <div className="min-h-screen bg-background text-foreground">
         <div className="grid min-h-screen lg:grid-cols-2">
@@ -122,7 +122,7 @@ export function AuthShell({
     );
   }
 
-  /* ── Centered floating card layout (student, teacher, parent portals) ────── */
+  /* - Centered floating card layout (student, teacher, parent portals) --- */
   return (
     <div
       className={cn(
@@ -202,7 +202,7 @@ function CardHeading({ title, description }: { title: string; description?: Reac
   );
 }
 
-/** School identity mark — logo / initials + name + portal label. */
+/** School identity mark - logo / initials + name + portal label. */
 export function AuthIdentity({
   portalLabel,
   schoolName,

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Register — marking attendance for one class, optionally one stream.
+ * Register - marking attendance for one class, optionally one stream.
  *
  * Built for a real class rather than a demo one. A class can hold fifty
  * learners or more and can be divided into many streams, so the roster is:
@@ -336,7 +336,7 @@ export default function AdminAttendanceRegisterPage() {
                 <option value="">Choose a class…</option>
                 {(options.data?.classes ?? []).map((cls) => (
                   <option key={cls.id} value={cls.id}>
-                    {[cls.name, cls.gradeLevel].filter(Boolean).join(' — ')}
+                    {[cls.name, cls.gradeLevel].filter(Boolean).join(' - ')}
                   </option>
                 ))}
               </Select>
@@ -439,7 +439,7 @@ export default function AdminAttendanceRegisterPage() {
           />
 
           <p className="text-xs text-muted-foreground">
-            One attendance state is recorded per learner per class per day — the schema has no
+            One attendance state is recorded per learner per class per day - the schema has no
             morning and afternoon sessions, so none are offered. Marks are saved for every learner
             in the class at once, so a register of any size is one request.
           </p>

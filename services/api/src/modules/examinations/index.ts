@@ -580,7 +580,9 @@ router.put(
               select: { id: true, studentProfile: { select: { gradeLevel: true } } },
             })
           : [];
-        const gradeLevelById = new Map(students.map((s) => [s.id, s.studentProfile?.gradeLevel ?? null]));
+        const gradeLevelById = new Map(
+          students.map((s) => [s.id, s.studentProfile?.gradeLevel ?? null])
+        );
 
         // Derived, never typed by hand: the level follows from the score and the
         // school's configured bands.
@@ -609,6 +611,8 @@ router.put(
             competencyBandId: resolved?.bandId ?? null,
             racefieldScaleId: racefield?.scaleId ?? null,
             racefieldBandId: racefield?.bandId ?? null,
+            racefieldBandCode: racefield?.bandCode ?? null,
+            racefieldPoints: racefield?.bandPoints ?? null,
             gradedBy: req.user!.id,
           },
         });

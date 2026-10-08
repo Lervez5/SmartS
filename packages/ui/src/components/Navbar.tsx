@@ -44,7 +44,7 @@ export function Navbar({ showSearch = false, navbarActions }: NavbarProps) {
         </div>
       </Link>
 
-      {/* Centre — search (optional) */}
+      {/* Centre - search (optional) */}
       <div className="flex items-center gap-4 flex-1 justify-center px-8">
         {showSearch && (
           <div className="relative hidden md:block w-64">

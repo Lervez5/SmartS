@@ -26,13 +26,14 @@ import { asyncHandler } from '../../shared/asyncHandler';
 import { ApiError } from '../../shared/logger';
 import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
 import { resolveBand } from '../academics/grading';
-import { resolveScaleForGradeLevel, loadBands, resolveRacefieldBand, resolveRacefieldForScore } from '../grading/racefield';
-import { resolveClassResponsibility } from '../classes/scope';
 import {
-  currentSessionId,
-  loadAllocations,
-  summariseResponsibility,
-} from './allocation/scope';
+  resolveScaleForGradeLevel,
+  loadBands,
+  resolveRacefieldBand,
+  resolveRacefieldForScore,
+} from '../grading/racefield';
+import { resolveClassResponsibility } from '../classes/scope';
+import { currentSessionId, loadAllocations, summariseResponsibility } from './allocation/scope';
 
 export const router: Router = Router();
 
@@ -556,6 +557,8 @@ router.put(
           competencyBandId: band?.bandId ?? null,
           racefieldScaleId: racefield?.scaleId ?? null,
           racefieldBandId: racefield?.bandId ?? null,
+          racefieldBandCode: racefield?.bandCode ?? null,
+          racefieldPoints: racefield?.bandPoints ?? null,
           gradedBy: req.user!.id,
         };
 

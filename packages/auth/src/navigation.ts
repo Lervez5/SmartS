@@ -1024,8 +1024,7 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['grading.view'],
         icon: 'scale',
         order: 7,
-        implemented: false,
-        gap: 'GET /api/grading is a stub. Rubrics are a free-text field on Assignment and Submission.rubricScores is an untyped Json blob, so there is no grading workspace to drive.',
+        implemented: true,
       },
     ],
   },
@@ -1044,7 +1043,14 @@ const ADMIN_NAV: NavSection[] = [
      */
     id: 'finance',
     label: 'Financials',
-    permissions: ['finance.view', 'finance.manage', 'expenses.view', 'expenses.manage', 'inventory.view', 'users.view'],
+    permissions: [
+      'finance.view',
+      'finance.manage',
+      'expenses.view',
+      'expenses.manage',
+      'inventory.view',
+      'users.view',
+    ],
     items: [
       {
         id: 'adm.finance.payments',

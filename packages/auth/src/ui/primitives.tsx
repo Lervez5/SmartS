@@ -43,7 +43,7 @@ export function useScrubCredentialQuery(active = true): void {
 }
 
 /**
- * Shared input class — premium styled form control.
+ * Shared input class - premium styled form control.
  * Used directly on <input> elements in auth forms.
  */
 const CONTROL =

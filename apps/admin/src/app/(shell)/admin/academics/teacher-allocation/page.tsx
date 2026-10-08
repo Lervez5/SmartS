@@ -489,7 +489,7 @@ export default function AdminTeacherAllocationPage() {
               </option>
               {streamsInFormClass.map((stream) => (
                 <option key={stream.id} value={stream.id}>
-                  {stream.code} — {stream.name}
+                  {stream.code} - {stream.name}
                 </option>
               ))}
             </select>

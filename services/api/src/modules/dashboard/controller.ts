@@ -14,8 +14,10 @@ export async function teacherDashboardController(_req: Request, res: Response): 
   res.json(await getTeacherDashboardData(_req.user!.id));
 }
 
-export async function adminDashboardController(_req: Request, res: Response): Promise<void> {
-  res.json(await getAdminDashboardData());
+export async function adminDashboardController(req: Request, res: Response): Promise<void> {
+  const academicYearId = typeof req.query.academicYearId === 'string' ? req.query.academicYearId : undefined;
+  const termId = typeof req.query.termId === 'string' ? req.query.termId : undefined;
+  res.json(await getAdminDashboardData(academicYearId, termId));
 }
 
 export async function parentDashboardController(_req: Request, res: Response): Promise<void> {

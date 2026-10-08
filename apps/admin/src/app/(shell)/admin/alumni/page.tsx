@@ -117,7 +117,8 @@ function formatDate(value?: string | null): string {
     : parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function displayName(record: AlumniRecord): string {
+function displayName(record: AlumniRecord | null | undefined): string {
+  if (!record) return '';
   return record.name ?? [record.firstName, record.lastName].filter(Boolean).join(' ') ?? '';
 }
 
@@ -467,7 +468,7 @@ export default function AdminAlumniPage() {
               setTargetGrade('');
               setTargetClass('');
             }}
-            title={`Restore ${displayName(restoring!) || restoring?.email}`}
+            title={`Restore ${displayName(restoring) || (restoring?.email ?? '')}`}
             description="This reactivates the account, returns the learner to the active roll and stamps the exit as reversed."
             icon="undo-2"
             submitLabel="Restore learner"
@@ -483,10 +484,7 @@ export default function AdminAlumniPage() {
                   placeholder={restoring?.lastGradeLevel ?? 'Year 7'}
                 />
               </Field>
-              <Field
-                label="Class"
-                hint="Optional class placement"
-              >
+              <Field label="Class" hint="Optional class placement">
                 <Select
                   value={targetClass}
                   onChange={(event) => setTargetClass(event.target.value)}

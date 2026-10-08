@@ -31,6 +31,7 @@ export interface AcademicSession {
   id: string;
   label: string;
   status: AcademicSessionStatus;
+  terms?: Array<{ id: string; name: string; termNumber: number; status: string }>;
 }
 
 interface AcademicSessionValue {
@@ -46,6 +47,15 @@ interface AcademicSessionValue {
   isUnset: boolean;
   /** Whether the signed-in user may change it. */
   canEdit: boolean;
+  /** Terms belonging to the selected session, populated from the API response. */
+  terms: Array<{ id: string; name: string; termNumber: number; status: string }>;
+  /** Currently selected term id. Empty string means the whole session. */
+  termId: string;
+  setTermId: (id: string) => void;
+  /** The term object matching termId, or null. */
+  currentTerm: Array<{ id: string; name: string; termNumber: number; status: string }>[number] | null;
+  /** Terms for the selected session (alias for terms, for backward compat). */
+  termsForSelectedYear: Array<{ id: string; name: string; termNumber: number; status: string }>;
 }
 
 const AcademicSessionContext = React.createContext<AcademicSessionValue | null>(null);
@@ -62,6 +72,7 @@ export interface AcademicSessionRecord {
   status: 'planned' | 'active' | 'completed' | 'archived';
   isActive?: boolean;
   termCount?: number;
+  terms?: Array<{ id: string; name: string; termNumber: number; status: string }>;
 }
 
 /** Projects an API session onto the shape the selector renders. */
@@ -70,6 +81,7 @@ export function sessionFromRecord(record: AcademicSessionRecord): AcademicSessio
     id: record.id,
     label: record.label?.trim() || record.name,
     status: record.status === 'active' ? 'active' : 'archived',
+    terms: record.terms,
   };
 }
 
@@ -83,19 +95,22 @@ export function AcademicSessionProvider({
   const [sessions, setSessions] = React.useState<AcademicSession[]>([]);
   const [sessionId, setSessionIdState] = React.useState('');
   const [ready, setReady] = React.useState(false);
+  const [terms, setTerms] = React.useState<Array<{ id: string; name: string; termNumber: number; status: string }>>([]);
+  const [termId, setTermIdState] = React.useState('');
 
   const load = React.useCallback(async (signal?: AbortSignal) => {
     try {
-      // The authoritative session system. This replaced reading
-      // SchoolAcademicSettings.currentAcademicYearId, which is free text with no
-      // record behind it, so the navbar had nothing real to select from.
       const res = await fetch('/api/academic-sessions?sort=start_desc&limit=50', {
         credentials: 'include',
         signal,
       });
       if (!res.ok) return;
       const body = (await res.json()) as { sessions?: AcademicSessionRecord[] };
-      setSessions((body.sessions ?? []).map(sessionFromRecord));
+      const mapped = (body.sessions ?? []).map(sessionFromRecord);
+      setSessions(mapped);
+      // Populate terms from the active or first session.
+      const active = body.sessions?.find((s) => s.status === 'active') ?? body.sessions?.[0];
+      setTerms(active?.terms ?? []);
     } catch {
       // A failure leaves the selector empty rather than guessing a session.
     }
@@ -118,10 +133,20 @@ export function AcademicSessionProvider({
       } catch {
         // Storage is a convenience; fall through to the real current session.
       }
-      // Prefer the session the backend marks active over simply the newest.
       return (sessions.find((s) => s.status === 'active') ?? sessions[0]).id;
     });
   }, [sessions]);
+
+  // When the session changes, refresh the terms list from the stored sessions.
+  React.useEffect(() => {
+    const session = sessions.find((s) => s.id === sessionId);
+    setTerms(session?.terms ?? []);
+    // Clear term selection when the session changes; the caller can re-select.
+    setTermIdState((current) => {
+      const exists = (session?.terms ?? []).some((t) => t.id === current);
+      return exists ? current : '';
+    });
+  }, [sessionId, sessions]);
 
   const setSessionId = React.useCallback((id: string) => {
     setSessionIdState(id);
@@ -131,6 +156,35 @@ export function AcademicSessionProvider({
       // Not being able to remember the choice is not an error.
     }
   }, []);
+
+  const setTermId = React.useCallback((id: string) => {
+    setTermIdState(id);
+    try {
+      window.localStorage.setItem(`${STORAGE_KEY}-term`, id);
+    } catch {
+      // Not being able to remember the choice is not an error.
+    }
+  }, []);
+
+  const currentTerm = React.useMemo(
+    () => terms.find((t) => t.id === termId) ?? null,
+    [terms, termId]
+  );
+
+  // Adopt stored term after terms load.
+  React.useEffect(() => {
+    if (terms.length === 0) return;
+    setTermIdState((current) => {
+      if (current && terms.some((t) => t.id === current)) return current;
+      try {
+        const stored = window.localStorage.getItem(`${STORAGE_KEY}-term`);
+        if (stored && terms.some((t) => t.id === stored)) return stored;
+      } catch {
+        // Storage is a convenience; fall through to empty.
+      }
+      return '';
+    });
+  }, [terms]);
 
   const value = React.useMemo<AcademicSessionValue>(
     () => ({
@@ -142,8 +196,13 @@ export function AcademicSessionProvider({
       ready,
       isUnset: ready && sessions.length === 0,
       canEdit,
+      terms,
+      termId,
+      setTermId,
+      currentTerm,
+      termsForSelectedYear: terms,
     }),
-    [sessions, sessionId, setSessionId, ready, canEdit]
+    [sessions, sessionId, setSessionId, ready, canEdit, terms, termId, setTermId, currentTerm]
   );
 
   return (

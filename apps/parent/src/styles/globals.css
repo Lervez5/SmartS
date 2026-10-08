@@ -2,18 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Premium Design System — SchoolOS
+/* --------------------------------------─
+   Premium Design System - SchoolOS
    Color philosophy: Deep forest green (authority, academia, growth) paired
    with crisp off-white surfaces and rich slate neutrals. Professional-grade
    spacing, typography rendering, and micro-detail.
-   ───────────────────────────────────────────────────────────────────────────── */
+   --------------------------------------─ */
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
 
 @layer base {
   :root {
-    /* ── Core surfaces ── */
+    /* - Core surfaces - */
     --background: 150 20% 97%;        /* warm off-white, not harsh */
     --foreground: 220 25% 10%;        /* deep ink, not pure black */
 
@@ -23,41 +23,41 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 25% 10%;
 
-    /* ── Brand: Forest Green — deep, authoritative, academic ── */
-    --primary: 152 65% 28%;           /* #1a7a48 — deep forest green */
+    /* - Brand: Forest Green - deep, authoritative, academic - */
+    --primary: 152 65% 28%;           /* #1a7a48 - deep forest green */
     --primary-foreground: 150 60% 97%;
 
-    /* ── Secondary: rich slate ── */
+    /* - Secondary: rich slate - */
     --secondary: 217 30% 93%;
     --secondary-foreground: 220 25% 20%;
 
-    /* ── Muted: subtle, warm ── */
+    /* - Muted: subtle, warm - */
     --muted: 210 25% 94%;
     --muted-foreground: 215 18% 46%;
 
-    /* ── Accent: spring green (hover states) ── */
+    /* - Accent: spring green (hover states) - */
     --accent: 152 30% 92%;
     --accent-foreground: 152 65% 20%;
 
-    /* ── Status: destructive ── */
+    /* - Status: destructive - */
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
 
-    /* ── Borders & inputs ── */
+    /* - Borders & inputs - */
     --border: 215 22% 88%;
     --input: 215 22% 88%;
     --ring: 152 65% 28%;
 
-    /* ── Geometry ── */
+    /* - Geometry - */
     --radius: 0.75rem;
 
-    /* ── Brand shortcuts (raw hex for non-Tailwind contexts) ── */
+    /* - Brand shortcuts (raw hex for non-Tailwind contexts) - */
     --brand: #1a7a48;
     --brand-light: #34d975;
     --brand-dark: #0d4a2b;
     --brand-muted: #d1fae5;
 
-    /* ── Elevation shadows ── */
+    /* - Elevation shadows - */
     --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
     --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 6px -2px rgba(0, 0, 0, 0.05);
     --shadow-lg: 0 10px 30px -4px rgba(0, 0, 0, 0.10), 0 4px 10px -4px rgba(0, 0, 0, 0.07);
@@ -104,9 +104,9 @@
   }
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
+/* --------------------------------------─
    Base element styles
-   ───────────────────────────────────────────────────────────────────────────── */
+   --------------------------------------─ */
 
 @layer base {
   *,
@@ -164,9 +164,9 @@
   }
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
+/* --------------------------------------─
    Glassmorphism utility
-   ───────────────────────────────────────────────────────────────────────────── */
+   --------------------------------------─ */
 
 .glass {
   background-color: rgba(255, 255, 255, 0.75);
@@ -182,11 +182,11 @@
   box-shadow: var(--shadow-lg);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Auth shell — floating card layout
+/* --------------------------------------─
+   Auth shell - floating card layout
    The auth pages use a beautiful full-viewport background with a centered
    floating card instead of a split-screen or flat inline form.
-   ───────────────────────────────────────────────────────────────────────────── */
+   --------------------------------------─ */
 
 .auth-page-bg {
   background-color: hsl(var(--background));
@@ -224,9 +224,9 @@
 }
 
 
-/* ─────────────────────────────────────────────────────────────────────────────
+/* --------------------------------------─
    Premium form inputs
-   ───────────────────────────────────────────────────────────────────────────── */
+   --------------------------------------─ */
 
 .form-field-group {
   position: relative;
@@ -311,11 +311,11 @@
   cursor: not-allowed;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
+/* --------------------------------------─
    Navigation & Sidebar premium overrides
-   ───────────────────────────────────────────────────────────────────────────── */
+   --------------------------------------─ */
 
-/* Active nav item — left accent bar */
+/* Active nav item - left accent bar */
 [aria-current='page'] {
   position: relative;
 }
@@ -331,9 +331,9 @@
   border-radius: 0 2px 2px 0;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
+/* --------------------------------------─
    Card elevation system
-   ───────────────────────────────────────────────────────────────────────────── */
+   --------------------------------------─ */
 
 .card-elevated {
   background: hsl(var(--card));
@@ -348,9 +348,9 @@
   transform: translateY(-1px);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
+/* --------------------------------------─
    Subtle animations
-   ───────────────────────────────────────────────────────────────────────────── */
+   --------------------------------------─ */
 
 @keyframes slide-up-fade {
   from { opacity: 0; transform: translateY(12px); }
@@ -370,9 +370,9 @@
 .animate-slide-up { animation: slide-up-fade 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .animate-scale-in { animation: scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
-/* ─────────────────────────────────────────────────────────────────────────────
+/* --------------------------------------─
    FullCalendar Overrides
-   ───────────────────────────────────────────────────────────────────────────── */
+   --------------------------------------─ */
 
 .calendar-container .fc {
   font-family: inherit;
@@ -435,9 +435,9 @@
   background: rgba(15, 23, 42, 0.6);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
+/* --------------------------------------─
    Print
-   ───────────────────────────────────────────────────────────────────────────── */
+   --------------------------------------─ */
 
 @media print {
   header.sticky,

@@ -153,10 +153,39 @@ export async function getTeacherDashboardData(teacherId: string) {
   };
 }
 
-export async function getAdminDashboardData() {
+export async function getAdminDashboardData(
+  academicYearId?: string,
+  termId?: string
+) {
   const thirtyDaysAgo = new Date(Date.now() - 30 * DAY);
 
-  const [roleCounts, revenue, activity, recentUsers, courseCount, pendingInvitations] =
+  const session = academicYearId
+    ? await prisma.academicYear.findUnique({
+        where: { id: academicYearId },
+        select: { id: true, name: true, startDate: true, endDate: true, terms: true },
+      })
+    : null;
+
+  const term = termId
+    ? await prisma.term.findUnique({
+        where: { id: termId },
+        select: { id: true, name: true, termNumber: true, startDate: true, endDate: true, academicYearId: true },
+      })
+    : null;
+
+  // Build date windows for the selected period.
+  const sessionWindow = session
+    ? { gte: session.startDate, lte: session.endDate }
+    : { gte: new Date(Date.now() - 365 * DAY), lte: new Date() };
+
+  const termWindow = term
+    ? { gte: term.startDate, lte: term.endDate }
+    : null;
+
+  // Use term window if a term is selected, otherwise session window.
+  const financeWindow = termWindow ?? sessionWindow;
+
+  const [roleCounts, revenue, activity, recentUsers, courseCount, pendingInvitations, invoices, receipts, learners] =
     await Promise.all([
       // Users grouped by role membership.
       prisma.userRoleMembership
@@ -177,7 +206,7 @@ export async function getAdminDashboardData() {
           }));
         }),
 
-      // Paid invoice value in the last 30 days.
+      // Paid invoice value in the last 30 days (existing behavior).
       prisma.invoice.aggregate({
         where: { status: 'paid', paidAt: { gte: thirtyDaysAgo } },
         _sum: { amountCents: true },
@@ -212,11 +241,153 @@ export async function getAdminDashboardData() {
       prisma.course.count(),
 
       prisma.invitation.count({ where: { status: 'pending' } }),
+
+      // Finance metrics for the selected period.
+      prisma.invoice.findMany({
+        where: {
+          issuedAt: financeWindow,
+          ...(session?.id ? { student: { studentProfile: { enrollmentDate: { gte: session.startDate, lte: session.endDate } } } } : {}),
+        },
+        select: { amountCents: true, status: true, id: true },
+      }),
+
+    // Receipts for the selected period.
+    prisma.receipt.findMany({
+      where: {
+        receivedAt: financeWindow,
+        ...(session?.id ? { invoice: { student: { studentProfile: { enrollmentDate: { gte: session.startDate, lte: session.endDate } } } } } : {}),
+      },
+      select: {
+        id: true,
+        amountCents: true,
+        method: true,
+        paidByName: true,
+        receivedAt: true,
+        number: true,
+        invoice: { select: { student: { select: { id: true, name: true, firstName: true, lastName: true } } } },
+      },
+      orderBy: { receivedAt: 'desc' },
+      take: 20,
+    }),
+
+      // Active learners: enrolled within the selected session dates.
+      session
+        ? prisma.studentProfile.count({
+            where: {
+              enrollmentDate: { gte: session.startDate, lte: session.endDate },
+            },
+          })
+        : Promise.resolve(0),
     ]);
+
+  const invoicedTotal = invoices.reduce((s, i) => s + i.amountCents, 0);
+  const paidInvoices = invoices.filter((i) => i.status === 'paid');
+  const collectedTotal = paidInvoices.reduce((s, i) => s + i.amountCents, 0);
+  const outstandingCount = invoices.length - paidInvoices.length;
+  const outstandingTotal = invoicedTotal - collectedTotal;
+  const collectionRate = invoicedTotal > 0 ? Math.round((collectedTotal / invoicedTotal) * 1000) / 10 : null;
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayPayments = receipts.filter((r) => r.receivedAt >= todayStart);
+  const todayPaymentsTotal = todayPayments.reduce((s, r) => s + r.amountCents, 0);
+
+  const termPayments = receipts.filter((r) => {
+    if (!termWindow) return true;
+    return r.receivedAt >= termWindow.gte && r.receivedAt <= termWindow.lte;
+  });
+  const termCollectionsTotal = termPayments.reduce((s, r) => s + r.amountCents, 0);
+
+  // Arrears: outstanding (unpaid) invoices for the selected session.
+  const arrearsCount = outstandingCount;
+  const arrearsTotal = outstandingTotal;
+
+  // Collections breakdown by payment method.
+  const methodBreakdown = new Map<string, { amountCents: number; count: number }>();
+  for (const receipt of receipts) {
+    const existing = methodBreakdown.get(receipt.method) ?? { amountCents: 0, count: 0 };
+    methodBreakdown.set(receipt.method, {
+      amountCents: existing.amountCents + receipt.amountCents,
+      count: existing.count + 1,
+    });
+  }
+  const collectionsBreakdown = [...methodBreakdown.entries()].map(([method, data]) => ({
+    method,
+    amountCents: data.amountCents,
+    count: data.count,
+    percentage: termCollectionsTotal > 0 ? Math.round((data.amountCents / termCollectionsTotal) * 1000) / 10 : 0,
+  }));
+
+  // Teacher activity: count teaching assignments for the selected session/term.
+  const teacherAssignments = await prisma.teachingAssignment.groupBy({
+    by: ['teacherId'],
+    where: {
+      ...(session?.id ? { academicYearId: session.id } : {}),
+      ...(termId ? { termId } : {}),
+    },
+    _count: { id: true },
+    orderBy: { _count: { id: 'desc' } },
+    take: 10,
+  });
+
+  const teacherIds = teacherAssignments.map((t) => t.teacherId).filter(Boolean);
+  const teachers = teacherIds.length
+    ? await prisma.user.findMany({
+        where: { id: { in: teacherIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const teacherNameById = new Map(teachers.map((t) => [t.id, t.name ?? 'Unknown']));
+
+  const recentPayments = receipts.map((r) => ({
+    id: r.id,
+    amountCents: r.amountCents,
+    method: r.method,
+    paidByName: r.paidByName ?? 'Unknown',
+    learnerName: r.invoice?.student
+      ? r.invoice.student.name ??
+        [r.invoice.student.firstName, r.invoice.student.lastName].filter(Boolean).join(' ') ??
+        'Unknown'
+      : 'Unknown',
+    reference: r.number,
+    receivedAt: r.receivedAt.toISOString(),
+  }));
 
   const stats = roleCounts;
 
   return {
+    context: {
+      academicYearId: session?.id ?? null,
+      termId: term?.id ?? null,
+      termName: term?.name ?? null,
+      sessionName: session?.name ?? null,
+    },
+    financial: {
+      collectionRate,
+      collectedCents: collectedTotal,
+      expectedCents: invoicedTotal,
+      activeLearners: learners,
+      todayPayments: {
+        count: todayPayments.length,
+        amountCents: todayPaymentsTotal,
+      },
+      termCollections: {
+        count: termPayments.length,
+        amountCents: termCollectionsTotal,
+      },
+      arrears: {
+        count: arrearsCount,
+        amountCents: arrearsTotal,
+      },
+    },
+    collections: collectionsBreakdown,
+    recentPayments,
+    teacherActivity: teacherAssignments.map((t) => ({
+      teacherId: t.teacherId,
+      teacherName: teacherNameById.get(t.teacherId) ?? 'Unknown',
+      assessmentCount: t._count.id,
+      learnersAssessed: 0,
+    })),
     stats,
     revenue,
     activity,

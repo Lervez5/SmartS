@@ -34,6 +34,8 @@ interface GradeRow {
   score: number | null;
   competencyLevel: string | null;
   racefieldBand: string | null;
+  racefieldBandCode: string | null;
+  racefieldPoints: number | null;
   gradedAt: string | null;
 }
 
@@ -80,7 +82,12 @@ export function ParentResultsView() {
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">{row.assessment.title}</p>
           <p className="truncate text-xs text-muted-foreground">
-            {[row.assessment.assessmentType, row.assessment.className, row.assessment.termName, row.assessment.sessionName]
+            {[
+              row.assessment.assessmentType,
+              row.assessment.className,
+              row.assessment.termName,
+              row.assessment.sessionName,
+            ]
               .filter(Boolean)
               .join(' · ') || 'No context set'}
           </p>
@@ -104,7 +111,9 @@ export function ParentResultsView() {
       align: 'right',
       cell: (row) => (
         <span className="text-sm font-medium text-foreground">
-          {row.score !== null && row.score !== undefined ? `${row.score} / ${row.assessment.maxScore ?? '?'}` : '-'}
+          {row.score !== null && row.score !== undefined
+            ? `${row.score} / ${row.assessment.maxScore ?? '?'}`
+            : '-'}
         </span>
       ),
       sortValue: (row) => row.score ?? -1,
@@ -121,9 +130,18 @@ export function ParentResultsView() {
       id: 'racefield',
       header: 'Grade',
       align: 'right',
-      cell: (row) => (
-        <StatusPill label={row.racefieldBand ?? '-'} tone="neutral" />
-      ),
+      cell: (row) => {
+        const code = row.racefieldBandCode;
+        const points = row.racefieldPoints;
+        const label = row.racefieldBand;
+        const display = [
+          code ?? label,
+          points !== null && points !== undefined ? `${points} pts` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+        return <StatusPill label={display || '-'} tone="neutral" />;
+      },
     },
   ];
 
@@ -170,7 +188,10 @@ export function ParentResultsView() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader title="My Children's Results" description="Released results for your linked children." />
+      <SectionHeader
+        title="My Children's Results"
+        description="Released results for your linked children."
+      />
 
       {results.length === 0 ? (
         <EmptyState

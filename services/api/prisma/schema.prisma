@@ -918,29 +918,39 @@ model CompetencyBand {
   @@index([schoolId])
 }
 
-/// The Racefield grading standard applied to a school, tied to a grade/level
+/// The school's authoritative grading standard, tied to a grade/level
 /// range so the correct scale is resolved automatically from the learner's
 /// actual grade rather than chosen by hand.
 ///
 /// Each scale carries its own ordered bands. The engine resolves which scale
 /// applies from the learner's grade level, then resolves the band from the
 /// normalised score.
+///
+/// Versioning: a school may hold multiple versions of a scale for the same
+/// grade range. Only one may be active at a time. Historical grades retain
+/// their `racefieldScaleId` reference so a band is always reproducible from
+/// the version that was in effect when the mark was recorded.
 model RacefieldScale {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  schoolId  String   @db.ObjectId
-  name      String
-  gradeMin  Int
-  gradeMax  Int
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  school        School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId      String    @db.ObjectId
+  name          String
+  description   String?
+  gradeMin      Int
+  gradeMax      Int
+  version       Int       @default(1)
+  isDefault     Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  effectiveFrom DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  bands   RacefieldBand[]
-  grades  Grade[]
+  bands  RacefieldBand[]
+  grades Grade[]
 
-  @@unique([schoolId, gradeMin])
+  @@unique([schoolId, gradeMin, version])
   @@index([schoolId])
+  @@index([schoolId, gradeMin, isActive])
 }
 
 /// One band within a Racefield scale.
@@ -948,18 +958,26 @@ model RacefieldScale {
 /// `minScore` and `maxScore` are the inclusive boundaries on the normalised
 /// 0-100 score, not on the raw mark. A 20-point paper is therefore comparable
 /// to a 100-point one.
+///
+/// `code` is the short grade code the school configures (e.g. EE, ME, AE, BE,
+/// EE1, BE2). It is stored rather than derived so the platform never assumes
+/// a mapping that the school might change. `points` is the numeric value the
+/// school assigns to the band for aggregation purposes.
 model RacefieldBand {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        String         @id @default(auto()) @map("_id") @db.ObjectId
   scale     RacefieldScale @relation(fields: [scaleId], references: [id], onDelete: Cascade)
-  scaleId   String   @db.ObjectId
+  scaleId   String         @db.ObjectId
   label     String
+  code      String
   minScore  Float
   maxScore  Float
-  createdAt DateTime @default(now())
+  points    Float?
+  createdAt DateTime       @default(now())
 
   grades Grade[]
 
   @@index([scaleId])
+  @@index([scaleId, minScore])
 }
 
 /// A subdivision of a class.
@@ -1017,34 +1035,40 @@ model ClassAssistant {
 }
 
 model Grade {
-  id               String           @id @default(auto()) @map("_id") @db.ObjectId
-  student          User?            @relation("StudentGrades", fields: [studentId], references: [id])
-  studentId        String?          @db.ObjectId
-  subject          Subject?         @relation("SubjectGrades", fields: [subjectId], references: [id])
-  subjectId        String?          @db.ObjectId
-  class            Class?           @relation("ClassGrades", fields: [classId], references: [id])
-  classId          String?          @db.ObjectId
-  exam             Examination?     @relation("ExamGrades", fields: [examinationId], references: [id])
-  examinationId    String?          @db.ObjectId
-  assignment       Assignment?      @relation(fields: [assignmentId], references: [id])
-  assignmentId     String?          @db.ObjectId
-  scale            GradeScale
-  value            Float
+  id                String           @id @default(auto()) @map("_id") @db.ObjectId
+  student           User?            @relation("StudentGrades", fields: [studentId], references: [id])
+  studentId         String?          @db.ObjectId
+  subject           Subject?         @relation("SubjectGrades", fields: [subjectId], references: [id])
+  subjectId         String?          @db.ObjectId
+  class             Class?           @relation("ClassGrades", fields: [classId], references: [id])
+  classId           String?          @db.ObjectId
+  exam              Examination?     @relation("ExamGrades", fields: [examinationId], references: [id])
+  examinationId     String?          @db.ObjectId
+  assignment        Assignment?      @relation(fields: [assignmentId], references: [id])
+  assignmentId      String?          @db.ObjectId
+  scale             GradeScale
+  value             Float
   /// The CBC competency level this score falls into, resolved against the
   /// school's CompetencyBand boundaries when the grade was recorded.
-  competencyLevel  CompetencyLevel?
-  competencyBand   CompetencyBand?  @relation(fields: [competencyBandId], references: [id])
-  competencyBandId String?          @db.ObjectId
+  competencyLevel   CompetencyLevel?
+  competencyBand    CompetencyBand?  @relation(fields: [competencyBandId], references: [id])
+  competencyBandId  String?          @db.ObjectId
   /// The Racefield grading scale applied when the grade was recorded.
-  racefieldScale   RacefieldScale?  @relation(fields: [racefieldScaleId], references: [id])
-  racefieldScaleId String?          @db.ObjectId
+  racefieldScale    RacefieldScale?  @relation(fields: [racefieldScaleId], references: [id])
+  racefieldScaleId  String?          @db.ObjectId
   /// The Racefield band this score falls into, resolved from the learner's
   /// grade level and the active Racefield scale.
-  racefieldBand    RacefieldBand?   @relation(fields: [racefieldBandId], references: [id])
-  racefieldBandId  String?          @db.ObjectId
-  comment          String?
-  gradedAt         DateTime         @default(now())
-  gradedBy         String?          @db.ObjectId
+  racefieldBand     RacefieldBand?   @relation(fields: [racefieldBandId], references: [id])
+  racefieldBandId   String?          @db.ObjectId
+  /// Denormalised band code, captured from the band at grading time so the
+  /// result stays readable even if the band's code is later edited.
+  racefieldBandCode String?
+  /// Denormalised numeric points assigned to the band at grading time, so
+  /// historical results remain reproducible if points are later changed.
+  racefieldPoints   Float?
+  comment           String?
+  gradedAt          DateTime         @default(now())
+  gradedBy          String?          @db.ObjectId
 }
 
 model LessonAccessLog {

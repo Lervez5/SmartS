@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Attendance — the register overview for the selected academic session.
+ * Attendance - the register overview for the selected academic session.
  *
  * A register is not a stored record: it is the set of attendance marks a class
  * has for one date, read against the learners enrolled then. The API derives it,
@@ -281,7 +281,7 @@ export default function AdminAttendanceOverviewPage() {
                     value: classId,
                     options: (options.data?.classes ?? []).map((cls) => ({
                       value: cls.id,
-                      label: [cls.name, cls.gradeLevel].filter(Boolean).join(' — '),
+                      label: [cls.name, cls.gradeLevel].filter(Boolean).join(' - '),
                     })),
                     onChange: setClassId,
                     allLabel: 'All classes',

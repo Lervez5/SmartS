@@ -32,7 +32,6 @@ import {
   COMPETENCY_LABELS,
   getCompetencyBands,
 } from '../academics/grading';
-import { getActiveScales } from '../grading/racefield';
 
 export const router: Router = Router();
 
@@ -134,7 +133,15 @@ router.get(
     const grades = assessmentIds.length
       ? await prisma.grade.findMany({
           where: { examinationId: { in: assessmentIds } },
-          select: { competencyLevel: true, scale: true, value: true, racefieldBand: { select: { label: true } }, classId: true },
+          select: {
+            competencyLevel: true,
+            scale: true,
+            value: true,
+            racefieldBand: { select: { label: true, code: true } },
+            racefieldBandCode: true,
+            racefieldPoints: true,
+            classId: true,
+          },
         })
       : [];
 
@@ -162,14 +169,24 @@ router.get(
       };
     });
 
-    // Racefield distribution: count by the stored Racefield band label.
-    const racefieldCounts = new Map<string, number>();
+    // Racefield distribution: count by the stored Racefield band label, code, and points.
+    const racefieldCounts = new Map<
+      string,
+      { count: number; code: string | null; points: number | null }
+    >();
     for (const grade of grades) {
       const label = grade.racefieldBand?.label ?? null;
       if (!label) continue;
-      racefieldCounts.set(label, (racefieldCounts.get(label) ?? 0) + 1);
+      const code = grade.racefieldBandCode ?? grade.racefieldBand?.code ?? null;
+      const points = grade.racefieldPoints ?? null;
+      const existing = racefieldCounts.get(label);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        racefieldCounts.set(label, { count: 1, code, points });
+      }
     }
-    const racefieldGradedTotal = [...racefieldCounts.values()].reduce((sum, n) => sum + n, 0);
+    const racefieldGradedTotal = [...racefieldCounts.values()].reduce((sum, n) => sum + n.count, 0);
 
     res.json({
       context: {
@@ -193,10 +210,15 @@ router.get(
         distribution,
         racefield: {
           gradedResults: racefieldGradedTotal,
-          distribution: [...racefieldCounts.entries()].map(([label, count]) => ({
+          distribution: [...racefieldCounts.entries()].map(([label, data]) => ({
             label,
-            count,
-            percent: racefieldGradedTotal > 0 ? Math.round((count / racefieldGradedTotal) * 1000) / 10 : null,
+            code: data.code,
+            points: data.points,
+            count: data.count,
+            percent:
+              racefieldGradedTotal > 0
+                ? Math.round((data.count / racefieldGradedTotal) * 1000) / 10
+                : null,
           })),
         },
       },
