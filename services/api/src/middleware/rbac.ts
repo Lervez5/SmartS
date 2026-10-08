@@ -1,11 +1,14 @@
-import { NextFunction, Request, Response } from "express";
-import { AuthUser, Permission } from "./auth";
+import { NextFunction, Request, Response } from 'express';
+import type { AuthUser } from './auth';
+import type { Permission } from '@schoolos/auth/permissions';
 
-export function requirePermissions(...allowed: Permission[]): (req: Request, res: Response, next: NextFunction) => void {
+export function requirePermissions(
+  ...allowed: Permission[]
+): (req: Request, res: Response, next: NextFunction) => void {
   return (req: Request, res: Response, next: NextFunction) => {
     const user = req.user as AuthUser | undefined;
     if (!user) {
-      res.status(401).json({ error: { message: "Authentication required" } });
+      res.status(401).json({ error: { message: 'Authentication required' } });
       return;
     }
 
@@ -13,7 +16,7 @@ export function requirePermissions(...allowed: Permission[]): (req: Request, res
     const hasPermission = allowed.some((p) => userPermissions.includes(p));
 
     if (!hasPermission) {
-      res.status(403).json({ error: { message: "Forbidden: insufficient permissions" } });
+      res.status(403).json({ error: { message: 'Forbidden: insufficient permissions' } });
       return;
     }
 
@@ -21,10 +24,12 @@ export function requirePermissions(...allowed: Permission[]): (req: Request, res
   };
 }
 
-export function requireRole(...allowed: string[]): (req: Request, res: Response, next: NextFunction) => void {
+export function requireRole(
+  ...allowed: string[]
+): (req: Request, res: Response, next: NextFunction) => void {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user || !allowed.includes(req.user.role)) {
-      res.status(403).json({ error: { message: "Forbidden" } });
+      res.status(403).json({ error: { message: 'Forbidden' } });
       return;
     }
     next();

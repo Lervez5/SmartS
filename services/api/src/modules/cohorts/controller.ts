@@ -1,9 +1,5 @@
-import { Request, Response } from "express";
-import {
-  createCohortSchema,
-  updateCohortSchema,
-  addStudentSchema,
-} from "./schema";
+import { Request, Response } from 'express';
+import { createCohortSchema, updateCohortSchema, addStudentSchema } from './schema';
 import {
   listCohorts,
   getCohort,
@@ -12,10 +8,14 @@ import {
   deleteCohort,
   addStudent,
   removeStudent,
-} from "./service";
+} from './service';
 
 export async function listCohortsController(req: Request, res: Response): Promise<void> {
-  res.json(await listCohorts({ teacherId: req.query.mine === "1" ? req.user!.id : undefined }));
+  // Teachers only ever see the cohorts they are assigned to; administrative
+  // roles see the whole school.
+  const isStaff = ['SUPER_ADMIN', 'DEAN', 'ACCOUNTANT'].includes(req.user!.role);
+  const scopeToSelf = req.query.mine === '1' || req.user!.role === 'TEACHER' || !isStaff;
+  res.json(await listCohorts({ teacherId: scopeToSelf ? req.user!.id : undefined }));
 }
 
 export async function getCohortController(req: Request, res: Response): Promise<void> {
@@ -34,7 +34,7 @@ export async function updateCohortController(req: Request, res: Response): Promi
 
 export async function deleteCohortController(req: Request, res: Response): Promise<void> {
   await deleteCohort(req.params.id);
-  res.json({ message: "Cohort deleted" });
+  res.json({ message: 'Cohort deleted' });
 }
 
 export async function addStudentController(req: Request, res: Response): Promise<void> {
@@ -44,5 +44,5 @@ export async function addStudentController(req: Request, res: Response): Promise
 
 export async function removeStudentController(req: Request, res: Response): Promise<void> {
   await removeStudent(req.params.id, req.params.studentId);
-  res.json({ message: "Student removed from cohort" });
+  res.json({ message: 'Student removed from cohort' });
 }

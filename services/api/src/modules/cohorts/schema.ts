@@ -1,7 +1,7 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const createCohortSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
   classCode: z.string().optional(),
   gradeLevel: z.string().optional(),

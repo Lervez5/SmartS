@@ -1,33 +1,35 @@
-import { Router } from "express";
+import { Router } from 'express';
 import {
   academicReportController,
   attendanceReportController,
   financialReportController,
   analyticsController,
   exportController,
-} from "./controller";
-import { requireRole } from "../../middleware/rbac";
+} from './controller';
+import { requireRole, requirePermissions } from '../../middleware/rbac';
 
 export const router: Router = Router();
 
-const requireAdmin = requireRole("super_admin", "school_admin");
+const requireAcademicReport = requirePermissions('reports.academic');
+const requireAttendanceReport = requirePermissions('reports.attendance');
+const requireFinanceReport = requirePermissions('reports.finance');
 
-router.get("/academic", requireAdmin, (req, res, next) => {
+router.get('/academic', requireAcademicReport, (req, res, next) => {
   academicReportController(req, res).catch(next);
 });
 
-router.get("/attendance", requireAdmin, (req, res, next) => {
+router.get('/attendance', requireAttendanceReport, (req, res, next) => {
   attendanceReportController(req, res).catch(next);
 });
 
-router.get("/financial", requireAdmin, (req, res, next) => {
+router.get('/financial', requireFinanceReport, (req, res, next) => {
   financialReportController(req, res).catch(next);
 });
 
-router.get("/analytics", requireAdmin, (req, res, next) => {
+router.get('/analytics', requirePermissions('reports.view'), (req, res, next) => {
   analyticsController(req, res).catch(next);
 });
 
-router.post("/export", requireAdmin, (req, res, next) => {
+router.post('/export', requirePermissions('reports.export'), (req, res, next) => {
   exportController(req, res).catch(next);
 });

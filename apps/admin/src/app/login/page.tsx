@@ -1,169 +1,93 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { motion } from "framer-motion";
-import { Sparkles, Eye, EyeOff, Loader2, Mail, Lock, AlertCircle, ShieldCheck } from "lucide-react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Button } from "@schoolos/ui";
-import { Input } from "@schoolos/ui";
-import { Label } from "@schoolos/ui";
-import { authService } from "@schoolos/hooks";
-import { useAuthStore } from "@schoolos/auth";
-import { Toaster } from "sonner";
-import { toast } from "sonner";
+/**
+ * Admin portal entry point.
+ *
+ * One page serves SUPER_ADMIN, DEAN and ACCOUNTANT. There is no role switch
+ * here: the split-screen composition is identical for all three, and what each
+ * identity can reach is decided by Central Auth and the backend after sign-in.
+ *
+ * The badge on the visual panel is a real configured value read from the public
+ * branding endpoint, falling back to the school's academic-session string and
+ * finally to a static label. No statistics are invented.
+ */
 
-const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
+import * as React from 'react';
+import { AuthShell, AuthVisual } from '@schoolos/auth/ui';
+import { LoginForm } from '@schoolos/auth';
 
-type LoginForm = z.infer<typeof loginSchema>;
+/** Shape of `GET /api/public/branding`, the unauthenticated sign-in projection. */
+interface BrandingResponse {
+  displayName?: string | null;
+  name?: string | null;
+  curriculum?: string | null;
+  logoUrl?: string | null;
+  /** A configured academic session, when the school has set one. */
+  academicSession?: string | null;
+}
 
-export default function LoginPage() {
-  const router = useRouter();
-  const { login } = useAuthStore();
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+export default function AdminLoginPage() {
+  const [branding, setBranding] = React.useState<BrandingResponse | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setError,
-  } = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
-  });
+  React.useEffect(() => {
+    const controller = new AbortController();
 
-  const onSubmit = async (data: LoginForm) => {
-    setIsLoading(true);
-    try {
-      const response = await authService.login(data);
-      const { user } = response;
-
-      if (user.role !== "super_admin" && user.role !== "school_admin") {
-        toast.error("This portal is for administrators only");
-        setIsLoading(false);
-        return;
+    (async () => {
+      try {
+        const res = await fetch('/api/public/branding', {
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        if (!res.ok) return;
+        setBranding((await res.json()) as BrandingResponse);
+      } catch {
+        // Branding is decoration on the login screen. The API may not be
+        // running, and the form must still work without it.
       }
+    })();
 
-      document.cookie = `userRole=${user.role}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+    return () => controller.abort();
+  }, []);
 
-      login(user);
-      toast.success("Welcome back, Admin!");
-      router.push("/admin");
-    } catch (error: any) {
-      const message = error.response?.data?.message || "Invalid credentials";
-      setError("email", { message });
-      toast.error(message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const schoolName = branding?.displayName ?? branding?.name ?? null;
+  const curriculum = branding?.curriculum ?? null;
+  const session = branding?.academicSession ?? null;
+
+  const badge = React.useMemo(() => {
+    if (session) return `${session} Academic Session`;
+    if (curriculum) return `${curriculum} School Management`;
+    return 'CBC School Management';
+  }, [session, curriculum]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(at_top_right,_#f0fdf4_0%,_transparent_50%),radial-gradient(at_bottom_left,_#f0f9ff_0%,_transparent_50%)] dark:bg-slate-950 px-4 py-12">
-      <div className="w-full max-w-md">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="glass rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative overflow-hidden border border-white/40 dark:border-white/10"
-        >
-          <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="relative z-10 space-y-8">
-            <header className="text-center space-y-2">
-              <Link href="/" className="inline-flex flex-col items-center gap-3 mb-4 md:mb-6">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-primary rounded-xl md:rounded-2xl flex items-center justify-center text-white shadow-xl shadow-primary/20 rotate-3">
-                  <ShieldCheck className="w-6 h-6 md:w-8 md:h-8" />
-                </div>
-                <span className="font-extrabold text-xl md:text-2xl tracking-tight text-slate-900 dark:text-white">
-                  Smart<span className="text-primary">Sprout</span>
-                </span>
-              </Link>
-              <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white">Welcome Back!</h1>
-              <p className="text-xs md:text-sm text-muted-foreground font-medium">Ready for another learning sprout?</p>
-            </header>
-
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="admin@school.edu"
-                  className="pl-10"
-                  {...register("email")}
-                  disabled={isLoading}
-                />
-              </div>
-              {errors.email && (
-                <p className="text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {errors.email.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link href="/forgot-password" className="text-sm text-primary hover:underline font-bold">
-                  Forgot password?
-                </Link>
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  className="pl-10 pr-10"
-                  {...register("password")}
-                  disabled={isLoading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-              {errors.password && (
-                <p className="text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {errors.password.message}
-                </p>
-              )}
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full py-3 text-lg"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                  Signing in...
-                </>
-              ) : (
-                "Sign In to Sprout"
-              )}
-            </Button>
-          </form>
-          </div>
-        </motion.div>
-      </div>
-      <Toaster position="top-right" />
-    </div>
+    <AuthShell
+      portalLabel={schoolName ? 'Administrative Portal' : undefined}
+      schoolName={schoolName}
+      logoUrl={branding?.logoUrl ?? null}
+      title="Welcome back"
+      description="Manage your school's academic, financial and administrative operations."
+      visual={
+        <AuthVisual
+          badge={badge}
+          eyebrow="School Management Platform"
+          headline="Everything your school needs, in one place."
+          body="Learners, academics, CBC assessment, attendance, finance, staff and administration connected through one secure platform."
+          areas={[
+            'People',
+            'Financials',
+            'Administration',
+            'Summative Assessments',
+            'Smart Lab',
+            'Reports',
+          ]}
+        />
+      }
+    >
+      <LoginForm
+        appId="admin"
+        schoolName={schoolName ?? undefined}
+        forgotPasswordHref="/forgot-password"
+      />
+    </AuthShell>
   );
 }

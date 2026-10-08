@@ -1,11 +1,11 @@
-import { Router } from "express";
-import { listAuditLogsController } from "./controller";
-import { requireRole } from "../../middleware/rbac";
+import { Router } from 'express';
+import { listAuditLogsController } from './controller';
+import { requireRole, requirePermissions } from '../../middleware/rbac';
 
 export const router: Router = Router();
 
-const requireAdmin = requireRole("super_admin", "school_admin");
+const requireAuditAccess = requirePermissions('users.view');
 
-router.get("/", requireAdmin, (req, res, next) => {
+router.get('/', requireAuditAccess, (req, res, next) => {
   listAuditLogsController(req, res).catch(next);
 });

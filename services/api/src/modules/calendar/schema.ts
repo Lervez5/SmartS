@@ -1,31 +1,31 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const EVENT_COLORS = {
-  class_session: "#22c55e",
-  assignment_due: "#f59e0b",
-  quiz: "#8b5cf6",
-  examination: "#ef4444",
-  school_event: "#3b82f6",
-  holiday: "#64748b",
-  personal_reminder: "#06b6d4",
-  meeting: "#ec4899",
+  class_session: '#22c55e',
+  assignment_due: '#f59e0b',
+  quiz: '#8b5cf6',
+  examination: '#ef4444',
+  school_event: '#3b82f6',
+  holiday: '#64748b',
+  personal_reminder: '#06b6d4',
+  meeting: '#ec4899',
 } as const;
 
 const eventType = z.enum([
-  "class_session",
-  "assignment_due",
-  "quiz",
-  "examination",
-  "school_event",
-  "holiday",
-  "personal_reminder",
-  "meeting",
+  'class_session',
+  'assignment_due',
+  'quiz',
+  'examination',
+  'school_event',
+  'holiday',
+  'personal_reminder',
+  'meeting',
 ]);
 
-const visibility = z.enum(["personal", "class", "school"]);
+const visibility = z.enum(['personal', 'class', 'school']);
 
 export const createEventSchema = z.object({
-  title: z.string().min(1, "Title is required"),
+  title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
   type: eventType,
   startDate: z.string().datetime({ offset: true }).or(z.string().min(1)),

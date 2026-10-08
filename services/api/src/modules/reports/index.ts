@@ -1,4 +1,5 @@
-import { Router } from "express";
+import { Router } from 'express';
+import { requirePermissions } from '../../middleware/rbac';
 
 export const router: Router = Router();
 
@@ -7,6 +8,10 @@ export const router: Router = Router();
  * Legacy source: modules/reporting, modules/analytics
  * TODO: implement domain endpoints.
  */
-router.get("/", (_req, res) => {
-  res.json({ service: "school-os-api", module: "reports", state: "migrated" });
+router.get('/', requirePermissions('reports.view'), (_req, res) => {
+  res.json({
+    service: 'smartsprout-api',
+    module: 'reports',
+    state: 'migrated',
+  });
 });

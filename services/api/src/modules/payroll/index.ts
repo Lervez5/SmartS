@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router } from 'express';
 
 export const router: Router = Router();
 
@@ -7,6 +7,6 @@ export const router: Router = Router();
  * Legacy source: none
  * TODO: implement domain endpoints.
  */
-router.get("/", (_req, res) => {
-  res.json({ service: "school-os-api", module: "payroll", state: "planned" });
+router.get('/', (_req, res) => {
+  res.json({ service: 'smartsprout-api', module: 'payroll', state: 'planned' });
 });

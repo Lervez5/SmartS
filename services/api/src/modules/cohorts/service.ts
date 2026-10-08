@@ -1,5 +1,5 @@
-import { Prisma } from "@prisma/client";
-import { prisma } from "../../infrastructure/database";
+import { Prisma } from '@prisma/client';
+import { prisma } from '../../infrastructure/database';
 
 /**
  * A cohort is a Class in the data model, surfaced under the naming the school
@@ -16,7 +16,15 @@ const cohortSelect = {
   subject: { select: { id: true, name: true } },
   teacher: { select: { id: true, name: true, email: true } },
   course: { select: { id: true, title: true } },
-  schedules: { select: { id: true, dayOfWeek: true, startTime: true, endTime: true, room: true } },
+  schedules: {
+    select: {
+      id: true,
+      dayOfWeek: true,
+      startTime: true,
+      endTime: true,
+      room: true,
+    },
+  },
   _count: { select: { enrollments: true } },
 } satisfies Prisma.ClassSelect;
 
@@ -30,7 +38,13 @@ type CohortRow = {
   subject: { id: string; name: string } | null;
   teacher: { id: string; name: string | null; email: string } | null;
   course: { id: string; title: string } | null;
-  schedules: Array<{ id: string; dayOfWeek: number; startTime: string; endTime: string; room: string | null }>;
+  schedules: Array<{
+    id: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    room: string | null;
+  }>;
   _count: { enrollments: number };
 };
 
@@ -38,7 +52,10 @@ function present(row: CohortRow) {
   return {
     ...row,
     // Aliases the UI expects.
-    _count: { students: row._count.enrollments, enrollments: row._count.enrollments },
+    _count: {
+      students: row._count.enrollments,
+      enrollments: row._count.enrollments,
+    },
     startDate: row.schedule ?? null,
     timetable: row.schedules,
   };
@@ -48,7 +65,7 @@ export async function listCohorts(options: { teacherId?: string } = {}) {
   const rows = await prisma.class.findMany({
     where: options.teacherId ? { teacherId: options.teacherId } : undefined,
     select: cohortSelect,
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
   return rows.map(present);
 }
@@ -61,12 +78,14 @@ export async function getCohort(id: string) {
       enrollments: {
         select: {
           id: true,
-          student: { select: { id: true, name: true, email: true, avatar: true } },
+          student: {
+            select: { id: true, name: true, email: true, avatar: true },
+          },
         },
       },
     },
   });
-  if (!row) throw new Error("Cohort not found.");
+  if (!row) throw new Error('Cohort not found.');
 
   const { enrollments, ...base } = row;
   return {
@@ -116,7 +135,7 @@ export async function updateCohort(
   }
 ) {
   const existing = await prisma.class.findUnique({ where: { id } });
-  if (!existing) throw new Error("Cohort not found.");
+  if (!existing) throw new Error('Cohort not found.');
 
   const row = await prisma.class.update({
     where: { id },
@@ -137,16 +156,16 @@ export async function updateCohort(
 
 export async function deleteCohort(id: string) {
   const existing = await prisma.class.findUnique({ where: { id } });
-  if (!existing) throw new Error("Cohort not found.");
+  if (!existing) throw new Error('Cohort not found.');
   await prisma.class.delete({ where: { id } });
 }
 
 /** Enrol a student into a cohort. */
 export async function addStudent(cohortId: string, studentId: string) {
   const cls = await prisma.class.findUnique({ where: { id: cohortId } });
-  if (!cls) throw new Error("Cohort not found.");
+  if (!cls) throw new Error('Cohort not found.');
   const student = await prisma.user.findUnique({ where: { id: studentId } });
-  if (!student) throw new Error("Student not found.");
+  if (!student) throw new Error('Student not found.');
 
   return prisma.enrollment.upsert({
     where: { studentId_classId: { studentId, classId: cohortId } },
@@ -159,6 +178,6 @@ export async function removeStudent(cohortId: string, studentId: string) {
   const existing = await prisma.enrollment.findUnique({
     where: { studentId_classId: { studentId, classId: cohortId } },
   });
-  if (!existing) throw new Error("Student is not enrolled in this cohort.");
+  if (!existing) throw new Error('Student is not enrolled in this cohort.');
   return prisma.enrollment.delete({ where: { id: existing.id } });
 }

@@ -1,5 +1,5 @@
-import crypto from "node:crypto";
-import { prisma } from "../../infrastructure/database";
+import crypto from 'node:crypto';
+import { prisma } from '../../infrastructure/database';
 
 export async function createInvitation(data: {
   email: string;
@@ -16,7 +16,7 @@ export async function createInvitation(data: {
       token,
       expiresAt,
       invitedBy: data.invitedBy ?? undefined,
-      status: "pending",
+      status: 'pending',
     },
     include: { role: true },
   });
@@ -31,7 +31,7 @@ export async function getInvitationByToken(token: string) {
 
 export async function updateInvitationStatus(
   id: string,
-  status: "pending" | "accepted" | "expired",
+  status: 'pending' | 'accepted' | 'expired',
   usedAt?: Date
 ) {
   return prisma.invitation.update({
@@ -45,7 +45,7 @@ export async function updateInvitationStatus(
 
 export async function listInvitations() {
   return prisma.invitation.findMany({
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
     include: { role: true },
   });
 }

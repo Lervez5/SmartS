@@ -1,9 +1,10 @@
-import { z } from "zod";
+import { z } from 'zod';
+import { ROLES } from '@schoolos/auth/roles';
 
 export const createUserSchema = z.object({
   email: z.string().email().max(255),
   password: z.string().min(8).max(128),
-  role: z.enum(["super_admin", "school_admin", "teacher", "parent", "student"]),
+  role: z.enum(ROLES),
   firstName: z.string().max(100).optional(),
   lastName: z.string().max(100).optional(),
   avatar: z.string().max(1024).optional(),
@@ -12,10 +13,11 @@ export const createUserSchema = z.object({
 export const updateUserSchema = z.object({
   email: z.string().email().max(255).optional(),
   password: z.string().min(8).max(128).optional(),
-  role: z.enum(["super_admin", "school_admin", "teacher", "parent", "student"]).optional(),
+  role: z.enum(ROLES).optional(),
   firstName: z.string().max(100).optional(),
   lastName: z.string().max(100).optional(),
   avatar: z.string().max(1024).optional(),
+  status: z.enum(['pending', 'active', 'suspended', 'archived']).optional(),
 });
 
 export const updateMeSchema = z.object({

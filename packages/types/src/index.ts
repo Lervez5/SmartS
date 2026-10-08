@@ -1,27 +1,82 @@
-export type { User, UserRole, UserStatus, Gender, Role, Permission, RolePermission, UserRoleMembership } from "./entities/user";
-export { ROLE_PERMISSIONS, PERMISSION_DOMAINS, ROLE_DESCRIPTIONS } from "./entities/user";
-export type { StudentProfile } from "./entities/student";
-export type { ParentProfile, ParentChildLink } from "./entities/parent";
-export type { StaffProfile, StaffStatus } from "./entities/staff";
-export type { AdmissionStatus } from "./entities/admission";
-export type { Subject, Topic, Lesson, Exercise } from "./entities/subject";
-export type { Course, Module, Unit, CourseEnrollment, CourseStatus } from "./entities/course";
-export type { Class, Enrollment, ClassSchedule } from "./entities/academics";
-export type { AttendanceRecord, AttendanceStatus } from "./entities/attendance";
-export type { Assignment, Submission, SubmissionStatus } from "./entities/assignment";
-export type { Exam, ExamSchedule, ExamResult } from "./entities/exam";
-export type { Grade, GradeBook, GradeScale } from "./entities/grade";
-export type { FinanceTransaction, FinanceTransactionType, FinanceTransactionStatus } from "./entities/finance";
-export type { Expense, ExpenseStatus } from "./entities/expense";
-export type { PayrollRecord, PayrollStatus } from "./entities/payroll";
-export type { TransportRoute, Vehicle, Stop, StudentTransportAssignment } from "./entities/transport";
-export type { Book, BookCopy, Borrowing } from "./entities/library";
-export type { InventoryItem } from "./entities/inventory";
-export type { Notification, NotificationChannel, NotificationPriority } from "./entities/notification";
-export type { Document, DocumentType } from "./entities/document";
-export type { AuditLog } from "./entities/audit";
-export type { CalendarEvent, CalendarEventType } from "./entities/calendar";
-export type { Invitation, InvitationStatus } from "./entities/invitation";
-export type { SystemSetting } from "./entities/system";
-export type { ApiResponse, PaginatedResponse, PaginationMeta } from "./api";
-export type { AuthTokens, AuthUser } from "./auth";
+/**
+ * Domain contracts shared across the API and all portals.
+ *
+ * These interfaces mirror the persistence models but contain no
+ * database-specific artifacts. The canonical role and permission
+ * definitions live in @schoolos/auth; this package focuses on the
+ * runtime entities users, sessions, accounts and domain objects.
+ */
+
+import type { UserRole, AppId } from '@schoolos/auth';
+import type { Permission, PermissionDomain } from '@schoolos/auth';
+
+export type { UserRole, AppId, Permission, PermissionDomain };
+
+/** Account lifecycle states. */
+export type AccountStatus = 'pending' | 'active' | 'suspended' | 'archived';
+
+/** A user record as returned by the API. */
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  avatar?: string;
+  role: UserRole;
+  permissions: Permission[];
+  appId: string;
+  status: AccountStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A role definition. */
+export interface Role {
+  id: string;
+  name: UserRole;
+  description?: string;
+  permissions: Permission[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Session token pair for cookie-based auth. */
+export interface Session {
+  accessToken: string;
+  refreshToken: string;
+  user: User;
+}
+
+/** A permission entry in the catalogue. */
+export interface PermissionEntry {
+  key: Permission;
+  name: string;
+  description?: string;
+  domain: PermissionDomain;
+}
+
+/** Invitation state. */
+export type InvitationStatus = 'pending' | 'accepted' | 'expired';
+
+/** An invitation sent to provision a user. */
+export interface Invitation {
+  id: string;
+  email: string;
+  role: UserRole;
+  status: InvitationStatus;
+  token?: string;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Audit log entry. */
+export interface AuditLogEntry {
+  id: string;
+  userId?: string;
+  action: string;
+  details?: string;
+  meta?: Record<string, unknown>;
+  createdAt: string;
+}

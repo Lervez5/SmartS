@@ -1,26 +1,26 @@
-import { Router } from "express";
+import { Router } from 'express';
 import {
   studentDashboardController,
   teacherDashboardController,
   adminDashboardController,
   parentDashboardController,
-} from "./controller";
-import { requireRole } from "../../middleware/rbac";
+} from './controller';
+import { requireRole, requirePermissions } from '../../middleware/rbac';
 
 export const router: Router = Router();
 
-router.get("/student", requireRole("student"), (req, res, next) => {
+router.get('/student', requireRole('STUDENT'), (req, res, next) => {
   studentDashboardController(req, res).catch(next);
 });
 
-router.get("/teacher", requireRole("teacher"), (req, res, next) => {
+router.get('/teacher', requireRole('TEACHER'), (req, res, next) => {
   teacherDashboardController(req, res).catch(next);
 });
 
-router.get("/admin", requireRole("super_admin", "school_admin"), (req, res, next) => {
+router.get('/admin', requirePermissions('users.view'), (req, res, next) => {
   adminDashboardController(req, res).catch(next);
 });
 
-router.get("/parent", requireRole("parent"), (req, res, next) => {
+router.get('/parent', requireRole('PARENT'), (req, res, next) => {
   parentDashboardController(req, res).catch(next);
 });

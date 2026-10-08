@@ -1,11 +1,11 @@
-import { Request, Response } from "express";
+import { Request, Response } from 'express';
 import {
   academicReport,
   attendanceReport,
   financialReport,
   platformAnalytics,
   triggerExport,
-} from "./service";
+} from './service';
 
 export async function academicReportController(req: Request, res: Response): Promise<void> {
   res.json(await academicReport(req.query as Record<string, unknown>));

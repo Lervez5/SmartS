@@ -1,13 +1,14 @@
-import { Router } from "express";
-import { AttendanceStatus } from "@prisma/client";
-import { z } from "zod";
-import { prisma } from "../../infrastructure/database";
-import { requireRole } from "../../middleware/rbac";
-import { recordAuditLog } from "../audit-logs/service";
+import { Router } from 'express';
+import { AttendanceStatus } from '@prisma/client';
+import { z } from 'zod';
+import { prisma } from '../../infrastructure/database';
+import { requireRole, requirePermissions } from '../../middleware/rbac';
+import { recordAuditLog } from '../audit-logs/service';
 
 export const router: Router = Router();
 
-const requireStaff = requireRole("super_admin", "school_admin", "teacher");
+const requireMark = requirePermissions('attendance.mark');
+const requireView = requirePermissions('attendance.view');
 
 const markSchema = z.object({
   classId: z.string().min(1),
@@ -32,18 +33,20 @@ function dayBounds(date?: string) {
   return { start, end, date: start };
 }
 
-router.get("/today", async (req, res, next) => {
+router.get('/today', async (req, res, next) => {
   try {
     const { start, end } = dayBounds();
     const records = await prisma.attendance.findMany({
       where: {
         date: { gte: start, lte: end },
-        ...(req.user!.role === "student" ? { studentId: req.user!.id } : {}),
+        ...(req.user!.role === 'STUDENT' ? { studentId: req.user!.id } : {}),
       },
       include: {
-        class: { select: { id: true, name: true, subject: { select: { name: true } } } },
+        class: {
+          select: { id: true, name: true, subject: { select: { name: true } } },
+        },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
     res.json(records);
   } catch (e) {
@@ -51,7 +54,7 @@ router.get("/today", async (req, res, next) => {
   }
 });
 
-router.get("/roster/:classId", requireStaff, async (req, res, next) => {
+router.get('/roster/:classId', requireView, async (req, res, next) => {
   try {
     const date = req.query.date ? String(req.query.date) : undefined;
     const { start, end } = dayBounds(date);
@@ -64,13 +67,15 @@ router.get("/roster/:classId", requireStaff, async (req, res, next) => {
         subject: { select: { id: true, name: true } },
         enrollments: {
           select: {
-            student: { select: { id: true, name: true, email: true, avatar: true } },
+            student: {
+              select: { id: true, name: true, email: true, avatar: true },
+            },
           },
         },
       },
     });
     if (!cls) {
-      res.status(404).json({ error: { message: "Class not found" } });
+      res.status(404).json({ error: { message: 'Class not found' } });
       return;
     }
 
@@ -83,24 +88,24 @@ router.get("/roster/:classId", requireStaff, async (req, res, next) => {
     res.json({
       class: { id: cls.id, name: cls.name, subject: cls.subject },
       date: start,
-      students: cls.enrollments.map((e) => {
-        const student = e.student;
-        if (!student) return null;
-        const record = byStudent.get(student.id);
-        return {
-          ...student,
-          attendance: record
-            ? { id: record.id, status: record.status, note: record.note }
-            : null,
-        };
-      }).filter(Boolean),
+      students: cls.enrollments
+        .map((e) => {
+          const student = e.student;
+          if (!student) return null;
+          const record = byStudent.get(student.id);
+          return {
+            ...student,
+            attendance: record ? { id: record.id, status: record.status, note: record.note } : null,
+          };
+        })
+        .filter(Boolean),
     });
   } catch (e) {
     next(e);
   }
 });
 
-router.post("/mark", requireStaff, async (req, res, next) => {
+router.post('/mark', requireMark, async (req, res, next) => {
   try {
     const payload = markSchema.parse(req.body);
     const { start, end, date } = dayBounds(payload.date);
@@ -110,15 +115,11 @@ router.post("/mark", requireStaff, async (req, res, next) => {
       select: { id: true, teacherId: true, name: true },
     });
     if (!cls) {
-      res.status(404).json({ error: { message: "Class not found" } });
+      res.status(404).json({ error: { message: 'Class not found' } });
       return;
     }
-    if (
-      req.user!.role === "teacher" &&
-      cls.teacherId &&
-      cls.teacherId !== req.user!.id
-    ) {
-      res.status(403).json({ error: { message: "You do not teach this class" } });
+    if (req.user!.role === 'TEACHER' && cls.teacherId && cls.teacherId !== req.user!.id) {
+      res.status(403).json({ error: { message: 'You do not teach this class' } });
       return;
     }
 
@@ -133,54 +134,70 @@ router.post("/mark", requireStaff, async (req, res, next) => {
 
     const accepted = payload.records.filter((r) => allowed.has(r.studentId));
 
-    const saved = await prisma.$transaction(
-      accepted.map((record) =>
-        prisma.attendance.upsert({
-          where: { id: `${payload.classId}:${record.studentId}:${date.toISOString().slice(0, 10)}` },
-          update: { status: record.status, note: record.note, markedAt: new Date() },
-          create: {
-            id: `${payload.classId}:${record.studentId}:${date.toISOString().slice(0, 10)}`,
-            classId: payload.classId,
-            studentId: record.studentId,
-            status: record.status,
-            note: record.note,
-            date,
-            markedAt: new Date(),
-          },
-        })
+    const saved = await prisma
+      .$transaction(
+        accepted.map((record) =>
+          prisma.attendance.upsert({
+            where: {
+              id: `${payload.classId}:${record.studentId}:${date.toISOString().slice(0, 10)}`,
+            },
+            update: {
+              status: record.status,
+              note: record.note,
+              markedAt: new Date(),
+            },
+            create: {
+              id: `${payload.classId}:${record.studentId}:${date.toISOString().slice(0, 10)}`,
+              classId: payload.classId,
+              studentId: record.studentId,
+              status: record.status,
+              note: record.note,
+              date,
+              markedAt: new Date(),
+            },
+          })
+        )
       )
-    ).catch(async () => {
-      // The deterministic id is not a valid ObjectId on all records, so fall
-      // back to manual find-then-write.
-      const out = [];
-      for (const record of accepted) {
-        const existing = await prisma.attendance.findFirst({
-          where: { classId: payload.classId, studentId: record.studentId, date: { gte: start, lte: end } },
-        });
-        out.push(
-          existing
-            ? await prisma.attendance.update({
-                where: { id: existing.id },
-                data: { status: record.status, note: record.note, markedAt: new Date() },
-              })
-            : await prisma.attendance.create({
-                data: {
-                  classId: payload.classId,
-                  studentId: record.studentId,
-                  status: record.status,
-                  note: record.note,
-                  date,
-                  markedAt: new Date(),
-                },
-              })
-        );
-      }
-      return out;
-    });
+      .catch(async () => {
+        // The deterministic id is not a valid ObjectId on all records, so fall
+        // back to manual find-then-write.
+        const out = [];
+        for (const record of accepted) {
+          const existing = await prisma.attendance.findFirst({
+            where: {
+              classId: payload.classId,
+              studentId: record.studentId,
+              date: { gte: start, lte: end },
+            },
+          });
+          out.push(
+            existing
+              ? await prisma.attendance.update({
+                  where: { id: existing.id },
+                  data: {
+                    status: record.status,
+                    note: record.note,
+                    markedAt: new Date(),
+                  },
+                })
+              : await prisma.attendance.create({
+                  data: {
+                    classId: payload.classId,
+                    studentId: record.studentId,
+                    status: record.status,
+                    note: record.note,
+                    date,
+                    markedAt: new Date(),
+                  },
+                })
+          );
+        }
+        return out;
+      });
 
     await recordAuditLog(
       req.user!.id,
-      "MARK_ATTENDANCE",
+      'MARK_ATTENDANCE',
       `Marked attendance for ${cls.name} (${saved.length} students)`
     );
 
@@ -190,7 +207,7 @@ router.post("/mark", requireStaff, async (req, res, next) => {
   }
 });
 
-router.get("/history/me", async (req, res, next) => {
+router.get('/history/me', async (req, res, next) => {
   try {
     const classId = req.query.classId ? String(req.query.classId) : undefined;
     const startDate = req.query.startDate ? new Date(String(req.query.startDate)) : undefined;
@@ -201,18 +218,25 @@ router.get("/history/me", async (req, res, next) => {
         studentId: req.user!.id,
         ...(classId ? { classId } : {}),
         ...(startDate || endDate
-          ? { date: { ...(startDate ? { gte: startDate } : {}), ...(endDate ? { lte: endDate } : {}) } }
+          ? {
+              date: {
+                ...(startDate ? { gte: startDate } : {}),
+                ...(endDate ? { lte: endDate } : {}),
+              },
+            }
           : {}),
       },
       include: {
-        class: { select: { id: true, name: true, subject: { select: { name: true } } } },
+        class: {
+          select: { id: true, name: true, subject: { select: { name: true } } },
+        },
       },
-      orderBy: { date: "desc" },
+      orderBy: { date: 'desc' },
     });
 
     const total = records.length;
-    const present = records.filter((r) => r.status === "present").length;
-    const absent = records.filter((r) => r.status === "absent").length;
+    const present = records.filter((r) => r.status === 'present').length;
+    const absent = records.filter((r) => r.status === 'absent').length;
 
     res.json({
       records,
@@ -228,36 +252,49 @@ router.get("/history/me", async (req, res, next) => {
   }
 });
 
-router.get("/reports", requireStaff, async (req, res, next) => {
+router.get('/reports', requireView, async (req, res, next) => {
   try {
     const classId = req.query.classId ? String(req.query.classId) : undefined;
-    const from = req.query.startDate ? new Date(String(req.query.startDate)) : new Date(Date.now() - 30 * 86400000);
+    const from = req.query.startDate
+      ? new Date(String(req.query.startDate))
+      : new Date(Date.now() - 30 * 86400000);
     const to = req.query.endDate ? new Date(String(req.query.endDate)) : new Date();
 
     const [byStatus, byClass, daily] = await Promise.all([
       prisma.attendance.groupBy({
-        by: ["status"],
-        where: { ...(classId ? { classId } : {}), date: { gte: from, lte: to } },
+        by: ['status'],
+        where: {
+          ...(classId ? { classId } : {}),
+          date: { gte: from, lte: to },
+        },
         _count: true,
       }),
       prisma.attendance.groupBy({
-        by: ["classId"],
-        where: { ...(classId ? { classId } : {}), date: { gte: from, lte: to } },
+        by: ['classId'],
+        where: {
+          ...(classId ? { classId } : {}),
+          date: { gte: from, lte: to },
+        },
         _count: true,
       }),
       prisma.attendance.findMany({
-        where: { ...(classId ? { classId } : {}), date: { gte: from, lte: to } },
+        where: {
+          ...(classId ? { classId } : {}),
+          date: { gte: from, lte: to },
+        },
         select: { date: true, status: true, studentId: true },
       }),
     ]);
 
     const classes = await prisma.class.findMany({
-      where: { id: { in: byClass.map((c) => c.classId).filter(Boolean) as string[] } },
+      where: {
+        id: { in: byClass.map((c) => c.classId).filter(Boolean) as string[] },
+      },
       select: { id: true, name: true },
     });
     const nameById = new Map(classes.map((c) => [c.id, c.name]));
 
-    const present = byStatus.find((s) => s.status === "present")?._count ?? 0;
+    const present = byStatus.find((s) => s.status === 'present')?._count ?? 0;
     const total = byStatus.reduce((s, x) => s + x._count, 0);
 
     res.json({
@@ -265,7 +302,7 @@ router.get("/reports", requireStaff, async (req, res, next) => {
       byStatus: byStatus.map((s) => ({ status: s.status, count: s._count })),
       byClass: byClass.map((c) => ({
         classId: c.classId,
-        name: nameById.get(c.classId as string) ?? "Unassigned",
+        name: nameById.get(c.classId as string) ?? 'Unassigned',
         count: c._count,
       })),
       rate: total > 0 ? Math.round((present / total) * 100) : 0,

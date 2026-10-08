@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const validateInvitationSchema = z.object({
   token: z.string().min(1),

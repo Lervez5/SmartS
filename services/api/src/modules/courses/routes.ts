@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router } from 'express';
 import {
   listCoursesController,
   getCourseController,
@@ -12,53 +12,54 @@ import {
   createClassController,
   addScheduleController,
   removeScheduleController,
-} from "./controller";
-import { requireRole } from "../../middleware/rbac";
+} from './controller';
+import { requireRole, requirePermissions } from '../../middleware/rbac';
 
 export const router: Router = Router();
 
-const requireStaff = requireRole("super_admin", "school_admin", "teacher");
+const requireCourseManage = requirePermissions('courses.manage');
+const requireCourseView = requirePermissions('courses.view');
 
-router.get("/student/my-courses", (req, res, next) => {
+router.get('/student/my-courses', requireCourseView, (req, res, next) => {
   myCoursesController(req, res).catch(next);
 });
 
-router.get("/", (req, res, next) => {
+router.get('/', requireCourseView, (req, res, next) => {
   listCoursesController(req, res).catch(next);
 });
 
-router.post("/", requireStaff, (req, res, next) => {
+router.post('/', requireCourseManage, (req, res, next) => {
   createCourseController(req, res).catch(next);
 });
 
-router.put("/:id", requireStaff, (req, res, next) => {
+router.put('/:id', requireCourseManage, (req, res, next) => {
   updateCourseController(req, res).catch(next);
 });
 
-router.delete("/:id", requireStaff, (req, res, next) => {
+router.delete('/:id', requireCourseManage, (req, res, next) => {
   deleteCourseController(req, res).catch(next);
 });
 
-router.post("/:id/lessons/:lessonId/complete", (req, res, next) => {
+router.post('/:id/lessons/:lessonId/complete', (req, res, next) => {
   completeLessonController(req, res).catch(next);
 });
 
-router.get("/classes", (req, res, next) => {
+router.get('/classes', requirePermissions('cohorts.view'), (req, res, next) => {
   listClassesController(req, res).catch(next);
 });
 
-router.get("/classes/:id", (req, res, next) => {
+router.get('/classes/:id', requirePermissions('cohorts.view'), (req, res, next) => {
   getClassController(req, res).catch(next);
 });
 
-router.post("/classes", requireStaff, (req, res, next) => {
+router.post('/classes', requireCourseManage, (req, res, next) => {
   createClassController(req, res).catch(next);
 });
 
-router.post("/classes/:id/schedules", requireStaff, (req, res, next) => {
+router.post('/classes/:id/schedules', requireCourseManage, (req, res, next) => {
   addScheduleController(req, res).catch(next);
 });
 
-router.delete("/classes/schedules/:scheduleId", requireStaff, (req, res, next) => {
+router.delete('/classes/schedules/:scheduleId', requireCourseManage, (req, res, next) => {
   removeScheduleController(req, res).catch(next);
 });

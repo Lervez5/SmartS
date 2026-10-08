@@ -1,26 +1,30 @@
-import { prisma } from "../../infrastructure/database";
-
-export interface AuthUser {
-  id: string;
-  email: string;
-  role: string;
-  name?: string;
-  permissions: string[];
-}
-
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-}
-
-export interface AuthResult {
-  user: AuthUser;
-  tokens: AuthTokens;
-}
+import { prisma } from '../../infrastructure/database';
+import { ROLE_APP } from '@schoolos/auth/roles';
 
 export async function findUserByEmail(email: string) {
   return prisma.user.findUnique({
     where: { email },
+    include: {
+      roleMemberships: {
+        include: {
+          role: {
+            include: {
+              rolePermissions: {
+                include: {
+                  permission: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+export async function findUserById(id: string) {
+  return prisma.user.findUnique({
+    where: { id },
     include: {
       roleMemberships: {
         include: {
@@ -50,7 +54,7 @@ export async function createUser(data: {
       email: data.email.toLowerCase(),
       name: data.name,
       passwordHash: data.passwordHash,
-      status: "active",
+      status: 'active',
       roleMemberships: {
         create: {
           role: {
@@ -87,7 +91,7 @@ export async function findUserByResetToken(token: string) {
   });
 }
 
-import { Prisma } from "@prisma/client";
+import { Prisma } from '@prisma/client';
 
 export async function updateUser(id: string, data: Prisma.UserUpdateInput) {
   return prisma.user.update({

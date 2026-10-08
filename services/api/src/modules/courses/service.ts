@@ -1,7 +1,7 @@
-import { CourseStatus, Prisma } from "@prisma/client";
-import { prisma } from "../../infrastructure/database";
-import { CreateCourseDto, UpdateCourseDto, CreateClassDto, ClassScheduleDto } from "./schema";
-import { recordAuditLog } from "../audit-logs/service";
+import { CourseStatus, Prisma } from '@prisma/client';
+import { prisma } from '../../infrastructure/database';
+import { CreateCourseDto, UpdateCourseDto, CreateClassDto, ClassScheduleDto } from './schema';
+import { recordAuditLog } from '../audit-logs/service';
 
 const courseInclude = {
   subject: { select: { id: true, name: true } },
@@ -13,7 +13,7 @@ export async function listCourses(teacherId?: string) {
   return prisma.course.findMany({
     where: teacherId ? { teacherId } : undefined,
     include: courseInclude,
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 }
 
@@ -25,17 +25,17 @@ export async function getCourse(id: string) {
       teacher: { select: { id: true, name: true, email: true } },
       _count: { select: { enrollments: true, modules: true, classes: true } },
       modules: {
-        orderBy: { order: "asc" },
+        orderBy: { order: 'asc' },
         include: {
           units: {
-            orderBy: { order: "asc" },
-            include: { lessons: { orderBy: { createdAt: "asc" } } },
+            orderBy: { order: 'asc' },
+            include: { lessons: { orderBy: { createdAt: 'asc' } } },
           },
         },
       },
     },
   });
-  if (!course) throw new Error("Course not found.");
+  if (!course) throw new Error('Course not found.');
   return course;
 }
 
@@ -57,7 +57,7 @@ export async function createCourse(dto: CreateCourseDto) {
 
 export async function updateCourse(id: string, dto: UpdateCourseDto) {
   const existing = await prisma.course.findUnique({ where: { id } });
-  if (!existing) throw new Error("Course not found.");
+  if (!existing) throw new Error('Course not found.');
   return prisma.course.update({
     where: { id },
     data: {
@@ -76,7 +76,7 @@ export async function updateCourse(id: string, dto: UpdateCourseDto) {
 
 export async function deleteCourse(id: string) {
   const existing = await prisma.course.findUnique({ where: { id } });
-  if (!existing) throw new Error("Course not found.");
+  if (!existing) throw new Error('Course not found.');
   await prisma.course.delete({ where: { id } });
 }
 
@@ -87,24 +87,20 @@ export async function getStudentCourses(studentId: string) {
     include: {
       course: { include: courseInclude },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
   return enrollments;
 }
 
-export async function completeLesson(
-  userId: string,
-  courseId: string,
-  lessonId: string
-) {
+export async function completeLesson(userId: string, courseId: string, lessonId: string) {
   const lesson = await prisma.lesson.findUnique({ where: { id: lessonId } });
-  if (!lesson) throw new Error("Lesson not found.");
+  if (!lesson) throw new Error('Lesson not found.');
 
   const access = await prisma.lessonAccessLog.create({
     data: { lessonId, studentId: userId },
   });
 
-  await recordAuditLog(userId, "COMPLETE_LESSON", `Completed lesson ${lesson.title}`);
+  await recordAuditLog(userId, 'COMPLETE_LESSON', `Completed lesson ${lesson.title}`);
 
   const total = await prisma.lesson.count({
     where: { unit: { module: { courseId } } },
@@ -134,7 +130,7 @@ export async function listClasses(filters: { teacherId?: string; courseId?: stri
       schedules: true,
       _count: { select: { enrollments: true } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 }
 
@@ -150,7 +146,7 @@ export async function getClass(id: string) {
       },
     },
   });
-  if (!cls) throw new Error("Class not found.");
+  if (!cls) throw new Error('Class not found.');
   return cls;
 }
 
@@ -171,7 +167,7 @@ export async function createClass(dto: CreateClassDto) {
 
 export async function addClassSchedule(classId: string, dto: ClassScheduleDto) {
   const cls = await prisma.class.findUnique({ where: { id: classId } });
-  if (!cls) throw new Error("Class not found.");
+  if (!cls) throw new Error('Class not found.');
   return prisma.classSchedule.create({
     data: {
       classId,
@@ -179,7 +175,7 @@ export async function addClassSchedule(classId: string, dto: ClassScheduleDto) {
       startTime: dto.startTime,
       endTime: dto.endTime,
       room: dto.room,
-      recurrence: dto.recurrence ?? "weekly",
+      recurrence: dto.recurrence ?? 'weekly',
       validFrom: new Date(dto.validFrom),
       validUntil: dto.validUntil ? new Date(dto.validUntil) : null,
     },

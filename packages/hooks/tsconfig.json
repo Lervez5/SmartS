@@ -3,6 +3,8 @@
   "compilerOptions": {
     "baseUrl": ".",
     "noEmit": true,
+    "jsx": "react-jsx",
+    "types": ["node"],
     "paths": {
       "@schoolos/ui": ["../../packages/ui/src"],
       "@schoolos/auth": ["../../packages/auth/src"],

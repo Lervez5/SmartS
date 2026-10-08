@@ -1,6 +1,6 @@
-import { PrismaClient } from "@prisma/client";
-import { config } from "../../config";
-import { logger } from "../../shared/logger";
+import { PrismaClient } from '@prisma/client';
+import { config } from '../../config';
+import { logger } from '../../shared/logger';
 
 declare global {
   var prisma: PrismaClient | undefined;
@@ -8,9 +8,17 @@ declare global {
 
 let prismaClient: PrismaClient;
 
-if (process.env.NODE_ENV === "production") {
+/**
+ * Query logging is opt-in because it is extremely noisy; enable it with
+ * PRISMA_LOG_QUERIES=true when debugging a slow or incorrect query.
+ */
+const prismaLog: Array<'query' | 'error' | 'warn'> = process.env.PRISMA_LOG_QUERIES
+  ? ['query', 'error', 'warn']
+  : ['error', 'warn'];
+
+if (process.env.NODE_ENV === 'production') {
   prismaClient = new PrismaClient({
-    log: ["query", "error", "warn"],
+    log: prismaLog,
     datasources: {
       db: { url: config.database.url },
     },
@@ -18,7 +26,7 @@ if (process.env.NODE_ENV === "production") {
 } else {
   if (!global.prisma) {
     global.prisma = new PrismaClient({
-      log: ["query", "error", "warn"],
+      log: prismaLog,
       datasources: {
         db: { url: config.database.url },
       },
@@ -32,9 +40,12 @@ export const prisma = prismaClient;
 export async function connectDatabase(): Promise<void> {
   try {
     await prisma.$connect();
-    logger.info("Database connected", { event: "db_connected", url: config.database.url });
+    logger.info('Database connected', {
+      event: 'db_connected',
+      url: config.database.url,
+    });
   } catch (error) {
-    logger.error("Failed to connect to database", { error });
+    logger.error('Failed to connect to database', { error });
     throw error;
   }
 }
@@ -42,8 +53,8 @@ export async function connectDatabase(): Promise<void> {
 export async function disconnectDatabase(): Promise<void> {
   try {
     await prisma.$disconnect();
-    logger.info("Database disconnected", { event: "db_disconnected" });
+    logger.info('Database disconnected', { event: 'db_disconnected' });
   } catch (error) {
-    logger.error("Failed to disconnect from database", { error });
+    logger.error('Failed to disconnect from database', { error });
   }
 }
