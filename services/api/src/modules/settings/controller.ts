@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
 import { isSettingsArea } from './types';
 import { schoolScopeOf } from './scope';
+import { prisma } from '../../infrastructure/database';
 import {
   getSettings,
   getAllSettings,
-  getPublicBranding,
   updateSettings,
   getPersonalSettings,
   updatePersonalSettings,
@@ -29,10 +29,32 @@ import {
  * Branding screen empty even though values were saved. The shell and the
  * sign-in screens, which only need a name and a logo, read `/api/public/branding`
  * or unwrap `settings` themselves.
+ *
+ * The school's own `name` and `displayName` come from the School record, not
+ * from the branding settings: those store how the brand is applied, the School
+ * record stores what the school is called. Without them here the shell had no
+ * name to resolve and fell back to a generic placeholder, so the sidebar read
+ * "School Management Platform" for a school that has a real name on file.
  */
 export async function getBrandingController(req: Request, res: Response): Promise<void> {
   const scope = schoolScopeOf(req);
-  res.json(await getSettings('branding', scope.schoolId));
+  const body = await getSettings('branding', scope.schoolId);
+
+  const school = await prisma.school.findUnique({
+    where: { id: scope.schoolId },
+    select: { name: true, displayName: true },
+  });
+
+  res.json({
+    ...body,
+    // The area's settings are read as a record of values rather than a typed
+    // shape, so this is widened before the school's own name is merged in.
+    settings: {
+      ...(body.settings as Record<string, unknown>),
+      ...(school?.name ? { name: school.name } : {}),
+      ...(school?.displayName ? { displayName: school.displayName } : {}),
+    },
+  });
 }
 
 export async function getAllController(req: Request, res: Response): Promise<void> {

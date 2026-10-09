@@ -10,8 +10,14 @@ import {
   summariseResponsibility,
 } from '../academics/allocation/scope';
 import { recordAuditLog } from '../audit-logs/service';
+import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
 
 export const router: Router = Router();
+
+// Attendance belongs to a school through the class it was recorded against.
+// Without this scope the register, the reports and the daily read all returned
+// every school's attendance, which is another school's roll call.
+router.use(requireSchoolScope());
 
 const requireMark = requirePermissions('attendance.mark');
 const requireView = requirePermissions('attendance.view');
@@ -41,10 +47,14 @@ function dayBounds(date?: string) {
 
 router.get('/today', async (req, res, next) => {
   try {
+    const { schoolId } = schoolScopeOf(req);
     const { start, end } = dayBounds();
     const records = await prisma.attendance.findMany({
       where: {
         date: { gte: start, lte: end },
+        // Scoped through the class, so this is today's register for this school
+        // rather than every school's.
+        class: { schoolId },
         ...(req.user!.role === 'STUDENT' ? { studentId: req.user!.id } : {}),
       },
       include: {
@@ -62,11 +72,12 @@ router.get('/today', async (req, res, next) => {
 
 router.get('/roster/:classId', requireView, async (req, res, next) => {
   try {
+    const { schoolId } = schoolScopeOf(req);
     const date = req.query.date ? String(req.query.date) : undefined;
     const { start, end } = dayBounds(date);
 
-    const cls = await prisma.class.findUnique({
-      where: { id: req.params.classId },
+    const cls = await prisma.class.findFirst({
+      where: { id: req.params.classId, schoolId },
       select: {
         id: true,
         name: true,
@@ -114,10 +125,11 @@ router.get('/roster/:classId', requireView, async (req, res, next) => {
 router.post('/mark', requireMark, async (req, res, next) => {
   try {
     const payload = markSchema.parse(req.body);
+    const { schoolId } = schoolScopeOf(req);
     const { start, end, date } = dayBounds(payload.date);
 
-    const cls = await prisma.class.findUnique({
-      where: { id: payload.classId },
+    const cls = await prisma.class.findFirst({
+      where: { id: payload.classId, schoolId },
       select: { id: true, name: true, schoolId: true },
     });
     if (!cls) {
@@ -326,18 +338,23 @@ router.get('/history/me', async (req, res, next) => {
 
 router.get('/reports', requireView, async (req, res, next) => {
   try {
+    const { schoolId } = schoolScopeOf(req);
     const classId = req.query.classId ? String(req.query.classId) : undefined;
     const from = req.query.startDate
       ? new Date(String(req.query.startDate))
       : new Date(Date.now() - 30 * 86400000);
     const to = req.query.endDate ? new Date(String(req.query.endDate)) : new Date();
 
+    // Scoped through the class for every aggregate and list below: the grouping,
+    // the daily series and the class names were all database-wide, so the
+    // attendance report mixed every school's registers into one figure.
     const [byStatus, byClass, daily] = await Promise.all([
       prisma.attendance.groupBy({
         by: ['status'],
         where: {
           ...(classId ? { classId } : {}),
           date: { gte: from, lte: to },
+          class: { schoolId },
         },
         _count: true,
       }),
@@ -346,6 +363,7 @@ router.get('/reports', requireView, async (req, res, next) => {
         where: {
           ...(classId ? { classId } : {}),
           date: { gte: from, lte: to },
+          class: { schoolId },
         },
         _count: true,
       }),
@@ -353,6 +371,7 @@ router.get('/reports', requireView, async (req, res, next) => {
         where: {
           ...(classId ? { classId } : {}),
           date: { gte: from, lte: to },
+          class: { schoolId },
         },
         select: { date: true, status: true, studentId: true },
       }),
@@ -360,6 +379,7 @@ router.get('/reports', requireView, async (req, res, next) => {
 
     const classes = await prisma.class.findMany({
       where: {
+        schoolId,
         id: { in: byClass.map((c) => c.classId).filter(Boolean) as string[] },
       },
       select: { id: true, name: true },

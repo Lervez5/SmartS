@@ -105,7 +105,9 @@ describe('Teacher allocation', () => {
           passwordHash: hash,
           status: 'active',
           schoolMemberships: { create: { schoolId, isDefault: true } },
-          roleMemberships: { create: { roleId: (await prisma.role.findUnique({ where: { name: 'TEACHER' } }))!.id } },
+          roleMemberships: {
+            create: { roleId: (await prisma.role.findUnique({ where: { name: 'TEACHER' } }))!.id },
+          },
         },
       });
       teacherIds.push(user.id);
@@ -128,7 +130,9 @@ describe('Teacher allocation', () => {
           },
         });
         ids.push(user.id);
-        await prisma.enrollment.create({ data: { studentId: user.id, classId, streamId: stream.id } });
+        await prisma.enrollment.create({
+          data: { studentId: user.id, classId, streamId: stream.id },
+        });
       }
       learnerIdsByStream.set(stream.id, ids);
     }
@@ -164,7 +168,9 @@ describe('Teacher allocation', () => {
       where: { schoolId, streamId: { in: streams.map((s) => s.id) } },
     });
     await prisma.enrollment.deleteMany({ where: { classId } });
-    await prisma.class.deleteMany({ where: { id: { in: [classId, otherClassId].filter(Boolean) } } });
+    await prisma.class.deleteMany({
+      where: { id: { in: [classId, otherClassId].filter(Boolean) } },
+    });
     await prisma.academicYear.deleteMany({
       where: { id: { in: [otherSessionId, academicYearId].filter(Boolean) } },
     });
@@ -248,7 +254,9 @@ describe('Teacher allocation', () => {
       expect(second.body.allocation.canManage).toBe(false);
 
       const team = await adminAgent.get(`${BASE}/teams?classId=${classId}`);
-      const streamP = team.body.classes[0].streams.find((s: { id: string }) => s.id === stream('P'));
+      const streamP = team.body.classes[0].streams.find(
+        (s: { id: string }) => s.id === stream('P')
+      );
       expect(streamP.assistantTeachers).toHaveLength(2);
     });
 
@@ -419,12 +427,16 @@ describe('Teacher allocation', () => {
       expect(row!.status).toBe('inactive');
 
       // And it stops granting anything.
-      const active = await adminAgent.get(`${BASE}?streamId=${stream('Q')}&teacherId=${teacherIds[1]}`);
+      const active = await adminAgent.get(
+        `${BASE}?streamId=${stream('Q')}&teacherId=${teacherIds[1]}`
+      );
       expect(active.body.allocations.map((a: { id: string }) => a.id)).not.toContain(id);
     });
 
     it('audits the change', async () => {
-      const logs = await adminAgent.get(`${API_BASE}/audit-logs?action=teaching.allocation.created`);
+      const logs = await adminAgent.get(
+        `${API_BASE}/audit-logs?action=teaching.allocation.created`
+      );
       const rows = logs.body.logs ?? logs.body.data ?? [];
       expect(rows.length).toBeGreaterThan(0);
       expect(rows[0].action).toBe('teaching.allocation.created');

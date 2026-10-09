@@ -28,13 +28,26 @@ export function ProfileSettingsSection() {
         body: JSON.stringify({ name, email, firstName, lastName, avatar, phone }),
       });
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        const body = (await res.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
         const message = body?.error?.message ?? `Update failed (HTTP ${res.status}).`;
         setError(message);
         notify.error(message);
         return;
       }
-      const body = (await res.json()) as { user: { id: string; name?: string; email: string; firstName?: string; lastName?: string; avatar?: string; phone?: string; role: string } };
+      const body = (await res.json()) as {
+        user: {
+          id: string;
+          name?: string;
+          email: string;
+          firstName?: string;
+          lastName?: string;
+          avatar?: string;
+          phone?: string;
+          role: string;
+        };
+      };
       if (user) {
         setSession({
           ...user,
@@ -58,25 +71,53 @@ export function ProfileSettingsSection() {
   }
 
   return (
-    <SettingsCard title="Profile" description="Your identity in the platform. Only you and authorized staff can see these details.">
+    <SettingsCard
+      title="Profile"
+      description="Your identity in the platform. Only you and authorized staff can see these details."
+    >
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <Field label="Full name" required>
-          <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name" />
+          <TextInput
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Your full name"
+          />
         </Field>
         <Field label="Email" required>
-          <TextInput type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+          <TextInput
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+          />
         </Field>
         <Field label="First name" hint="Optional">
-          <TextInput value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" />
+          <TextInput
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            placeholder="First name"
+          />
         </Field>
         <Field label="Last name" hint="Optional">
-          <TextInput value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" />
+          <TextInput
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder="Last name"
+          />
         </Field>
         <Field label="Phone" hint="Optional">
-          <TextInput value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+254 700 000000" />
+          <TextInput
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+254 700 000000"
+          />
         </Field>
         <Field label="Avatar URL" hint="Optional">
-          <TextInput value={avatar} onChange={(e) => setAvatar(e.target.value)} placeholder="https://..." />
+          <TextInput
+            value={avatar}
+            onChange={(e) => setAvatar(e.target.value)}
+            placeholder="https://..."
+          />
         </Field>
       </div>
 
@@ -93,7 +134,10 @@ export function ProfileSettingsSection() {
       </div>
 
       {error ? (
-        <div role="alert" className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+        >
           {error}
         </div>
       ) : null}

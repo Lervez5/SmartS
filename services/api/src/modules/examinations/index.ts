@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
-import { AssessmentStatus } from '@prisma/client';
+import { AssessmentStatus, GradeScope, LearningAreaStatus } from '@prisma/client';
 import { prisma } from '../../infrastructure/database';
 import { requirePermissions } from '../../middleware/rbac';
 import { asyncHandler } from '../../shared/asyncHandler';
@@ -8,6 +8,8 @@ import { ApiError } from '../../shared/logger';
 import { assertGradingPolicyExists, resolveCompetencyForScore } from '../academics/grading';
 import { resolveRacefieldForScore } from '../grading/racefield';
 import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
+import { isLearningAreaEligible } from '../learning-areas';
+import { recordAuditLog } from '../audit-logs/service';
 
 /**
  * Summative assessments.
@@ -32,6 +34,11 @@ router.use(requireSchoolScope());
 export { router };
 
 const assessmentStatus = z.nativeEnum(AssessmentStatus);
+
+/** The learning areas an assessment covers. Replaces the whole list. */
+const learningAreasSchema = z.object({
+  learningAreaIds: z.array(z.string().trim().min(1)).min(1).max(50),
+});
 
 const listSchema = z.object({
   academicYearId: z.string().optional(),
@@ -177,6 +184,7 @@ router.get(
   '/',
   requirePermissions('examinations.view'),
   asyncHandler(async (req: Request, res: Response) => {
+    const { schoolId } = schoolScopeOf(req);
     const query = listSchema.parse(req.query);
 
     const orderBy = {
@@ -189,6 +197,10 @@ router.get(
 
     const examinations = await prisma.examination.findMany({
       where: {
+        // Scoped through the class, which is the record that owns the school.
+        // An examination is a property of a class, so without this another
+        // school's assessments would be listed, filtered and deleted here.
+        class: { schoolId },
         ...(query.classId ? { classId: query.classId } : {}),
         ...(query.subjectId ? { subjectId: query.subjectId } : {}),
         ...(query.academicYearId ? { academicYearId: query.academicYearId } : {}),
@@ -224,22 +236,27 @@ router.get(
  *
  * Grade comes from the classes examinations are set against, term from the
  * terms attached to those assessments, and type from the distinct types in use.
- * Nothing here is a hardcoded list.
+ * Nothing here is a hardcoded list, and every option comes from this school's
+ * own assessments rather than from the whole database.
  */
 router.get(
   '/options',
   requirePermissions('examinations.view'),
-  asyncHandler(async (_req: Request, res: Response) => {
+  asyncHandler(async (req: Request, res: Response) => {
+    const { schoolId } = schoolScopeOf(req);
+
     const [types, classes, terms] = await Promise.all([
       prisma.examination.findMany({
-        where: { assessmentType: { not: null } },
+        where: { assessmentType: { not: null }, class: { schoolId } },
         distinct: ['assessmentType'],
         select: { assessmentType: true },
       }),
       prisma.examination.findMany({
+        where: { class: { schoolId } },
         select: { class: { select: { id: true, name: true, gradeLevel: true } } },
       }),
       prisma.examination.findMany({
+        where: { class: { schoolId } },
         select: { term: { select: { id: true, name: true, termNumber: true } } },
       }),
     ]);
@@ -281,8 +298,11 @@ router.get(
   '/:id',
   requirePermissions('examinations.view'),
   asyncHandler(async (req: Request, res: Response) => {
-    const exam = await prisma.examination.findUnique({
-      where: { id: req.params.id },
+    const { schoolId } = schoolScopeOf(req);
+    // Scoped through the class, so an id belonging to another school reads as
+    // "not found" instead of exposing its marks.
+    const exam = await prisma.examination.findFirst({
+      where: { id: req.params.id, class: { schoolId } },
       include: {
         ...listInclude,
         examAttempts: {
@@ -345,7 +365,20 @@ router.post(
   '/',
   requirePermissions('examinations.manage'),
   asyncHandler(async (req: Request, res: Response) => {
+    const { schoolId } = schoolScopeOf(req);
     const payload = createSchema.parse(req.body);
+
+    // A learning area from another school must not become this assessment's
+    // home area, so it is checked against the caller's own school.
+    if (payload.subjectId) {
+      const area = await prisma.subject.findFirst({
+        where: { id: payload.subjectId, schoolId },
+        select: { id: true },
+      });
+      if (!area) {
+        throw new ApiError(404, 'That learning area does not exist in your school.');
+      }
+    }
 
     const exam = await prisma.examination.create({
       data: {
@@ -366,6 +399,168 @@ router.post(
     });
 
     res.status(201).json({ assessment: { ...present(exam), lifecycle: lifecycleStatus(exam) } });
+  })
+);
+
+/**
+ * The learning areas an assessment covers.
+ *
+ * Results Entry reads this list to know which columns to offer and which marks
+ * it may accept, so it is the join that makes a multi-area assessment possible.
+ * It was previously read-only with no route writing it, which left every
+ * assessment with an empty area list and Results Entry with nothing to enter
+ * marks against.
+ *
+ * Eligibility is decided by the Learning Areas workspace rather than re-derived
+ * here: an area must be active, belong to this school, and be applicable to the
+ * grade the assessment is set against. Replacing the whole list keeps the
+ * assessment's coverage exactly what the caller asked for, with no stale rows.
+ */
+router.put(
+  '/:id/learning-areas',
+  requirePermissions('examinations.manage'),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { schoolId } = schoolScopeOf(req);
+    const payload = learningAreasSchema.parse(req.body);
+
+    const exam = await prisma.examination.findFirst({
+      where: { id: req.params.id, class: { schoolId } },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        class: { select: { gradeLevel: true } },
+        learningAreas: { select: { subjectId: true } },
+      },
+    });
+    if (!exam) throw new ApiError(404, 'Assessment not found');
+
+    const ids = [...new Set(payload.learningAreaIds)];
+    if (ids.length === 0) {
+      throw new ApiError(400, 'Choose at least one learning area for this assessment.');
+    }
+
+    // An area already on the assessment is kept even if its eligibility has
+    // since lapsed, because removing it would silently drop results that were
+    // entered against it.
+    const existing = new Set(exam.learningAreas.map((row) => row.subjectId));
+    const toCheck = ids.filter((id) => !existing.has(id));
+
+    if (toCheck.length > 0) {
+      const areas = await prisma.subject.findMany({
+        where: { id: { in: toCheck }, schoolId },
+        include: { gradeLevels: true },
+      });
+      const found = new Set(areas.map((area) => area.id));
+      const missing = toCheck.filter((id) => !found.has(id));
+      if (missing.length > 0) {
+        throw new ApiError(404, 'One or more of those learning areas are not in your school.');
+      }
+
+      const ineligible = areas.filter(
+        // Mapped to the plain grade list the helper takes, so the eligibility
+        // rule lives in one place rather than being open-coded here.
+        (area) =>
+          !isLearningAreaEligible(
+            { ...area, gradeLevels: area.gradeLevels.map((row) => row.gradeLevel) },
+            exam.class?.gradeLevel ?? null
+          )
+      );
+      if (ineligible.length > 0) {
+        throw new ApiError(
+          400,
+          `Not available for this assessment: ${ineligible
+            .map((area) => area.name)
+            .join(', ')}. A learning area must be active and applicable to ${
+            exam.class?.gradeLevel ?? 'the grade'
+          }.`
+        );
+      }
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.examinationSubject.deleteMany({
+        where: { examinationId: exam.id, subjectId: { notIn: ids } },
+      });
+      // `createMany` would fail on the unique pair for rows that already exist,
+      // so each row is created only if it is not already there.
+      for (const subjectId of ids) {
+        const linked = await tx.examinationSubject.findUnique({
+          where: { examinationId_subjectId: { examinationId: exam.id, subjectId } },
+          select: { id: true },
+        });
+        if (!linked) {
+          await tx.examinationSubject.create({ data: { examinationId: exam.id, subjectId } });
+        }
+      }
+
+      return tx.examination.findUniqueOrThrow({
+        where: { id: exam.id },
+        include: { ...listInclude, learningAreas: { include: { subject: true } } },
+      });
+    });
+
+    const areas = updated.learningAreas.map((row) => row.subject);
+    await recordAuditLog(
+      req.user?.id ?? null,
+      'examinations.learningAreas.updated',
+      `Assessment ${exam.title} now covers ${areas.map((a) => a.name).join(', ')}`
+    );
+
+    res.json({ assessment: { ...present(updated), lifecycle: lifecycleStatus(updated) } });
+  })
+);
+
+/** Learning areas this school may attach to an assessment against a given class. */
+router.get(
+  '/:id/learning-area-options',
+  requirePermissions('examinations.view'),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { schoolId } = schoolScopeOf(req);
+
+    const exam = await prisma.examination.findFirst({
+      where: { id: req.params.id, class: { schoolId } },
+      select: {
+        id: true,
+        class: { select: { gradeLevel: true } },
+        learningAreas: { select: { subjectId: true } },
+      },
+    });
+    if (!exam) throw new ApiError(404, 'Assessment not found');
+
+    // Every active area in the school is offered, with the eligibility reason
+    // recorded rather than silently dropping the ones that do not apply, so the
+    // form can explain itself instead of showing a shorter list.
+    const areas = await prisma.subject.findMany({
+      where: { schoolId },
+      include: { gradeLevels: true },
+      orderBy: { name: 'asc' },
+    });
+
+    res.json({
+      gradeLevel: exam.class?.gradeLevel ?? null,
+      selectedIds: exam.learningAreas.map((row) => row.subjectId),
+      learningAreas: areas.map((area) => ({
+        id: area.id,
+        name: area.name,
+        code: area.code,
+        origin: area.origin,
+        gradeScope: area.gradeScope,
+        appliesToAllGrades: area.gradeScope === GradeScope.all,
+        gradeLevels: area.gradeLevels.map((row) => row.gradeLevel),
+        eligible: isLearningAreaEligible(
+          { ...area, gradeLevels: area.gradeLevels.map((row) => row.gradeLevel) },
+          exam.class?.gradeLevel ?? null
+        ),
+        ineligibleReason:
+          area.status !== LearningAreaStatus.active
+            ? `This learning area is ${area.status}.`
+            : area.gradeScope === GradeScope.selected &&
+                !area.gradeLevels.some((row) => row.gradeLevel === (exam.class?.gradeLevel ?? null))
+              ? `It applies to ${area.gradeLevels.map((row) => row.gradeLevel).join(', ')}, not the grade this assessment is set against.`
+              : null,
+      })),
+    });
   })
 );
 

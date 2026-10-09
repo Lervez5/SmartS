@@ -41,11 +41,12 @@ const FIXTURES: Array<{ email: string; name: string; role: UserRole }> = [
   { email: 'student@school.example', name: 'Sam Student', role: 'STUDENT' },
 ];
 
-const PROFILE_FOR: Partial<Record<UserRole, 'student' | 'staff'>> = {
+const PROFILE_FOR: Partial<Record<UserRole, 'student' | 'staff' | 'parent'>> = {
   STUDENT: 'student',
   TEACHER: 'staff',
   DEAN: 'staff',
   ACCOUNTANT: 'staff',
+  PARENT: 'parent',
 };
 
 async function seedRolesAndPermissions() {
@@ -114,7 +115,7 @@ async function seedUsers() {
   for (const fixture of FIXTURES) {
     const existing = await prisma.user.findUnique({
       where: { email: fixture.email },
-      include: { roleMemberships: true },
+      include: { roleMemberships: true, parentProfile: true },
     });
 
     if (existing) {
@@ -151,6 +152,17 @@ async function seedUsers() {
           role: fixture.role,
         });
       }
+
+      // Ensure a parent profile exists for existing parent users so they
+      // appear on the admin parents page.
+      if (fixture.role === 'PARENT' && !existing.parentProfile) {
+        await prisma.parentProfile.create({
+          data: { userId: existing.id },
+        });
+        logger.info('Parent profile created for existing user', {
+          email: fixture.email,
+        });
+      }
       continue;
     }
 
@@ -173,6 +185,7 @@ async function seedUsers() {
               },
             }
           : {}),
+        ...(profile === 'parent' ? { parentProfile: { create: {} } } : {}),
       },
     });
 

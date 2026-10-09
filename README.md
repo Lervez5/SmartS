@@ -10,7 +10,7 @@ authentication, UI components, types, validation, and utilities.
 
 ## Project Structure
 
-``` bash
+```bash
 .
 ├── apps/
 │   ├── admin/      # Admin portal (port 3003)
@@ -109,12 +109,12 @@ pnpm seed         # Seed the database with fixture data
 
 ## Architecture Notes
 
-- **One School model** — the application is built for a single school. School-scoped
+- **One School model** - the application is built for a single school. School-scoped
   data is keyed by `schoolId` on every tenant-aware model.
-- **Identity separation** — a `User` is the authentication entity; domain profiles
+- **Identity separation** - a `User` is the authentication entity; domain profiles
   (`StudentProfile`, etc.) extend it with school-specific data.
-- **RBAC** — permissions are string keys (`domain.action`) synced from
+- **RBAC** - permissions are string keys (`domain.action`) synced from
   `packages/auth/src/permissions.ts` into the database at startup. Roles are
   assigned permissions; users inherit permissions through role memberships.
-- **API-first** — all business logic and data access lives in `services/api`. Frontend
+- **API-first** - all business logic and data access lives in `services/api`. Frontend
   apps consume the REST API under `/api/*`.

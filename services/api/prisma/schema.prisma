@@ -331,6 +331,145 @@ model AdmissionDocument {
 }
 
 // ====================================================================
+// ENROLLMENT HUB — bulk onboarding of any person category
+// ====================================================================
+
+/// How a bulk enrollment run is going, in the terms an operator waits for.
+enum EnrollmentBatchStatus {
+  /// Accepted, work not finished — a partial import has been recorded.
+  draft
+  /// Every row has been decided.
+  completed
+  /// Abandoned before the rows were decided.
+  abandoned
+}
+
+/// What happened to one row of a bulk enrollment.
+///
+/// `duplicate` is deliberately separate from `failed`: a row whose email is
+/// already in the school is not an error, it is a decision the school has to
+/// make (skip, or attach the existing account), so it must be reported apart
+/// from rows that could not be understood at all.
+enum EnrollmentEntryStatus {
+  /// Not yet onboarded: no account and no profile created for this row.
+  pending
+  /// Account and profile created, and for learners placed in a class.
+  enrolled
+  /// Already existed in the school; nothing was created.
+  duplicate
+  /// Could not be onboarded; the reason is on the row.
+  failed
+}
+
+/// One onboarding run: a set of people brought into the school at once.
+///
+/// A batch is not restricted to one category of person. A school taking in a
+/// new intake week onboards learners, their guardians and the staff who will
+/// teach them together, so the role is carried per row rather than per batch
+/// and one run can carry all three.
+///
+/// The batch is the audit unit: what was attempted, by whom, and how it turned
+/// out, long after the individual accounts have been edited.
+model EnrollmentBatch {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  /// The school these people are joining. Never inferred from the rows.
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId String @db.ObjectId
+
+  status EnrollmentBatchStatus @default(draft)
+
+  /// Where the rows came from, kept for the operator's own recollection.
+  /// Provenance only — the rows themselves are the record.
+  source String?
+  notes  String?
+
+  // Counts are stored rather than derived: a batch is read far more often than
+  // its rows, and these are what the history screen shows at a glance.
+  totalRows      Int @default(0)
+  enrolledCount  Int @default(0)
+  duplicateCount Int @default(0)
+  failedCount    Int @default(0)
+
+  /// Who ran the onboarding. A plain reference, like AdmissionApplication.reviewedBy:
+  /// deleting a staff account must not delete the record that they onboarded
+  /// everyone.
+  createdById String? @db.ObjectId
+
+  entries   EnrollmentBatchEntry[]
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+
+  @@index([schoolId])
+  @@index([schoolId, createdAt])
+}
+
+/// One person in an onboarding run, and what became of them.
+///
+/// The row holds what the operator supplied for the person plus the
+/// role-specific attributes that category needs, so a single import covers
+/// learners, staff and guardians without a second table per category. The
+/// outcome columns are written after the attempt, so a partially successful
+/// import is readable row by row rather than as one aggregate failure.
+model EnrollmentBatchEntry {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  batch   EnrollmentBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  batchId String          @db.ObjectId
+
+  /// Position in the source, so a bad row can be traced back to the file or
+  /// paste it came from.
+  rowNumber Int
+
+  /// The role this person is brought in as. Decides which profile is created:
+  /// STUDENT gets a StudentProfile, PARENT a ParentProfile, and every staff
+  /// role a StaffProfile.
+  role UserRole @default(STUDENT)
+
+  status EnrollmentEntryStatus @default(pending)
+
+  /// Identity. Email is the join key: an existing account is what makes a row
+  /// a duplicate rather than a new person.
+  email     String
+  firstName String?
+  lastName  String?
+  phone     String?
+
+  // Learner attributes
+  gradeLevel      String?
+  dateOfBirth     DateTime?
+  gender          Gender?
+  admissionNumber String?
+  /// Placement for a learner. Validated to belong to the caller's school, and
+  /// the stream to belong to the class, before anything is written.
+  classId         String?   @db.ObjectId
+  streamId        String?   @db.ObjectId
+  academicYearId  String?   @db.ObjectId
+  /// Guardian to link a learner to, matched by email rather than by id, because
+  /// that is what an operator has when pasting a roster.
+  parentEmail     String?
+
+  // Staff attributes
+  employeeId String?
+  position   String?
+  department String?
+  hireDate   DateTime?
+
+  /// The account the row produced, so a person onboarded by a batch can be
+  /// traced to the run that created them.
+  userId String? @db.ObjectId
+  /// Why the row could not be onboarded, or why it was skipped.
+  error  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([batchId])
+  @@index([batchId, status])
+  @@index([batchId, email])
+}
+
+// ====================================================================
 // ACADEMICS
 // ====================================================================
 
@@ -352,9 +491,51 @@ model Subject {
   examinationSubjects ExaminationSubject[]
   teachingAssignments TeachingAssignment[]
   streamAllocations   StreamAllocation[]
+  gradeLevels         SubjectGradeLevel[]
+
+  /// Lifecycle state, following the same shape as ClassStatus and StreamStatus
+  /// so the academic domain reads consistently.
+  ///
+  /// `inactive` and `archived` are the safe way to retire a learning area: the
+  /// record and everything attached to it stays readable, while it stops
+  /// appearing as a choice for new assessments, allocations and results.
+  status LearningAreaStatus @default(active)
+
+  /// Where this learning area came from, which decides what the school may do
+  /// to it. See the enum.
+  origin LearningAreaOrigin @default(custom)
+
+  /// Which grades the area is offered to. `all` is an explicit decision that the
+  /// area is taught in every grade the school runs; `selected` restricts it to
+  /// the grades listed in `gradeLevels`.
+  gradeScope GradeScope @default(all)
 
   @@unique([schoolId, name])
   @@unique([schoolId, code])
+  @@index([schoolId, status])
+  @@index([schoolId, origin])
+}
+
+/// A learning area, restricted to named grade levels.
+///
+/// Only present when the owning area's `gradeScope` is `selected`. The grade
+/// level is the school's own grade vocabulary as it appears on `Class.gradeLevel`
+/// — the list is never hardcoded, and the API rejects a grade no class in the
+/// school uses.
+///
+/// This is deliberately separate from `Class.subjectId`: that field is a class's
+/// *home* learning area, the one it is named and timetabled against, and must
+/// not be repurposed as a grade filter.
+model SubjectGradeLevel {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subjectId String  @db.ObjectId
+
+  gradeLevel String
+  createdAt  DateTime @default(now())
+
+  @@unique([subjectId, gradeLevel])
+  @@index([gradeLevel])
 }
 
 model Topic {
@@ -461,6 +642,51 @@ enum ClassStatus {
   archived
 }
 
+/// Where a learning area came from, which decides what a school may do to it.
+///
+/// `custom` is defined by the school itself, and is the school's to name,
+/// restrict and retire. `curriculum` is a record that arrived from the
+/// authoritative curriculum source through synchronization, and is the
+/// curriculum's to change — editing or deleting it here would silently diverge
+/// from the official curriculum.
+///
+/// Nothing is created as `curriculum` until a real synchronization source
+/// exists. Areas a school has always maintained are `custom`, because that is
+/// what they are.
+enum LearningAreaOrigin {
+  custom
+  curriculum
+}
+
+/// Lifecycle state of a learning area.
+///
+/// Shaped like ClassStatus and StreamStatus: `active` areas are available for
+/// teaching, assessment and reporting. `inactive` areas are held back from new
+/// work but stay on existing records. `archived` areas are historical.
+///
+/// Retiring rather than deleting is the point: assessments, results, allocations
+/// and reports reference a learning area by id, and deleting it would take the
+/// meaning of those records with it.
+enum LearningAreaStatus {
+  active
+  inactive
+  archived
+}
+
+/// Which grades a learning area is offered to.
+///
+/// `all` is an explicit choice, not the absence of one: the area is taught in
+/// every grade the school runs. `selected` restricts it to the grade levels
+/// listed on the area.
+///
+/// Keeping the two written down separately is what stops an empty grade list
+/// being read as both "taught everywhere" and "not configured yet" — the two
+/// end up in opposite sections of the screen and opposite validation outcomes.
+enum GradeScope {
+  all
+  selected
+}
+
 enum AssessmentStatus {
   draft
   published
@@ -519,7 +745,18 @@ model Term {
 }
 
 model Course {
-  id                 String             @id @default(auto()) @map("_id") @db.ObjectId
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  /// The school that runs this course.
+  ///
+  /// A course belongs to one school, the same as the class, subject and
+  /// allocation records it connects to. It was missing, which left every
+  /// course query unscoped and let one school read another's courses: the
+  /// school could only be inferred transitively through the course's subject or
+  /// classes, and a course with neither would have belonged to no school at all
+  /// while still being listed everywhere.
+  school             School?            @relation(fields: [schoolId], references: [id])
+  schoolId           String?            @db.ObjectId
   title              String
   description        String?
   code               String?            @unique
@@ -535,6 +772,9 @@ model Course {
   classes            Class[]
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
+
+  @@index([schoolId])
+  @@index([schoolId, status])
 }
 
 model Module {
@@ -942,7 +1182,7 @@ model CompetencyBand {
   minPercent  Float
   /// Inclusive upper bound. Null on the highest band, which runs to 100.
   maxPercent  Float?
-  /// Short note shown where a band is explained, e.g. on a report.
+  // / Short note shown where a band is explained, e.g. on a report.
   description String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
@@ -1429,15 +1669,29 @@ model Asset {
 // ====================================================================
 
 model AuditLog {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  user      User?    @relation(fields: [userId], references: [id])
-  userId    String?  @db.ObjectId
+  id     String  @id @default(auto()) @map("_id") @db.ObjectId
+  user   User?   @relation(fields: [userId], references: [id])
+  userId String? @db.ObjectId
+
+  /// The school this entry belongs to.
+  ///
+  /// An audit trail is a record of what a school did, so it belongs to that
+  /// school. Without this the log was global: reading it showed every school's
+  /// administrative history, and a school had no way to see only its own.
+  ///
+  /// Resolved from the actor's membership when it is not passed explicitly, so
+  /// every existing write path is scoped without changing all of them.
+  school   School? @relation(fields: [schoolId], references: [id])
+  schoolId String? @db.ObjectId
+
   action    String
   details   String?
   meta      Json?
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([schoolId])
+  @@index([schoolId, createdAt])
 }
 
 model Invitation {
@@ -1551,6 +1805,9 @@ model School {
   classes              Class[]
   subjects             Subject[]
   streamAllocations    StreamAllocation[]
+  enrollmentBatches    EnrollmentBatch[]
+  courses              Course[]
+  auditLogs            AuditLog[]
 
   @@index([status])
 }

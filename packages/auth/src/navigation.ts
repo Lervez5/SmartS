@@ -106,14 +106,6 @@ const STUDENT_NAV: NavSection[] = [
         icon: 'layout-dashboard',
         order: 1,
       },
-      {
-        id: 'stu.profile',
-        label: 'My Profile',
-        href: '/profile',
-        permissions: [],
-        icon: 'user-round',
-        order: 2,
-      },
     ],
   },
   {
@@ -139,7 +131,7 @@ const STUDENT_NAV: NavSection[] = [
         icon: 'shapes',
         order: 2,
         implemented: false,
-        gap: 'GET /api/learning-areas is not implemented. The LearningArea model does not exist in the Prisma schema.',
+        gap: "The learning-area catalogue itself now exists: GET /api/learning-areas is implemented over the Subject records, school-scoped and gated on learningAreas.view, and the admin workspace manages them. What is missing is this learner-facing view, which would show the areas that apply to the learner's own grade and class. Until then a learner sees their learning areas through their classes and courses.",
       },
       {
         id: 'stu.courses',
@@ -330,14 +322,6 @@ const TEACHER_NAV: NavSection[] = [
         icon: 'layout-dashboard',
         order: 1,
       },
-      {
-        id: 'tea.profile',
-        label: 'My Profile',
-        href: '/profile',
-        permissions: [],
-        icon: 'user-round',
-        order: 2,
-      },
     ],
   },
   {
@@ -363,7 +347,7 @@ const TEACHER_NAV: NavSection[] = [
         icon: 'shapes',
         order: 2,
         implemented: false,
-        gap: 'GET /api/learning-areas is not implemented. Teachers currently see Subjects via GET /api/subjects, which has no RBAC guard.',
+        gap: "The learning-area catalogue now exists: GET /api/learning-areas is implemented over the Subject records, school-scoped and gated on learningAreas.view, and GET /api/subjects is no longer unguarded. What is missing is this teacher-facing view. A teacher's learning areas come from their allocations, which the teacher allocation workspace already shows; this view would add the areas applicable to the sessions they teach.",
       },
       {
         id: 'tea.courses',
@@ -591,14 +575,6 @@ const PARENT_NAV: NavSection[] = [
         icon: 'layout-dashboard',
         order: 1,
       },
-      {
-        id: 'par.profile',
-        label: 'My Profile',
-        href: '/profile',
-        permissions: [],
-        icon: 'user-round',
-        order: 2,
-      },
     ],
   },
   {
@@ -808,14 +784,6 @@ const ADMIN_NAV: NavSection[] = [
         icon: 'layout-dashboard',
         order: 1,
       },
-      {
-        id: 'adm.profile',
-        label: 'My Profile',
-        href: '/profile',
-        permissions: [],
-        icon: 'user-round',
-        order: 2,
-      },
     ],
   },
   {
@@ -848,8 +816,7 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['admissions.view'],
         icon: 'clipboard-list',
         order: 2,
-        implemented: false,
-        gap: 'GET /api/admissions is a stub returning a planned placeholder. The AdmissionApplication model exists in the Prisma schema but has no route, so applications cannot be created, reviewed or enrolled.',
+        implemented: true,
       },
       {
         id: 'adm.alumni',
@@ -1014,8 +981,7 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['learningAreas.view'],
         icon: 'shapes',
         order: 6,
-        implemented: false,
-        gap: 'GET /api/learning-areas is not implemented. No LearningArea model exists, so a summative paper cannot yet be mapped to the learning areas it assesses.',
+        implemented: true,
       },
       {
         id: 'adm.grading',
@@ -2040,7 +2006,11 @@ export function settingsHrefFor(
 export const CBC_GAPS: ReadonlyArray<{ concept: string; missing: string }> = [
   {
     concept: 'Learning Area',
-    missing: 'No LearningArea model. Subject is the closest analogue and has no RBAC guard.',
+    missing:
+      'Implemented as the Subject model, school-scoped and gated on learningAreas.view / ' +
+      'learningAreas.manage, with a custom-vs-curriculum origin, grade applicability and ' +
+      'status. Still missing: the strands, sub-strands and learning outcomes a curriculum ' +
+      'learning area is made of, and any source to synchronize them from.',
   },
   {
     concept: 'Strand / Sub-strand',

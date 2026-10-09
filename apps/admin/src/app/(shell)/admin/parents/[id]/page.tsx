@@ -17,6 +17,9 @@ import {
   initialsOf,
   type DataTableColumn,
   notify,
+  Input,
+  Select,
+  Button,
 } from '@schoolos/ui';
 
 /**
@@ -88,6 +91,44 @@ export default function AdminGuardianProfilePage() {
   const [linking, setLinking] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
+
+  // Edit mode state for guardian details
+  const [editing, setEditing] = React.useState(false);
+  const [formData, setFormData] = React.useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    status: 'active',
+  });
+
+  async function saveChanges() {
+    if (!guardian) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/users/${guardian.userId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
+        setActionError(body?.error?.message ?? `The API refused the update (HTTP ${res.status}).`);
+        return;
+      }
+      setEditing(false);
+      refetch();
+      notify.success('Guardian details updated');
+    } catch {
+      setActionError('Could not reach the API. Check that it is running.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const linkedIds = new Set((guardian?.children ?? []).map((child) => child.learnerId));
   const linkable = (learners.data?.students ?? []).filter((student) => !linkedIds.has(student.id));
@@ -236,6 +277,127 @@ export default function AdminGuardianProfilePage() {
     { field: 'Profile id', value: guardian.id, mono: true },
   ];
 
+  // Compute guardian details content (edit form or view mode) before render
+  const guardianDetailsContent = editing ? (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <label htmlFor="firstName" className="text-sm font-medium text-foreground">
+            First name
+          </label>
+          <Input
+            id="firstName"
+            value={formData.firstName}
+            onChange={(e) => setFormData((prev) => ({ ...prev, firstName: e.target.value }))}
+            placeholder="First name"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="lastName" className="text-sm font-medium text-foreground">
+            Last name
+          </label>
+          <Input
+            id="lastName"
+            value={formData.lastName}
+            onChange={(e) => setFormData((prev) => ({ ...prev, lastName: e.target.value }))}
+            placeholder="Last name"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="email" className="text-sm font-medium text-foreground">
+            Email
+          </label>
+          <Input
+            id="email"
+            type="email"
+            value={formData.email}
+            onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+            placeholder="Email"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="phone" className="text-sm font-medium text-foreground">
+            Phone
+          </label>
+          <Input
+            id="phone"
+            type="tel"
+            value={formData.phone}
+            onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
+            placeholder="Phone number"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="status" className="text-sm font-medium text-foreground">
+            Account status
+          </label>
+          <Select
+            id="status"
+            value={formData.status}
+            onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value }))}
+            className="h-9 min-w-[220px] flex-1 rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="active">Active</option>
+            <option value="pending">Pending</option>
+            <option value="suspended">Suspended</option>
+            <option value="archived">Archived</option>
+          </Select>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 pt-2">
+        <Button onClick={saveChanges} disabled={busy} className="w-full sm:w-auto">
+          {busy ? 'Saving...' : 'Save changes'}
+        </Button>
+        <Button variant="outline" onClick={() => setEditing(false)} disabled={busy}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  ) : (
+    <div>
+      <DataTable
+        caption="Full guardian record"
+        columns={[
+          {
+            id: 'field',
+            header: 'Field',
+            cell: (row: { field: string; value: string }) => row.field,
+          },
+          {
+            id: 'value',
+            header: 'Value',
+            cell: (row: { field: string; value: string; mono?: boolean }) => (
+              <span className={row.mono ? 'font-mono text-xs text-foreground' : undefined}>
+                {row.value}
+              </span>
+            ),
+          },
+        ]}
+        rows={detailRows}
+        rowKey={(row) => row.field}
+      />
+      <div className="flex items-center gap-2 pt-4">
+        {canManage && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setFormData({
+                firstName: guardian?.firstName ?? '',
+                lastName: guardian?.lastName ?? '',
+                email: guardian?.email ?? '',
+                phone: guardian?.phone ?? '',
+                status: guardian?.accountStatus ?? 'active',
+              });
+              setEditing(true);
+            }}
+          >
+            Edit details
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <SectionHeader
@@ -379,29 +541,9 @@ export default function AdminGuardianProfilePage() {
 
       <SettingsCard
         title="Guardian details"
-        description="Everything the guardian record resolves to. Name, email, phone and access are the account’s fields."
+        description="Everything the guardian record resolves to. Name, email, phone and access are the account's fields."
       >
-        <DataTable
-          caption="Full guardian record"
-          columns={[
-            {
-              id: 'field',
-              header: 'Field',
-              cell: (row: { field: string; value: string }) => row.field,
-            },
-            {
-              id: 'value',
-              header: 'Value',
-              cell: (row: { field: string; value: string; mono?: boolean }) => (
-                <span className={row.mono ? 'font-mono text-xs text-foreground' : undefined}>
-                  {row.value}
-                </span>
-              ),
-            },
-          ]}
-          rows={detailRows}
-          rowKey={(row) => row.field}
-        />
+        {guardianDetailsContent}
       </SettingsCard>
     </div>
   );

@@ -54,9 +54,7 @@ export function FloatingFormModal({
       size={size}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-          {children}
-        </div>
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">{children}</div>
         <ModalFooter>
           <Button
             type="button"

@@ -57,7 +57,16 @@ const bool = (v: unknown) => v === true;
 
 function SunIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
       <circle cx="12" cy="12" r="4" />
       <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4" />
     </svg>
@@ -66,7 +75,16 @@ function SunIcon({ className }: { className?: string }) {
 
 function MoonIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
       <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
     </svg>
   );
@@ -74,7 +92,16 @@ function MoonIcon({ className }: { className?: string }) {
 
 function MonitorIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
       <rect x="2" y="3" width="20" height="14" rx="2" />
       <path d="M8 21h8M12 17v4" />
     </svg>
@@ -120,7 +147,10 @@ export function PersonalSettingsSection() {
   const [baseline, setBaseline] = React.useState<string>('');
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
-  const [save, setSave] = React.useState<{ status: 'idle' | 'saving' | 'saved' | 'error'; message?: string }>({ status: 'idle' });
+  const [save, setSave] = React.useState<{
+    status: 'idle' | 'saving' | 'saved' | 'error';
+    message?: string;
+  }>({ status: 'idle' });
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -149,10 +179,13 @@ export function PersonalSettingsSection() {
     void load();
   }, [load]);
 
-  const set = React.useCallback(<K extends keyof PersonalSettings>(key: K, next: PersonalSettings[K]) => {
-    setSave({ status: 'idle' });
-    setValue((prev) => (prev ? ({ ...prev, [key]: next } as PersonalSettings) : prev));
-  }, []);
+  const set = React.useCallback(
+    <K extends keyof PersonalSettings>(key: K, next: PersonalSettings[K]) => {
+      setSave({ status: 'idle' });
+      setValue((prev) => (prev ? ({ ...prev, [key]: next } as PersonalSettings) : prev));
+    },
+    []
+  );
 
   const dirty = value !== null && JSON.stringify(value) !== baseline;
 
@@ -167,13 +200,17 @@ export function PersonalSettingsSection() {
         body: JSON.stringify(value),
       });
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        const body = (await res.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
         const message = body?.error?.message ?? `The API rejected the change (HTTP ${res.status}).`;
         setSave({ status: 'error', message });
         notify.error(message);
         return;
       }
-      const refreshed = (await (await fetch('/api/settings/personal', { credentials: 'include' })).json()) as { settings?: PersonalSettings };
+      const refreshed = (await (
+        await fetch('/api/settings/personal', { credentials: 'include' })
+      ).json()) as { settings?: PersonalSettings };
       const next = (refreshed.settings ?? value) as PersonalSettings;
       setValue(next);
       setBaseline(JSON.stringify(next));
@@ -195,7 +232,10 @@ export function PersonalSettingsSection() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <SectionHeader title="Preferences" description="Your personal preferences across the platform." />
+        <SectionHeader
+          title="Preferences"
+          description="Your personal preferences across the platform."
+        />
         <div className="flex items-center justify-center py-12">
           <p className="text-sm text-muted-foreground">Loading preferences…</p>
         </div>
@@ -206,8 +246,13 @@ export function PersonalSettingsSection() {
   if (loadError) {
     return (
       <div className="space-y-6">
-        <SectionHeader title="Preferences" description="Your personal preferences across the platform." />
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{loadError}</div>
+        <SectionHeader
+          title="Preferences"
+          description="Your personal preferences across the platform."
+        />
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {loadError}
+        </div>
         <button
           type="button"
           onClick={load}
@@ -222,7 +267,10 @@ export function PersonalSettingsSection() {
   if (!value) {
     return (
       <div className="space-y-6">
-        <SectionHeader title="Preferences" description="Your personal preferences across the platform." />
+        <SectionHeader
+          title="Preferences"
+          description="Your personal preferences across the platform."
+        />
         <p className="text-sm text-muted-foreground">No preferences found.</p>
       </div>
     );
@@ -259,7 +307,10 @@ export function PersonalSettingsSection() {
       />
 
       {save.status === 'error' && save.message ? (
-        <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+        >
           {save.message}
         </div>
       ) : null}
@@ -267,14 +318,23 @@ export function PersonalSettingsSection() {
       <div className="space-y-6">
         <SettingsCard title="Appearance" description="Choose how the platform looks for you.">
           <Field label="Theme">
-            <ThemeSelector value={str(value.theme)} onChange={(next) => { setTheme(next); set('theme', next); }} />
+            <ThemeSelector
+              value={str(value.theme)}
+              onChange={(next) => {
+                setTheme(next);
+                set('theme', next);
+              }}
+            />
           </Field>
         </SettingsCard>
 
         <SettingsCard title="Regional" description="Language, time zone and formatting.">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <Field label="Language">
-              <SettingsSelect value={str(value.language)} onChange={(e) => set('language', e.target.value)}>
+              <SettingsSelect
+                value={str(value.language)}
+                onChange={(e) => set('language', e.target.value)}
+              >
                 <option value="">Default</option>
                 {LANGUAGES.map((l) => (
                   <option key={l.value} value={l.value}>
@@ -284,7 +344,10 @@ export function PersonalSettingsSection() {
               </SettingsSelect>
             </Field>
             <Field label="Timezone">
-              <SettingsSelect value={str(value.timezone)} onChange={(e) => set('timezone', e.target.value)}>
+              <SettingsSelect
+                value={str(value.timezone)}
+                onChange={(e) => set('timezone', e.target.value)}
+              >
                 <option value="">Default</option>
                 {TIMEZONES.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -294,7 +357,10 @@ export function PersonalSettingsSection() {
               </SettingsSelect>
             </Field>
             <Field label="Date format">
-              <SettingsSelect value={str(value.dateFormat)} onChange={(e) => set('dateFormat', e.target.value)}>
+              <SettingsSelect
+                value={str(value.dateFormat)}
+                onChange={(e) => set('dateFormat', e.target.value)}
+              >
                 <option value="">Default</option>
                 {DATE_FORMATS.map((d) => (
                   <option key={d.value} value={d.value}>
@@ -304,7 +370,10 @@ export function PersonalSettingsSection() {
               </SettingsSelect>
             </Field>
             <Field label="Currency">
-              <SettingsSelect value={str(value.currency)} onChange={(e) => set('currency', e.target.value)}>
+              <SettingsSelect
+                value={str(value.currency)}
+                onChange={(e) => set('currency', e.target.value)}
+              >
                 <option value="">Default</option>
                 {CURRENCIES.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -318,17 +387,40 @@ export function PersonalSettingsSection() {
 
         <SettingsCard title="Notifications" description="Choose what you receive and how.">
           <div className="space-y-1">
-            <Toggle label="Email notifications" checked={bool(value.emailNotifications)} onChange={(checked) => set('emailNotifications', checked)} />
-            <Toggle label="SMS notifications" checked={bool(value.smsNotifications)} onChange={(checked) => set('smsNotifications', checked)} />
-            <Toggle label="Push notifications" checked={bool(value.pushNotifications)} onChange={(checked) => set('pushNotifications', checked)} />
-            <Toggle label="In-app notifications" checked={bool(value.inAppNotifications)} onChange={(checked) => set('inAppNotifications', checked)} />
-            <Toggle label="Marketing emails" checked={bool(value.marketingOptIn)} onChange={(checked) => set('marketingOptIn', checked)} />
+            <Toggle
+              label="Email notifications"
+              checked={bool(value.emailNotifications)}
+              onChange={(checked) => set('emailNotifications', checked)}
+            />
+            <Toggle
+              label="SMS notifications"
+              checked={bool(value.smsNotifications)}
+              onChange={(checked) => set('smsNotifications', checked)}
+            />
+            <Toggle
+              label="Push notifications"
+              checked={bool(value.pushNotifications)}
+              onChange={(checked) => set('pushNotifications', checked)}
+            />
+            <Toggle
+              label="In-app notifications"
+              checked={bool(value.inAppNotifications)}
+              onChange={(checked) => set('inAppNotifications', checked)}
+            />
+            <Toggle
+              label="Marketing emails"
+              checked={bool(value.marketingOptIn)}
+              onChange={(checked) => set('marketingOptIn', checked)}
+            />
           </div>
         </SettingsCard>
 
         <SettingsCard title="Privacy" description="Control who can see your profile.">
           <Field label="Profile visibility">
-            <SettingsSelect value={str(value.profileVisibility)} onChange={(e) => set('profileVisibility', e.target.value)}>
+            <SettingsSelect
+              value={str(value.profileVisibility)}
+              onChange={(e) => set('profileVisibility', e.target.value)}
+            >
               <option value="private">Private</option>
               <option value="school">School only</option>
               <option value="public">Public</option>

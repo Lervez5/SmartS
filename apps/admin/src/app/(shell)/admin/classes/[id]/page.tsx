@@ -108,10 +108,11 @@ export default function AdminClassDetailPage() {
   const activeStreams = cls?.streams.filter((s) => s.status === 'active') ?? [];
   const archivedStreams = cls?.streams.filter((s) => s.status === 'archived') ?? [];
   const totalStreams = cls?.streamCount ?? 0;
-  const totalAllocations = cls?.streams.reduce(
-    (sum, s) => sum + s.allocations.filter((a) => a.status === 'active').length,
-    0
-  ) ?? 0;
+  const totalAllocations =
+    cls?.streams.reduce(
+      (sum, s) => sum + s.allocations.filter((a) => a.status === 'active').length,
+      0
+    ) ?? 0;
 
   if (!allowed) {
     return (
@@ -176,12 +177,14 @@ export default function AdminClassDetailPage() {
         return (
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-foreground">
-              {main ? main.teacher.name ?? 'Unassigned' : 'Unassigned'}
+              {main ? (main.teacher.name ?? 'Unassigned') : 'Unassigned'}
             </span>
             <span className="text-xs text-muted-foreground">
-              {assistants.length > 0 && `${assistants.length} assistant${assistants.length === 1 ? '' : 's'}`}
+              {assistants.length > 0 &&
+                `${assistants.length} assistant${assistants.length === 1 ? '' : 's'}`}
               {assistants.length > 0 && subjects.length > 0 && ' · '}
-              {subjects.length > 0 && `${subjects.length} subject${subjects.length === 1 ? '' : 's'}`}
+              {subjects.length > 0 &&
+                `${subjects.length} subject${subjects.length === 1 ? '' : 's'}`}
             </span>
           </div>
         );
@@ -192,9 +195,7 @@ export default function AdminClassDetailPage() {
     {
       id: 'status',
       header: 'Status',
-      cell: (row) => (
-        <StatusPill label={row.status} tone={STATUS_TONE[row.status] ?? 'neutral'} />
-      ),
+      cell: (row) => <StatusPill label={row.status} tone={STATUS_TONE[row.status] ?? 'neutral'} />,
       sortValue: (row) => row.status,
     },
   ];
@@ -212,7 +213,9 @@ export default function AdminClassDetailPage() {
       notify.error(body?.error?.message ?? `Could not archive ${cls.name} (HTTP ${res.status}).`);
       return;
     }
-    const result = (await res.json().catch(() => null)) as { retained?: { learners?: number } } | null;
+    const result = (await res.json().catch(() => null)) as {
+      retained?: { learners?: number };
+    } | null;
     notify.success(`${cls.name} archived`, {
       description: result?.retained?.learners
         ? `Retained ${result.retained.learners} enrolment(s); the class is retired, not deleted.`
@@ -296,10 +299,7 @@ export default function AdminClassDetailPage() {
         />
       </div>
 
-      <SettingsCard
-        title="Class details"
-        description="The class record as held by the platform."
-      >
+      <SettingsCard title="Class details" description="The class record as held by the platform.">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <p className="text-xs font-medium text-muted-foreground">Class name</p>
@@ -319,21 +319,17 @@ export default function AdminClassDetailPage() {
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground">Class teacher</p>
-            <p className="text-sm text-foreground">
-              {cls.teacher?.name ?? 'Unassigned'}
-            </p>
+            <p className="text-sm text-foreground">{cls.teacher?.name ?? 'Unassigned'}</p>
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground">Assistants</p>
             <p className="text-sm text-foreground">
               {cls.assistants.length > 0
-                ? cls.assistants
-                    .map((a) => a.assistant.name ?? 'Unnamed')
-                    .join(', ')
+                ? cls.assistants.map((a) => a.assistant.name ?? 'Unnamed').join(', ')
                 : 'None'}
             </p>
           </div>
-           {cls.description && (
+          {cls.description && (
             <div className="md:col-span-2">
               <p className="text-xs font-medium text-muted-foreground">Description</p>
               <p className="text-sm text-foreground">{cls.description}</p>
@@ -381,7 +377,8 @@ export default function AdminClassDetailPage() {
                 >
                   Create Stream
                 </a>
-              ) : null}
+              ) : null
+            }
           />
         ) : (
           <DataTable

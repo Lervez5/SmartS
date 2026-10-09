@@ -160,11 +160,7 @@ function present(row: {
  * assistants and the learning-area teachers, grouped so an administrator can see
  * who covers a stream and what is still unstaffed.
  */
-export async function streamTeams(
-  schoolId: string,
-  academicYearId: string,
-  classId?: string
-) {
+export async function streamTeams(schoolId: string, academicYearId: string, classId?: string) {
   const classes = await prisma.class.findMany({
     where: { schoolId, ...(classId ? { id: classId } : {}) },
     select: {
@@ -415,8 +411,7 @@ export async function updateAllocation(
         ? {
             // The main teacher manages the stream whether or not this is set, so
             // the flag is only recorded for an assistant.
-            canManage:
-              existing.responsibility === 'main_class_teacher' ? true : input.canManage,
+            canManage: existing.responsibility === 'main_class_teacher' ? true : input.canManage,
           }
         : {}),
       ...(input.canEnterResults !== undefined ? { canEnterResults: input.canEnterResults } : {}),

@@ -216,7 +216,7 @@ export default function AdminAcademicSessionsPage() {
           </span>
           <span
             className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs text-foreground"
-            title="Learners who enrolled within this session"
+            title="Learners placed in this session, or on the school's books and not yet placed in any session"
           >
             {row.data.learnerCount} learners
           </span>

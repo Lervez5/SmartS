@@ -10,27 +10,46 @@ function rangeFrom(query: Record<string, unknown>, defaultDays = 30) {
   return { from, to };
 }
 
-export async function academicReport(query: Record<string, unknown>) {
+/**
+ * The academic report for one school.
+ *
+ * `schoolId` is required rather than optional: every aggregate here is
+ * groupBy/count over records that all hang off a school through their class or
+ * subject, and without the filter this would report every school's grades, marks
+ * and enrolments merged into one figure.
+ */
+export async function academicReport(schoolId: string, query: Record<string, unknown>) {
   const { from, to } = rangeFrom(query);
 
   const [gradesBySubject, submissions, examinations, enrollments] = await Promise.all([
     prisma.grade.groupBy({
       by: ['subjectId'],
-      where: { gradedAt: { gte: from, lte: to } },
+      where: { gradedAt: { gte: from, lte: to }, subject: { schoolId } },
       _avg: { value: true },
       _count: true,
     }),
     prisma.submission.groupBy({
       by: ['status'],
-      where: { createdAt: { gte: from, lte: to } },
+      where: {
+        createdAt: { gte: from, lte: to },
+        student: { schoolMemberships: { some: { schoolId } } },
+      },
       _count: true,
     }),
     prisma.examAttempt.aggregate({
-      where: { createdAt: { gte: from, lte: to } },
+      where: {
+        createdAt: { gte: from, lte: to },
+        examination: { class: { schoolId } },
+      },
       _avg: { score: true },
       _count: true,
     }),
-    prisma.enrollment.count({ where: { createdAt: { gte: from, lte: to } } }),
+    prisma.enrollment.count({
+      where: {
+        createdAt: { gte: from, lte: to },
+        class: { schoolId },
+      },
+    }),
   ]);
 
   const subjects = await prisma.subject.findMany({
@@ -38,6 +57,7 @@ export async function academicReport(query: Record<string, unknown>) {
       id: {
         in: gradesBySubject.map((g) => g.subjectId).filter(Boolean) as string[],
       },
+      schoolId,
     },
     select: { id: true, name: true },
   });

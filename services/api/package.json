@@ -16,7 +16,7 @@
     "prisma:generate": "node ../../scripts/prisma.mjs generate",
     "prisma:migrate": "node ../../scripts/prisma.mjs push",
     "test": "vitest run",
-    "seed": "tsx src/scripts/seed-admin.ts",
+    "seed": "tsx src/scripts/ensure-indexes.ts && tsx src/scripts/seed-admin.ts && tsx src/scripts/seed-school.ts",
     "db:indexes": "tsx src/scripts/ensure-indexes.ts",
     "test:auth": "RATE_LIMIT_SCALE=50 vitest run",
     "prisma:deploy": "prisma db push --accept-data-loss",

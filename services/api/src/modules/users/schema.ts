@@ -17,6 +17,7 @@ export const updateUserSchema = z.object({
   firstName: z.string().max(100).optional(),
   lastName: z.string().max(100).optional(),
   avatar: z.string().max(1024).optional(),
+  phone: z.string().max(32).optional(),
   status: z.enum(['pending', 'active', 'suspended', 'archived']).optional(),
 });
 

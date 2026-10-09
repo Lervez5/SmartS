@@ -6,7 +6,7 @@ import { AuthResult } from './types';
 import { LoginInput, RegisterInput, ForgotPasswordInput, ResetPasswordInput } from './schema';
 import { signTokens } from '../../middleware/auth';
 import { normalizeRole, ROLE_APP } from '@schoolos/auth/roles';
-import type { Permission } from '@schoolos/auth/permissions';
+import { permissionsForRole, type Permission } from '@schoolos/auth/permissions';
 
 interface RoleWithPermissions {
   name: string;
@@ -37,7 +37,12 @@ export async function loginService(payload: LoginInput): Promise<AuthResult> {
 
   const role = user.roleMemberships[0]?.role as RoleWithPermissions | undefined;
   const canonicalRole = normalizeRole(role?.name) ?? 'STUDENT';
-  const permissions = (role?.rolePermissions ?? []).map((rp) => rp.permission.key) as Permission[];
+  // Prefer persisted grants; fall back to the code-defined catalogue when the
+  // database has not been seeded, so a fresh install is still role-aware.
+  const dbPermissions = (role?.rolePermissions ?? []).map(
+    (rp) => rp.permission.key
+  ) as Permission[];
+  const permissions = dbPermissions.length > 0 ? dbPermissions : permissionsForRole(canonicalRole);
 
   const authUser = {
     id: user.id,
@@ -75,6 +80,9 @@ export async function registerService(payload: RegisterInput): Promise<AuthResul
 
   const role = user.roleMemberships[0]?.role as RoleWithPermissions | undefined;
   const canonicalRole = normalizeRole(role?.name) ?? 'STUDENT';
+  const dbPermissions = (role?.rolePermissions ?? []).map(
+    (rp) => rp.permission.key
+  ) as Permission[];
 
   const authUser = {
     id: user.id,
@@ -85,7 +93,7 @@ export async function registerService(payload: RegisterInput): Promise<AuthResul
     lastName: user.lastName || undefined,
     avatar: user.avatar || undefined,
     phone: user.phone || undefined,
-    permissions: (role?.rolePermissions ?? []).map((rp) => rp.permission.key) as Permission[],
+    permissions: dbPermissions.length > 0 ? dbPermissions : permissionsForRole(canonicalRole),
     appId: ROLE_APP[canonicalRole],
     sessionTokenVersion: user.sessionTokenVersion ?? 0,
   };

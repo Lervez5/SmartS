@@ -12,7 +12,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { settingsHrefFor, useAuth, useLogout, type AppId, type UserRole } from '@schoolos/auth';
+import { useAuth, useLogout, type AppId, type UserRole } from '@schoolos/auth';
 import { AppShell } from './AppShell';
 import { BrandLoader } from './BrandLoader';
 import { ErrorState, LoadingState } from './block';
@@ -205,7 +205,6 @@ export function PortalLayout({
         role: user.role,
       }}
       portalName={portalName}
-      settingsHref={settingsHrefFor(app, permissions, user.role as UserRole)}
       logoUrl={logoUrl ?? branding?.logoUrl ?? null}
       schoolName={
         schoolName ??

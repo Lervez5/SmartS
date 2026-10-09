@@ -165,9 +165,8 @@ export default function AdminTeacherAllocationPage() {
   const [formClassId, setFormClassId] = React.useState('');
   const [formStreamId, setFormStreamId] = React.useState('');
   const [formTeacherId, setFormTeacherId] = React.useState('');
-  const [formResponsibility, setFormResponsibility] = React.useState<Responsibility>(
-    'main_class_teacher'
-  );
+  const [formResponsibility, setFormResponsibility] =
+    React.useState<Responsibility>('main_class_teacher');
   const [formSubjectId, setFormSubjectId] = React.useState('');
   const [formCanManage, setFormCanManage] = React.useState(true);
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -324,9 +323,7 @@ export default function AdminTeacherAllocationPage() {
       header: 'Teacher',
       cell: (row) => (
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">
-            {personName(row.teacher)}
-          </p>
+          <p className="truncate text-sm font-medium text-foreground">{personName(row.teacher)}</p>
           <p className="truncate text-xs text-muted-foreground">{row.teacher.email}</p>
         </div>
       ),
@@ -364,8 +361,8 @@ export default function AdminTeacherAllocationPage() {
             {row.stream.class.name} · {row.stream.code}
           </p>
           <p className="truncate text-xs text-muted-foreground">
-            {row.stream.class.gradeLevel ?? 'Grade not set'} · {row.academicSession.label ??
-              row.academicSession.name}
+            {row.stream.class.gradeLevel ?? 'Grade not set'} ·{' '}
+            {row.academicSession.label ?? row.academicSession.name}
           </p>
         </div>
       ),
@@ -473,20 +470,14 @@ export default function AdminTeacherAllocationPage() {
             </select>
           </Field>
 
-          <Field
-            label="Stream"
-            required
-            hint="Each stream carries its own teaching team"
-          >
+          <Field label="Stream" required hint="Each stream carries its own teaching team">
             <select
               value={formStreamId}
               onChange={(event) => setFormStreamId(event.target.value)}
               disabled={!formClassId}
               className={selectClass}
             >
-              <option value="">
-                {formClassId ? 'Choose a stream…' : 'Choose a class first'}
-              </option>
+              <option value="">{formClassId ? 'Choose a stream…' : 'Choose a class first'}</option>
               {streamsInFormClass.map((stream) => (
                 <option key={stream.id} value={stream.id}>
                   {stream.code} - {stream.name}
@@ -513,9 +504,7 @@ export default function AdminTeacherAllocationPage() {
           <Field label="Responsibility" required>
             <select
               value={formResponsibility}
-              onChange={(event) =>
-                setFormResponsibility(event.target.value as Responsibility)
-              }
+              onChange={(event) => setFormResponsibility(event.target.value as Responsibility)}
               className={selectClass}
             >
               <option value="main_class_teacher">Main class teacher</option>
@@ -542,10 +531,7 @@ export default function AdminTeacherAllocationPage() {
           ) : null}
 
           {formResponsibility === 'assistant_class_teacher' ? (
-            <Field
-              label="Assistant rights"
-              hint="Management covers attendance and communication"
-            >
+            <Field label="Assistant rights" hint="Management covers attendance and communication">
               <select
                 value={formCanManage ? 'manage' : 'view'}
                 onChange={(event) => setFormCanManage(event.target.value === 'manage')}

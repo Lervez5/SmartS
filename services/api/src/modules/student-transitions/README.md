@@ -3,7 +3,7 @@
 Status: **migrated**
 
 The academic lifecycle of a learner: enrollments, class placements, exits, and
-restores — all as a single timeline against one identity.
+restores - all as a single timeline against one identity.
 
 Domain endpoints for this module are mounted at `/api/student-transitions` by the
 central router. Business logic lives in this module only (controllers, services,
@@ -25,16 +25,16 @@ directly.
 
 ## Permissions
 
-- `students.view` — list, detail, and options
-- `students.manage` — record exit, update, restore
+- `students.view` - list, detail, and options
+- `students.manage` - record exit, update, restore
 
 ## Schema Changes
 
 The `Enrollment` model gains two fields so each class placement can be
 attributed to the session it happened in:
 
-- `startDate` — when the learner joined the class (distinct from `createdAt`)
-- `academicYearId` — foreign key to `AcademicYear`
+- `startDate` - when the learner joined the class (distinct from `createdAt`)
+- `academicYearId` - foreign key to `AcademicYear`
 
 ## Notes
 

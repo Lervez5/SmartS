@@ -6,9 +6,7 @@ export const listStaffSchema = z.object({
   accountStatus: z.nativeEnum(UserStatus).optional(),
   role: z.string().optional(),
   search: z.string().optional(),
-  sort: z
-    .enum(['name_asc', 'name_desc', 'newest', 'oldest', 'hired_asc', 'hired_desc'])
-    .optional(),
+  sort: z.enum(['name_asc', 'name_desc', 'newest', 'oldest', 'hired_asc', 'hired_desc']).optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
   include: z.string().optional(),
 });

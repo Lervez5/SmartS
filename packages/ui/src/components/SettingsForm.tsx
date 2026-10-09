@@ -59,7 +59,9 @@ export const TextInput = React.forwardRef<HTMLInputElement, TextInputProps>(func
         'h-10.5 w-full rounded-xl border bg-background/80 px-3.5 text-sm font-medium text-foreground transition-all duration-200',
         'placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/15',
         'disabled:pointer-events-none disabled:opacity-60',
-        error ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/15' : 'border-input/80 hover:border-primary/40',
+        error
+          ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/15'
+          : 'border-input/80 hover:border-primary/40',
         className
       )}
       {...props}
@@ -83,7 +85,9 @@ export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(fun
         'w-full rounded-xl border bg-background/80 px-3.5 py-2.5 text-sm font-medium text-foreground transition-all duration-200',
         'placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/15',
         'disabled:pointer-events-none disabled:opacity-60',
-        error ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/15' : 'border-input/80 hover:border-primary/40',
+        error
+          ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/15'
+          : 'border-input/80 hover:border-primary/40',
         className
       )}
       {...props}
@@ -210,7 +214,12 @@ export function SettingsCard({
   className,
 }: SettingsCardProps) {
   return (
-    <section className={cn('rounded-2xl border border-border/70 bg-card/90 p-6 shadow-sm hover:shadow-md transition-all duration-200', className)}>
+    <section
+      className={cn(
+        'rounded-2xl border border-border/70 bg-card/90 p-6 shadow-sm hover:shadow-md transition-all duration-200',
+        className
+      )}
+    >
       <header className="mb-5 flex items-start gap-3.5">
         {Icon ? (
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/15 to-emerald-700/10 text-emerald-700 dark:text-emerald-400 font-semibold shadow-xs">

@@ -278,9 +278,7 @@ export const notificationSettingsSchema = z
     smsProvider: z.string().trim().max(64).optional().or(z.literal('')),
     emailProvider: z.string().trim().max(64).optional().or(z.literal('')),
 
-    eventMatrix: z
-      .record(z.string(), z.array(z.enum(['email', 'sms', 'push', 'in_app'])))
-      .optional(),
+    eventMatrix: z.string().optional().or(z.literal('')),
 
     quietHoursEnabled: z.boolean(),
     quietHoursStart: z

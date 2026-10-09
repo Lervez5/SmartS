@@ -6,9 +6,11 @@ import {
   platformAnalytics,
   triggerExport,
 } from './service';
+import { schoolScopeOf } from '../settings/scope';
 
 export async function academicReportController(req: Request, res: Response): Promise<void> {
-  res.json(await academicReport(req.query as Record<string, unknown>));
+  const { schoolId } = schoolScopeOf(req);
+  res.json(await academicReport(schoolId, req.query as Record<string, unknown>));
 }
 
 export async function attendanceReportController(req: Request, res: Response): Promise<void> {

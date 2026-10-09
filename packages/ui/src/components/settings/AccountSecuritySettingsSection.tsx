@@ -32,7 +32,9 @@ export function AccountSecuritySettingsSection() {
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        const body = (await res.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
         const message = body?.error?.message ?? `Update failed (HTTP ${res.status}).`;
         setError(message);
         notify.error(message);
@@ -60,7 +62,9 @@ export function AccountSecuritySettingsSection() {
         credentials: 'include',
       });
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        const body = (await res.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
         const message = body?.error?.message ?? `Request failed (HTTP ${res.status}).`;
         notify.error(message);
         return;
@@ -75,16 +79,34 @@ export function AccountSecuritySettingsSection() {
 
   return (
     <div className="space-y-6">
-      <SettingsCard title="Password" description="Change your password. You will need your current password to continue.">
+      <SettingsCard
+        title="Password"
+        description="Change your password. You will need your current password to continue."
+      >
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <Field label="Current password">
-            <TextInput type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" />
+            <TextInput
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+            />
           </Field>
           <Field label="New password" hint="At least 8 characters">
-            <TextInput type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" />
+            <TextInput
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+            />
           </Field>
           <Field label="Confirm new password">
-            <TextInput type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" />
+            <TextInput
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+            />
           </Field>
         </div>
 
@@ -101,15 +123,22 @@ export function AccountSecuritySettingsSection() {
         </div>
 
         {error ? (
-          <div role="alert" className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <div
+            role="alert"
+            className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+          >
             {error}
           </div>
         ) : null}
       </SettingsCard>
 
-      <SettingsCard title="Sessions" description="Manage your active sessions and signed-in devices.">
+      <SettingsCard
+        title="Sessions"
+        description="Manage your active sessions and signed-in devices."
+      >
         <p className="text-sm text-muted-foreground">
-          Revoke all sessions to sign out every device except the current browser. You will stay signed in here.
+          Revoke all sessions to sign out every device except the current browser. You will stay
+          signed in here.
         </p>
         <div className="mt-4">
           <button

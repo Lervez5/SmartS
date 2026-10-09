@@ -152,9 +152,7 @@ export default function AdminEditClassPage() {
         const body = (await res.json().catch(() => null)) as {
           error?: { message?: string };
         } | null;
-        notify.error(
-          body?.error?.message ?? `Could not archive ${cls.name} (HTTP ${res.status}).`
-        );
+        notify.error(body?.error?.message ?? `Could not archive ${cls.name} (HTTP ${res.status}).`);
         return;
       }
       notify.success(`${cls.name} archived`, {
@@ -214,11 +212,18 @@ export default function AdminEditClassPage() {
         description={
           <>
             {cls.gradeLevel ? `Grade ${cls.gradeLevel}` : 'Class detail'} · Status:{' '}
-            <StatusPill label={cls.status} tone={cls.status === 'active' ? 'success' : cls.status === 'inactive' ? 'warning' : 'neutral'} />
+            <StatusPill
+              label={cls.status}
+              tone={
+                cls.status === 'active'
+                  ? 'success'
+                  : cls.status === 'inactive'
+                    ? 'warning'
+                    : 'neutral'
+              }
+            />
             {ready && session && cls.academicYearId ? (
-              <span className="ml-2 text-sm text-muted-foreground">
-                Session: {session.label}
-              </span>
+              <span className="ml-2 text-sm text-muted-foreground">Session: {session.label}</span>
             ) : null}
           </>
         }
@@ -360,7 +365,16 @@ export default function AdminEditClassPage() {
                     <td className="py-2.5 text-muted-foreground">{stream.code}</td>
                     <td className="py-2.5">{stream.learnerCount}</td>
                     <td className="py-2.5">
-                      <StatusPill label={stream.status} tone={stream.status === 'active' ? 'success' : stream.status === 'inactive' ? 'warning' : 'neutral'} />
+                      <StatusPill
+                        label={stream.status}
+                        tone={
+                          stream.status === 'active'
+                            ? 'success'
+                            : stream.status === 'inactive'
+                              ? 'warning'
+                              : 'neutral'
+                        }
+                      />
                     </td>
                     <td className="py-2.5 text-right">
                       <a

@@ -40,12 +40,7 @@ export function Navbar({
     >
       {/* Brand mark */}
       <Link href={brandHref} className="flex items-center gap-3 group">
-        <BrandMark
-          logoUrl={logoUrl}
-          schoolName={schoolName}
-          portalName={portalLabel}
-          size="md"
-        />
+        <BrandMark logoUrl={logoUrl} schoolName={schoolName} portalName={portalLabel} size="md" />
       </Link>
 
       {/* Centre - search (optional) */}
@@ -78,9 +73,7 @@ export function Navbar({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-3 shrink-0">
-        {navbarActions}
-      </div>
+      <div className="flex items-center gap-3 shrink-0">{navbarActions}</div>
     </header>
   );
 }

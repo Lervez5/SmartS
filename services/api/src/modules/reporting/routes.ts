@@ -16,6 +16,11 @@ const requireAcademicReport = requirePermissions('reports.academic');
 const requireAttendanceReport = requirePermissions('reports.attendance');
 const requireFinanceReport = requirePermissions('reports.finance');
 
+// School data, so every report below is scoped to the caller's own school.
+// Without it, an academic report would aggregate grades, marks and enrolments
+// across every school in the database and call the result "your" school's.
+router.use(requireSchoolScope());
+
 router.get('/academic', requireAcademicReport, (req, res, next) => {
   academicReportController(req, res).catch(next);
 });

@@ -136,9 +136,9 @@ export default function AdminStaffAssignmentsPage() {
   const [sessionId, setSessionId] = React.useState('');
   const [classId, setClassId] = React.useState('');
   const [streamId, setStreamId] = React.useState('');
-  const [responsibility, setResponsibility] = React.useState<'main_class_teacher' | 'assistant_class_teacher' | 'subject_teacher'>(
-    'main_class_teacher'
-  );
+  const [responsibility, setResponsibility] = React.useState<
+    'main_class_teacher' | 'assistant_class_teacher' | 'subject_teacher'
+  >('main_class_teacher');
   const [subjectId, setSubjectId] = React.useState('');
   const [canManage, setCanManage] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
@@ -174,9 +174,15 @@ export default function AdminStaffAssignmentsPage() {
     [assignments]
   );
 
-  const mainTeacherCount = activeAssignments.filter((a) => a.responsibility === 'main_class_teacher').length;
-  const assistantTeacherCount = activeAssignments.filter((a) => a.responsibility === 'assistant_class_teacher').length;
-  const subjectTeacherCount = activeAssignments.filter((a) => a.responsibility === 'subject_teacher').length;
+  const mainTeacherCount = activeAssignments.filter(
+    (a) => a.responsibility === 'main_class_teacher'
+  ).length;
+  const assistantTeacherCount = activeAssignments.filter(
+    (a) => a.responsibility === 'assistant_class_teacher'
+  ).length;
+  const subjectTeacherCount = activeAssignments.filter(
+    (a) => a.responsibility === 'subject_teacher'
+  ).length;
 
   async function createAllocation() {
     if (!teacher || !sessionId || !streamId) {
@@ -208,7 +214,9 @@ export default function AdminStaffAssignmentsPage() {
       });
 
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        const body = (await res.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
         setFormError(body?.error?.message ?? `The API refused the change (HTTP ${res.status}).`);
         return;
       }
@@ -238,7 +246,9 @@ export default function AdminStaffAssignmentsPage() {
       });
 
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        const body = (await res.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
         notify.error(body?.error?.message ?? `The API refused the change (HTTP ${res.status}).`);
         return;
       }
@@ -323,9 +333,7 @@ export default function AdminStaffAssignmentsPage() {
               {row.canManage ? 'Can manage stream' : 'View only'}
             </span>
           )}
-          {row.subject && (
-            <span className="text-xs text-muted-foreground">{row.subject.name}</span>
-          )}
+          {row.subject && <span className="text-xs text-muted-foreground">{row.subject.name}</span>}
         </div>
       ),
       sortValue: (row) => row.responsibility,
@@ -345,10 +353,7 @@ export default function AdminStaffAssignmentsPage() {
       id: 'status',
       header: 'Status',
       cell: (row) => (
-        <StatusPill
-          label={row.status}
-          tone={row.status === 'active' ? 'success' : 'neutral'}
-        />
+        <StatusPill label={row.status} tone={row.status === 'active' ? 'success' : 'neutral'} />
       ),
       sortValue: (row) => row.status,
     },
@@ -380,10 +385,34 @@ export default function AdminStaffAssignmentsPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <DashboardCard title="Main teacher" value={mainTeacherCount} icon="user-round-check" tone="success" description="Active streams led" />
-        <DashboardCard title="Assistant teacher" value={assistantTeacherCount} icon="user-round" tone="accent" description="Active streams supported" />
-        <DashboardCard title="Subject teacher" value={subjectTeacherCount} icon="book-open" tone="default" description="Active learning areas" />
-        <DashboardCard title="Total active" value={activeAssignments.length} icon="graduation-cap" tone="accent" description="Across all sessions" />
+        <DashboardCard
+          title="Main teacher"
+          value={mainTeacherCount}
+          icon="user-round-check"
+          tone="success"
+          description="Active streams led"
+        />
+        <DashboardCard
+          title="Assistant teacher"
+          value={assistantTeacherCount}
+          icon="user-round"
+          tone="accent"
+          description="Active streams supported"
+        />
+        <DashboardCard
+          title="Subject teacher"
+          value={subjectTeacherCount}
+          icon="book-open"
+          tone="default"
+          description="Active learning areas"
+        />
+        <DashboardCard
+          title="Total active"
+          value={activeAssignments.length}
+          icon="graduation-cap"
+          tone="accent"
+          description="Across all sessions"
+        />
       </div>
 
       {canCreate && (
@@ -393,7 +422,9 @@ export default function AdminStaffAssignmentsPage() {
         >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Academic session</label>
+              <label className="mb-1 block text-sm font-medium text-foreground">
+                Academic session
+              </label>
               <select
                 value={sessionId}
                 onChange={(e) => setSessionId(e.target.value)}
@@ -409,7 +440,9 @@ export default function AdminStaffAssignmentsPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Grade / Class</label>
+              <label className="mb-1 block text-sm font-medium text-foreground">
+                Grade / Class
+              </label>
               <select
                 value={classId}
                 onChange={(e) => {
@@ -445,7 +478,9 @@ export default function AdminStaffAssignmentsPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">Responsibility</label>
+              <label className="mb-1 block text-sm font-medium text-foreground">
+                Responsibility
+              </label>
               <select
                 value={responsibility}
                 onChange={(e) => setResponsibility(e.target.value as typeof responsibility)}
@@ -459,7 +494,9 @@ export default function AdminStaffAssignmentsPage() {
 
             {subjectRequired && (
               <div>
-                <label className="mb-1 block text-sm font-medium text-foreground">Learning area / Subject</label>
+                <label className="mb-1 block text-sm font-medium text-foreground">
+                  Learning area / Subject
+                </label>
                 <select
                   value={subjectId}
                   onChange={(e) => setSubjectId(e.target.value)}
