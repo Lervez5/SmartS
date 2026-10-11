@@ -24,6 +24,16 @@
  * Hierarchy (strict), enforced against the caller's school:
  *   School → AcademicSession → Class/Grade → Stream
  *
+ * A class with few learners may have no streams at all, and a placement in it is
+ * still complete: `classId` is what a placement is against, and `streamId` is
+ * only set when the import names one. Nothing downstream of a placement may
+ * assume a stream exists.
+ *
+ * Placement notifies the learner's guardians once the placement has committed.
+ * That trigger lives outside the transaction - see `notifySafely` - so a gateway
+ * outage or a rejected number cannot undo a valid enrollment, and a retried
+ * enrollment lands on the same notification rows rather than sending twice.
+ *
  * Permissions:
  *   admissions.view   - read applications and placements
  *   admissions.manage - take, review, withdraw and place applications
@@ -48,6 +58,8 @@ import { requirePermissions } from '../../middleware/rbac';
 import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
 import { asyncHandler } from '../../shared/asyncHandler';
 import { ApiError } from '../../shared/logger';
+import { recordAuditLog } from '../audit-logs/service';
+import { notifyGuardiansOfEnrollment } from './notifications';
 
 export const router: Router = Router();
 
@@ -334,9 +346,12 @@ async function onboardEntry(
 ): Promise<{
   status: EnrollmentEntryStatus;
   userId: string | null;
+  /** The placement this row produced, for the notification trigger. */
+  enrollmentId: string | null;
   error: string | null;
 }> {
   const email = entry.email.trim().toLowerCase();
+  let createdEnrollmentId: string | null = null;
 
   // 1. Email is the identity key. An account that already exists is the same
   //    person, and creating a second one would split their attendance, results
@@ -349,6 +364,7 @@ async function onboardEntry(
     return {
       status: EnrollmentEntryStatus.duplicate,
       userId: existingUser.id,
+      enrollmentId: null,
       error: membership
         ? null
         : 'That email belongs to an account in another school. Grant access from the other school.',
@@ -451,7 +467,10 @@ async function onboardEntry(
       select: { id: true },
     });
     if (!placed) {
-      await tx.enrollment.create({
+      // The id is returned so the caller can notify the guardians after the
+      // transaction commits - the notification needs the placement to be durable
+      // before it refers to it.
+      const placement = await tx.enrollment.create({
         data: {
           studentId: user.id,
           classId: targetClass.id,
@@ -459,7 +478,11 @@ async function onboardEntry(
           academicYearId,
           startDate: new Date(),
         },
+        select: { id: true },
       });
+      createdEnrollmentId = placement.id;
+    } else {
+      createdEnrollmentId = placed.id;
     }
 
     // The grade level the import states and the one the class carries are the
@@ -494,7 +517,39 @@ async function onboardEntry(
     }
   }
 
-  return { status: EnrollmentEntryStatus.enrolled, userId: user.id, error: null };
+  return {
+    status: EnrollmentEntryStatus.enrolled,
+    userId: user.id,
+    enrollmentId: createdEnrollmentId,
+    error: null,
+  };
+}
+
+/**
+ * Notifies the guardians of one enrollment, and never lets that fail the
+ * enrollment.
+ *
+ * The placement is already committed by the time this runs, so it cannot affect
+ * the enrollment - what this guards against is a messaging problem masquerading
+ * as an enrollment problem. A gateway outage, a bounced email or a rejected
+ * number is recorded on the notification row and surfaced to staff; the learner
+ * stays enrolled either way.
+ */
+async function notifySafely(input: {
+  enrollmentId: string;
+  schoolId: string;
+  actorId: string | null;
+}): Promise<void> {
+  try {
+    await notifyGuardiansOfEnrollment(input);
+  } catch (err) {
+    // Logged, not rethrown. The enrollment succeeded; the notification did not,
+    // and the operator needs to know that without the request failing.
+    console.error('Enrollment notification failed', {
+      enrollmentId: input.enrollmentId,
+      reason: err instanceof Error ? err.message : 'unknown',
+    });
+  }
 }
 
 /** Counts a batch from its rows, so the stored counters cannot drift. */
@@ -1034,6 +1089,16 @@ router.post(
       return { enrollment, application: updated };
     });
 
+    // The placement is committed. Notifying now - rather than inside the
+    // transaction - means a messaging failure cannot roll back a valid
+    // enrollment, and a retried confirm lands on the same notification rows
+    // instead of sending the guardian a second message.
+    await notifySafely({
+      enrollmentId: result.enrollment.id,
+      schoolId,
+      actorId: req.user?.id ?? null,
+    });
+
     res.status(201).json({
       placement: mapPlacement(result.enrollment),
       application: mapApplication(result.application),
@@ -1219,6 +1284,22 @@ router.post(
         row.status = outcome.status;
         row.userId = outcome.userId;
         row.error = outcome.error;
+
+        // Notification happens here, after the transaction has committed. The
+        // placement is durable before the first message is attempted, so a
+        // gateway outage or a rejected number cannot undo the enrollment, and a
+        // retried batch lands on the same notification rows rather than sending
+        // twice.
+        // A row that produced a placement notifies; a duplicate or a staff or
+        // guardian row produced none, and there is nothing to tell a parent
+        // about a teacher's onboarding.
+        if (outcome.status === EnrollmentEntryStatus.enrolled && outcome.enrollmentId) {
+          await notifySafely({
+            enrollmentId: outcome.enrollmentId,
+            schoolId,
+            actorId: req.user?.id ?? null,
+          });
+        }
       } catch (err) {
         row.status = EnrollmentEntryStatus.failed;
         row.error = err instanceof Error ? err.message : 'Could not onboard this person.';

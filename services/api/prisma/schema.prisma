@@ -259,20 +259,21 @@ model User {
 }
 
 model StudentProfile {
-  id                   String                @id @default(auto()) @map("_id") @db.ObjectId
-  user                 User                  @relation(fields: [userId], references: [id])
-  userId               String                @unique @db.ObjectId
-  admissionId          String?               @db.ObjectId
+  id                   String                   @id @default(auto()) @map("_id") @db.ObjectId
+  user                 User                     @relation(fields: [userId], references: [id])
+  userId               String                   @unique @db.ObjectId
+  admissionId          String?                  @db.ObjectId
   dateOfBirth          DateTime?
   gender               Gender?
   gradeLevel           String?
   enrollmentDate       DateTime?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
   parentLinks          ParentChildLink[]
   admissionApplication AdmissionApplication?
   exits                LearnerExit[]
   smsRecipients        SmsRecipient[]
+  notifications        EnrollmentNotification[]
 }
 
 model StaffProfile {
@@ -289,14 +290,15 @@ model StaffProfile {
 }
 
 model ParentProfile {
-  id            String            @id @default(auto()) @map("_id") @db.ObjectId
-  user          User              @relation(fields: [userId], references: [id])
-  userId        String            @unique @db.ObjectId
+  id            String                   @id @default(auto()) @map("_id") @db.ObjectId
+  user          User                     @relation(fields: [userId], references: [id])
+  userId        String                   @unique @db.ObjectId
   children      ParentChildLink[]
   smsRecipients SmsRecipient[]
   smsOptOut     SmsOptOut?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  notifications EnrollmentNotification[]
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
 }
 
 model ParentChildLink {
@@ -973,6 +975,8 @@ model Enrollment {
   /// can attribute each class placement to the session the learner joined it in.
   academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id])
   academicYearId String?       @db.ObjectId
+
+  notifications EnrollmentNotification[]
 
   @@unique([studentId, classId])
   @@index([academicYearId])
@@ -1754,27 +1758,28 @@ model School {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  memberships          SchoolMembership[]
-  generalSettings      SchoolGeneralSettings?
-  brandingSettings     SchoolBrandingSettings?
-  academicSettings     SchoolAcademicSettings?
-  financeSettings      SchoolFinanceSettings?
-  subscriptionSettings SchoolSubscriptionSettings?
-  notificationSettings SchoolNotificationSettings?
-  securitySettings     SchoolSecuritySettings?
-  glowSettings         SchoolGlowSettings?
-  competencyBands      CompetencyBand[]
-  racefieldScales      RacefieldScale[]
-  academicYears        AcademicYear[]
-  classes              Class[]
-  subjects             Subject[]
-  streamAllocations    StreamAllocation[]
-  enrollmentBatches    EnrollmentBatch[]
-  courses              Course[]
-  auditLogs            AuditLog[]
-  smsCampaigns         SmsCampaign[]
-  smsOptOuts           SmsOptOut[]
-  smsAutomationRules   SmsAutomationRule[]
+  memberships             SchoolMembership[]
+  generalSettings         SchoolGeneralSettings?
+  brandingSettings        SchoolBrandingSettings?
+  academicSettings        SchoolAcademicSettings?
+  financeSettings         SchoolFinanceSettings?
+  subscriptionSettings    SchoolSubscriptionSettings?
+  notificationSettings    SchoolNotificationSettings?
+  securitySettings        SchoolSecuritySettings?
+  glowSettings            SchoolGlowSettings?
+  competencyBands         CompetencyBand[]
+  racefieldScales         RacefieldScale[]
+  academicYears           AcademicYear[]
+  classes                 Class[]
+  subjects                Subject[]
+  streamAllocations       StreamAllocation[]
+  enrollmentBatches       EnrollmentBatch[]
+  courses                 Course[]
+  auditLogs               AuditLog[]
+  smsCampaigns            SmsCampaign[]
+  smsOptOuts              SmsOptOut[]
+  smsAutomationRules      SmsAutomationRule[]
+  enrollmentNotifications EnrollmentNotification[]
 
   @@index([status])
 }
@@ -2276,4 +2281,118 @@ model SmsAutomationRule {
   updatedAt DateTime @updatedAt
 
   @@index([schoolId, enabled])
+}
+
+// ====================================================================
+// ENROLLMENT NOTIFICATIONS
+// ====================================================================
+
+/// Why a message exists, which decides how it is worded and whether it is
+/// essential. Enrollment and activation messages are essential and are sent even
+/// to a parent who has opted out of other school messaging, because they carry
+/// information the family needs to act on rather than a promotion.
+enum NotificationType {
+  enrollment_confirmation
+  account_activation
+  enrollment_and_activation
+}
+
+/// Which transport carried an enrollment message.
+///
+/// Distinct from `NotificationChannel`, which is the in-app notification
+/// channel: these two are different things and sharing one enum would let an
+/// enrollment SMS be recorded as `in_app`, which no gateway can deliver.
+enum EnrollmentChannel {
+  sms
+  email
+}
+
+/// Lifecycle of a single outbound message.
+///
+/// `provider_accepted` is deliberately distinct from `delivered`: the former is
+/// the gateway acknowledging it received the request, and only a provider
+/// delivery report may set the latter. `awaiting_contact` is its own state
+/// because a guardian with no usable number or address is not a failure - the
+/// message was never attempted - and it needs to be visible to staff as an
+/// actionable task rather than counted as an error.
+enum NotificationStatus {
+  pending
+  queued
+  provider_accepted
+  delivered
+  failed
+  awaiting_contact
+  awaiting_retry
+  cancelled
+}
+
+/// One message to one guardian about one enrollment.
+///
+/// Keyed by an idempotency key derived from the enrollment, the guardian and the
+/// channel, so a retried enrollment, a re-fired event, a worker retry or a
+/// double-clicked confirm all resolve to the same row instead of producing a
+/// second message. `attemptCount` and the timestamps are the operational record:
+/// how many times this was tried, when, and what the provider last said.
+model EnrollmentNotification {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId String @db.ObjectId
+
+  /// The enrollment this message is about. Required - a notification that is not
+  /// about a real placement is noise.
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  enrollmentId String     @db.ObjectId
+
+  /// The learner being enrolled, so a guardian with several children produces
+  /// one message per enrollment rather than one ambiguous summary.
+  student   StudentProfile? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId String?         @db.ObjectId
+
+  /// The guardian being contacted, resolved from ParentChildLink. Never a bare
+  /// phone number: a recipient who cannot be identified cannot be deduplicated
+  /// or suppressed.
+  parent   ParentProfile? @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  parentId String?        @db.ObjectId
+
+  type    NotificationType
+  channel EnrollmentChannel
+  status  NotificationStatus @default(pending)
+
+  /// Where the message went, as normalised by the sending side. Masked in every
+  /// API response; the full value is never returned.
+  destination String?
+
+  subject String?
+  /// The rendered body, stored so a retry does not depend on the template
+  /// still matching what was first attempted, and so staff can see what was
+  /// actually sent.
+  body    String
+
+  /// Provider's own identifier for the message, when it returns one.
+  providerMessageId String?
+  /// Provider's rejection or failure reason.
+  providerError     String?
+
+  /// Deduplicates a re-fired trigger. Unique, so the database is the last line
+  /// of defence against a duplicate send.
+  idempotencyKey String @unique
+
+  attemptCount  Int       @default(0)
+  lastAttemptAt DateTime?
+  queuedAt      DateTime?
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+
+  /// Set when this row is the activation instruction for the guardian, so an
+  /// activation link is never sent twice for the same invitation.
+  invitationId String? @db.ObjectId
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enrollmentId])
+  @@index([schoolId, createdAt])
+  @@index([schoolId, status])
+  @@index([parentId])
+  @@index([status, queuedAt])
 }
