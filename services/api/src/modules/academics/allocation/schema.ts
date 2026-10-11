@@ -14,7 +14,9 @@ export const listQuerySchema = z.object({
   streamId: z.string().optional(),
   teacherId: z.string().optional(),
   subjectId: z.string().optional(),
-  responsibility: z.enum(['main_class_teacher', 'assistant_class_teacher', 'subject_teacher']).optional(),
+  responsibility: z
+    .enum(['main_class_teacher', 'assistant_class_teacher', 'subject_teacher'])
+    .optional(),
   status: z.enum(['active', 'inactive']).optional(),
   search: z.string().trim().optional(),
   includeEnded: z.coerce.boolean().optional(),

@@ -61,7 +61,14 @@ async function channelsFor(req: Request, event: EventKey): Promise<NotificationC
     record?.inAppEnabled === false ? null : 'in_app',
   ].filter(Boolean) as NotificationChannel[];
 
-  const matrix = (record?.eventMatrix ?? {}) as Record<string, string[]>;
+  let matrix: Record<string, string[]> = {};
+  if (record?.eventMatrix) {
+    try {
+      matrix = JSON.parse(record.eventMatrix) as Record<string, string[]>;
+    } catch {
+      matrix = {};
+    }
+  }
   const allowed = (matrix[event] ?? []).map((c) => c as NotificationChannel);
 
   const resolved = allowed.length

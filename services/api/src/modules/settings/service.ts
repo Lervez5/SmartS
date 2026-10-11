@@ -71,7 +71,9 @@ export const DEFAULTS: Record<SettingsArea, Record<string, unknown>> = {
     pushEnabled: false,
     inAppEnabled: true,
     quietHoursEnabled: false,
-    eventMatrix: Object.fromEntries(NOTIFICATION_EVENTS.map((event) => [event, ['in_app']])),
+    eventMatrix: JSON.stringify(
+      Object.fromEntries(NOTIFICATION_EVENTS.map((event) => [event, ['in_app']]))
+    ),
   },
   glow: {
     enabled: false,

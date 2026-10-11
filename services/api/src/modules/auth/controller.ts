@@ -12,7 +12,7 @@ import {
   resetPasswordService,
 } from './service';
 import { normalizeRole, ROLE_APP, type AppId } from '@schoolos/auth/roles';
-import type { Permission } from '@schoolos/auth/permissions';
+import { permissionsForRole, type Permission } from '@schoolos/auth/permissions';
 
 /**
  * Resolves the full identity for a request: canonical role plus the
@@ -58,9 +58,16 @@ export async function resolveIdentity(userId: string) {
     .find((r): r is NonNullable<typeof r> => r !== null);
   const role = canonical ?? 'STUDENT';
 
-  const permissions = Array.from(
+  // Prefer the grants stored in MongoDB so an administrator's customisation
+  // wins. Fall back to the code-defined catalogue when the role has no
+  // persisted grants - a database that has never been seeded still resolves
+  // every role's permissions correctly, so login is role-aware out of the box.
+  const dbPermissions = Array.from(
     new Set(memberships.flatMap((m) => m.role.rolePermissions.map((rp) => rp.permission.key)))
   );
+  const permissions = (
+    dbPermissions.length > 0 ? dbPermissions : permissionsForRole(role)
+  ) as Permission[];
 
   return {
     id: user.id,

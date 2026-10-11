@@ -175,10 +175,7 @@ router.post(
     const { schoolId } = schoolScopeOf(req);
     const payload = createAllocationSchema.parse(req.body);
 
-    const allocation = await createAllocation(
-      { schoolId, ...payload },
-      req.user!.id ?? null
-    );
+    const allocation = await createAllocation({ schoolId, ...payload }, req.user!.id ?? null);
     res.status(201).json({ allocation });
   })
 );
@@ -190,7 +187,12 @@ router.patch(
     const { schoolId } = schoolScopeOf(req);
     const payload = updateAllocationSchema.parse(req.body);
 
-    const allocation = await updateAllocation(schoolId, req.params.id, payload, req.user!.id ?? null);
+    const allocation = await updateAllocation(
+      schoolId,
+      req.params.id,
+      payload,
+      req.user!.id ?? null
+    );
     res.json({ allocation });
   })
 );

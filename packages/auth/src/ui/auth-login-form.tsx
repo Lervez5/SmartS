@@ -206,8 +206,7 @@ export function LoginForm({ appId, schoolName, forgotPasswordHref }: LoginFormPr
 
       {schoolName ? (
         <p className="text-xs text-muted-foreground">
-          Signing in to {' '}
-          <span className="font-semibold text-foreground">{schoolName}</span>
+          Signing in to <span className="font-semibold text-foreground">{schoolName}</span>
         </p>
       ) : null}
     </AuthForm>

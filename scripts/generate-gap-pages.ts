@@ -21,7 +21,6 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const IMPLEMENTED: Record<string, Set<string>> = {
   student: new Set([
     'stu.dashboard',
-    'stu.profile',
     'stu.courses',
     'stu.attendance',
     'stu.calendar',
@@ -29,7 +28,6 @@ const IMPLEMENTED: Record<string, Set<string>> = {
   ]),
   teacher: new Set([
     'tea.dashboard',
-    'tea.profile',
     'tea.courses',
     'tea.attendance',
     'tea.calendar',
@@ -37,7 +35,6 @@ const IMPLEMENTED: Record<string, Set<string>> = {
   ]),
   parent: new Set([
     'par.dashboard',
-    'par.profile',
     'par.children',
     'par.attendance',
     'par.calendar',
@@ -45,7 +42,6 @@ const IMPLEMENTED: Record<string, Set<string>> = {
   ]),
   admin: new Set([
     'adm.dashboard',
-    'adm.profile',
     'adm.learners',
     'adm.classes',
     'adm.courses',

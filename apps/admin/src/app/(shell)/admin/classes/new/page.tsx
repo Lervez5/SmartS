@@ -57,13 +57,13 @@ export default function AdminNewClassPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({
-           name: name.trim(),
-           classCode: classCode.trim() || undefined,
-           gradeLevel: gradeLevel.trim() || undefined,
-           description: description.trim() || undefined,
-           ...(sessionId && ready ? { academicYearId: sessionId } : {}),
-         }),
+        body: JSON.stringify({
+          name: name.trim(),
+          classCode: classCode.trim() || undefined,
+          gradeLevel: gradeLevel.trim() || undefined,
+          description: description.trim() || undefined,
+          ...(sessionId && ready ? { academicYearId: sessionId } : {}),
+        }),
       });
 
       if (!res.ok) {

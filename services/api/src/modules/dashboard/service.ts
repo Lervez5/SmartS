@@ -3,12 +3,14 @@ import { prisma } from '../../infrastructure/database';
 
 const DAY = 24 * 60 * 60 * 1000;
 
-export async function getStudentDashboardData(studentId: string) {
+export async function getStudentDashboardData(schoolId: string, studentId: string) {
   const [upcomingClasses, pendingAssignments, recentGrades, notifications, progress] =
     await Promise.all([
-      // Next 5 scheduled classes the student is enrolled in.
+      // Next 5 scheduled classes the student is enrolled in. Scoped through the
+      // class's school, so a learner enrolled in two schools sees only this one's.
       prisma.class.findMany({
         where: {
+          schoolId,
           enrollments: { some: { studentId } },
           schedule: { gte: new Date() },
         },
@@ -26,7 +28,7 @@ export async function getStudentDashboardData(studentId: string) {
       // Assignments due that this student has not submitted.
       prisma.assignment.findMany({
         where: {
-          class: { enrollments: { some: { studentId } } },
+          class: { schoolId, enrollments: { some: { studentId } } },
           submissions: { none: { studentId } },
           dueDate: { gte: new Date() },
         },
@@ -57,7 +59,8 @@ export async function getStudentDashboardData(studentId: string) {
 
       // Per-subject course progress for enrolled courses.
       prisma.courseEnrollment.findMany({
-        where: { studentId },
+        // The course now carries its school, so this no longer spans schools.
+        where: { studentId, course: { schoolId } },
         select: {
           id: true,
           progress: true,
@@ -92,12 +95,14 @@ export async function getStudentDashboardData(studentId: string) {
   };
 }
 
-export async function getTeacherDashboardData(teacherId: string) {
+export async function getTeacherDashboardData(schoolId: string, teacherId: string) {
   const weekAgo = new Date(Date.now() - 7 * DAY);
 
+  // Scoped through the class's school: a teacher can hold allocations in more
+  // than one school, and each portal shows only its own.
   const [classesTaught, pendingGrading, recentSubmissions, attendanceSummary] = await Promise.all([
     prisma.class.findMany({
-      where: { teacherId },
+      where: { schoolId, teacherId },
       select: {
         id: true,
         name: true,
@@ -112,7 +117,7 @@ export async function getTeacherDashboardData(teacherId: string) {
     prisma.submission.findMany({
       where: {
         status: 'pending',
-        assignment: { class: { teacherId } },
+        assignment: { class: { schoolId, teacherId } },
       },
       take: 10,
       orderBy: { createdAt: 'asc' },
@@ -125,7 +130,7 @@ export async function getTeacherDashboardData(teacherId: string) {
     }),
 
     prisma.submission.findMany({
-      where: { assignment: { class: { teacherId } } },
+      where: { assignment: { class: { schoolId, teacherId } } },
       take: 10,
       orderBy: { createdAt: 'desc' },
       select: {
@@ -140,7 +145,7 @@ export async function getTeacherDashboardData(teacherId: string) {
 
     prisma.attendance.groupBy({
       by: ['status'],
-      where: { class: { teacherId }, date: { gte: weekAgo } },
+      where: { class: { schoolId, teacherId }, date: { gte: weekAgo } },
       _count: true,
     }),
   ]);
@@ -154,22 +159,35 @@ export async function getTeacherDashboardData(teacherId: string) {
 }
 
 export async function getAdminDashboardData(
+  schoolId: string,
   academicYearId?: string,
   termId?: string
 ) {
   const thirtyDaysAgo = new Date(Date.now() - 30 * DAY);
 
+  // Scoped: the session and term the navbar selects belong to one school, so a
+  // session id from another school must not drive this school's figures.
   const session = academicYearId
-    ? await prisma.academicYear.findUnique({
-        where: { id: academicYearId },
+    ? await prisma.academicYear.findFirst({
+        where: { id: academicYearId, schoolId },
         select: { id: true, name: true, startDate: true, endDate: true, terms: true },
       })
     : null;
 
   const term = termId
-    ? await prisma.term.findUnique({
-        where: { id: termId },
-        select: { id: true, name: true, termNumber: true, startDate: true, endDate: true, academicYearId: true },
+    ? await prisma.term.findFirst({
+        where: {
+          id: termId,
+          academicYear: { schoolId },
+        },
+        select: {
+          id: true,
+          name: true,
+          termNumber: true,
+          startDate: true,
+          endDate: true,
+          academicYearId: true,
+        },
       })
     : null;
 
@@ -178,84 +196,139 @@ export async function getAdminDashboardData(
     ? { gte: session.startDate, lte: session.endDate }
     : { gte: new Date(Date.now() - 365 * DAY), lte: new Date() };
 
-  const termWindow = term
-    ? { gte: term.startDate, lte: term.endDate }
-    : null;
+  const termWindow = term ? { gte: term.startDate, lte: term.endDate } : null;
 
   // Use term window if a term is selected, otherwise session window.
   const financeWindow = termWindow ?? sessionWindow;
 
-  const [roleCounts, revenue, activity, recentUsers, courseCount, pendingInvitations, invoices, receipts, learners] =
-    await Promise.all([
-      // Users grouped by role membership.
-      prisma.userRoleMembership
-        .groupBy({
-          by: ['roleId'],
-          _count: true,
-        })
-        .then(async (rows) => {
-          const roles = await prisma.role.findMany({
-            where: { id: { in: rows.map((r) => r.roleId) } },
-            select: { id: true, name: true },
-          });
-          const nameById = new Map(roles.map((r) => [r.id, r.name]));
-          return rows.map((r) => ({
-            roleId: r.roleId,
-            name: nameById.get(r.roleId) ?? 'unknown',
-            _count: r._count,
-          }));
-        }),
+  // Who belongs to this school. Invitations and audit rows reference people by
+  // a plain id with no relation, so the membership set is resolved once here and
+  // matched against rather than re-querying per aggregate.
+  const schoolUserIds = (
+    await prisma.schoolMembership.findMany({
+      where: { schoolId },
+      select: { userId: true },
+    })
+  ).map((row) => row.userId);
 
-      // Paid invoice value in the last 30 days (existing behavior).
-      prisma.invoice.aggregate({
-        where: { status: 'paid', paidAt: { gte: thirtyDaysAgo } },
-        _sum: { amountCents: true },
+  const [
+    roleCounts,
+    revenue,
+    activity,
+    recentUsers,
+    courseCount,
+    pendingInvitations,
+    invoices,
+    receipts,
+    learners,
+  ] = await Promise.all([
+    // Users grouped by role membership.
+    prisma.userRoleMembership
+      .groupBy({
+        by: ['roleId'],
+        where: { user: { schoolMemberships: { some: { schoolId } } } },
         _count: true,
+      })
+      .then(async (rows) => {
+        const roles = await prisma.role.findMany({
+          where: { id: { in: rows.map((r) => r.roleId) } },
+          select: { id: true, name: true },
+        });
+        const nameById = new Map(roles.map((r) => [r.id, r.name]));
+        return rows.map((r) => ({
+          roleId: r.roleId,
+          name: nameById.get(r.roleId) ?? 'unknown',
+          _count: r._count,
+        }));
       }),
 
-      prisma.auditLog.findMany({
-        take: 20,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          action: true,
-          details: true,
-          createdAt: true,
-          user: { select: { id: true, name: true, email: true } },
-        },
-      }),
+    // Paid invoice value in the last 30 days (existing behavior).
+    prisma.invoice.aggregate({
+      where: {
+        status: 'paid',
+        paidAt: { gte: thirtyDaysAgo },
+        student: { schoolMemberships: { some: { schoolId } } },
+      },
+      _sum: { amountCents: true },
+      _count: true,
+    }),
 
-      prisma.user.findMany({
-        take: 10,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          status: true,
-          createdAt: true,
-          roleMemberships: { select: { role: { select: { name: true } } } },
-        },
-      }),
+    prisma.auditLog.findMany({
+      // Audit rows carry no school of their own, so they are scoped through the
+      // actor's membership in this school.
+      where: { user: { schoolMemberships: { some: { schoolId } } } },
+      take: 20,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        action: true,
+        details: true,
+        createdAt: true,
+        user: { select: { id: true, name: true, email: true } },
+      },
+    }),
 
-      prisma.course.count(),
+    prisma.user.findMany({
+      where: { schoolMemberships: { some: { schoolId } } },
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        status: true,
+        createdAt: true,
+        roleMemberships: { select: { role: { select: { name: true } } } },
+      },
+    }),
 
-      prisma.invitation.count({ where: { status: 'pending' } }),
+    prisma.course.count({ where: { schoolId } }),
 
-      // Finance metrics for the selected period.
-      prisma.invoice.findMany({
-        where: {
-          issuedAt: financeWindow,
-          ...(session?.id ? { student: { studentProfile: { enrollmentDate: { gte: session.startDate, lte: session.endDate } } } } : {}),
-        },
-        select: { amountCents: true, status: true, id: true },
-      }),
+    prisma.invitation.count({
+      // `invitedBy` is a plain id with no relation, so the school's own members
+      // are resolved first and the invitations are matched against them.
+      where: {
+        status: 'pending',
+        invitedBy: { in: schoolUserIds },
+      },
+    }),
+
+    // Finance metrics for the selected period.
+    prisma.invoice.findMany({
+      where: {
+        issuedAt: financeWindow,
+        student: { schoolMemberships: { some: { schoolId } } },
+        ...(session?.id
+          ? {
+              student: {
+                studentProfile: {
+                  enrollmentDate: { gte: session.startDate, lte: session.endDate },
+                },
+              },
+            }
+          : {}),
+      },
+      select: { amountCents: true, status: true, id: true },
+    }),
 
     // Receipts for the selected period.
     prisma.receipt.findMany({
       where: {
         receivedAt: financeWindow,
-        ...(session?.id ? { invoice: { student: { studentProfile: { enrollmentDate: { gte: session.startDate, lte: session.endDate } } } } } : {}),
+        invoice: {
+          student: { schoolMemberships: { some: { schoolId } } },
+        },
+        ...(session?.id
+          ? {
+              invoice: {
+                student: {
+                  studentProfile: {
+                    enrollmentDate: { gte: session.startDate, lte: session.endDate },
+                  },
+                },
+              },
+            }
+          : {}),
       },
       select: {
         id: true,
@@ -264,28 +337,35 @@ export async function getAdminDashboardData(
         paidByName: true,
         receivedAt: true,
         number: true,
-        invoice: { select: { student: { select: { id: true, name: true, firstName: true, lastName: true } } } },
+        invoice: {
+          select: {
+            student: { select: { id: true, name: true, firstName: true, lastName: true } },
+          },
+        },
       },
       orderBy: { receivedAt: 'desc' },
       take: 20,
     }),
 
-      // Active learners: enrolled within the selected session dates.
-      session
-        ? prisma.studentProfile.count({
-            where: {
-              enrollmentDate: { gte: session.startDate, lte: session.endDate },
-            },
-          })
-        : Promise.resolve(0),
-    ]);
+    // Active learners: enrolled within the selected session dates. Scoped to
+    // the school through the learner's membership.
+    session
+      ? prisma.studentProfile.count({
+          where: {
+            user: { schoolMemberships: { some: { schoolId } } },
+            enrollmentDate: { gte: session.startDate, lte: session.endDate },
+          },
+        })
+      : Promise.resolve(0),
+  ]);
 
   const invoicedTotal = invoices.reduce((s, i) => s + i.amountCents, 0);
   const paidInvoices = invoices.filter((i) => i.status === 'paid');
   const collectedTotal = paidInvoices.reduce((s, i) => s + i.amountCents, 0);
   const outstandingCount = invoices.length - paidInvoices.length;
   const outstandingTotal = invoicedTotal - collectedTotal;
-  const collectionRate = invoicedTotal > 0 ? Math.round((collectedTotal / invoicedTotal) * 1000) / 10 : null;
+  const collectionRate =
+    invoicedTotal > 0 ? Math.round((collectedTotal / invoicedTotal) * 1000) / 10 : null;
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -315,7 +395,10 @@ export async function getAdminDashboardData(
     method,
     amountCents: data.amountCents,
     count: data.count,
-    percentage: termCollectionsTotal > 0 ? Math.round((data.amountCents / termCollectionsTotal) * 1000) / 10 : 0,
+    percentage:
+      termCollectionsTotal > 0
+        ? Math.round((data.amountCents / termCollectionsTotal) * 1000) / 10
+        : 0,
   }));
 
   // Teacher activity: count teaching assignments for the selected session/term.
@@ -345,9 +428,9 @@ export async function getAdminDashboardData(
     method: r.method,
     paidByName: r.paidByName ?? 'Unknown',
     learnerName: r.invoice?.student
-      ? r.invoice.student.name ??
+      ? (r.invoice.student.name ??
         [r.invoice.student.firstName, r.invoice.student.lastName].filter(Boolean).join(' ') ??
-        'Unknown'
+        'Unknown')
       : 'Unknown',
     reference: r.number,
     receivedAt: r.receivedAt.toISOString(),
@@ -404,7 +487,7 @@ export async function getAdminDashboardData(
   };
 }
 
-export async function getParentDashboardData(parentUserId: string) {
+export async function getParentDashboardData(schoolId: string, parentUserId: string) {
   // ParentChildLink keys off profile ids, so resolve the caller's profile first.
   const profile = await prisma.parentProfile.findUnique({
     where: { userId: parentUserId },
@@ -439,14 +522,18 @@ export async function getParentDashboardData(parentUserId: string) {
   const childUserIds = links.map((l) => l.child.user.id);
   const profileByUser = new Map(links.map((l) => [l.child.user.id, l.child]));
 
+  // Every query below is scoped to this school through the child's class,
+  // membership or learning area: a guardian with a child in two schools sees
+  // only the school whose portal they are in.
   const [attendance, upcomingClasses, grades, invoices] = await Promise.all([
     prisma.attendance.groupBy({
       by: ['status'],
-      where: { studentId: { in: childUserIds } },
+      where: { studentId: { in: childUserIds }, class: { schoolId } },
       _count: true,
     }),
     prisma.class.findMany({
       where: {
+        schoolId,
         enrollments: { some: { studentId: { in: childUserIds } } },
         schedule: { gte: new Date() },
       },
@@ -461,7 +548,12 @@ export async function getParentDashboardData(parentUserId: string) {
       },
     }),
     prisma.grade.findMany({
-      where: { studentId: { in: childUserIds } },
+      // Scoped through the learning area: a grade belongs to a school by way of
+      // the subject it was recorded in.
+      where: {
+        studentId: { in: childUserIds },
+        subject: { schoolId },
+      },
       take: 20,
       orderBy: { gradedAt: 'desc' },
       select: {
@@ -474,7 +566,10 @@ export async function getParentDashboardData(parentUserId: string) {
       },
     }),
     prisma.invoice.findMany({
-      where: { studentId: { in: childUserIds } },
+      where: {
+        studentId: { in: childUserIds },
+        student: { schoolMemberships: { some: { schoolId } } },
+      },
       take: 10,
       orderBy: { issuedAt: 'desc' },
       select: {

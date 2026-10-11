@@ -3,7 +3,15 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, CalendarRange, ChevronDown, ChevronRight, LifeBuoy, LogOut, Menu } from 'lucide-react';
+import {
+  Bell,
+  CalendarRange,
+  ChevronDown,
+  ChevronRight,
+  LifeBuoy,
+  LogOut,
+  Menu,
+} from 'lucide-react';
 import { cn } from '@schoolos/utils';
 import {
   visibleSections,
@@ -49,7 +57,6 @@ export interface UserMenuProps {
    * navigation registry: the admin portal serves it at `/admin/settings`, the
    * other three at `/settings`.
    */
-  settingsHref: string;
   className?: string;
 }
 
@@ -95,13 +102,7 @@ function useDismiss(open: boolean, close: () => void) {
   return ref;
 }
 
-export function UserMenu({
-  user,
-  accountStatus,
-  onLogout,
-  settingsHref,
-  className,
-}: UserMenuProps) {
+export function UserMenu({ user, accountStatus, onLogout, className }: UserMenuProps) {
   const [open, setOpen] = React.useState(false);
   const close = React.useCallback(() => setOpen(false), []);
   const containerRef = useDismiss(open, close);
@@ -146,8 +147,13 @@ export function UserMenu({
           className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg"
         >
           <div className="border-b px-4 py-3">
-            <p className="truncate text-sm font-semibold">{displayName || user.email}</p>
-            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+            {/* A heading rather than a link: "My Profile" below is the explicit
+                action, and two links to the same place in one menu is a
+                redundant affordance. */}
+            <p className="truncate text-sm font-semibold text-foreground">
+              {displayName || user.email}
+            </p>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">{user.email}</p>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <StatusPill label={roleLabel(user.role)} tone="brand" />
               {accountStatus ? (
@@ -159,14 +165,21 @@ export function UserMenu({
             </div>
           </div>
           <div className="p-1">
+            {/* No "Settings & Security" link here.
+                
+                It resolved to the same destination as the sidebar's School
+                Configuration / Settings entry, so the menu offered a second way
+                into one place. Settings are reached from the sidebar, and this
+                menu keeps the two things that are about the signed-in identity
+                itself: their own record, and signing out. */}
             <Link
-              href={settingsHref}
+              href="/profile"
               role="menuitem"
               onClick={close}
               className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <NavIcon name="settings" className="h-4 w-4 text-muted-foreground" />
-              Settings &amp; Security
+              <NavIcon name="user-round" className="h-4 w-4 text-muted-foreground" />
+              My Profile
             </Link>
             <button
               type="button"
@@ -300,7 +313,13 @@ export function NavItemLink({
           : 'text-muted-foreground/90 hover:bg-muted/60 hover:text-foreground'
       )}
     >
-      <NavIcon name={item.icon} className={cn('h-4.5 w-4.5 shrink-0 transition-transform duration-150 group-hover:scale-105', isActive ? 'text-primary' : 'text-muted-foreground')} />
+      <NavIcon
+        name={item.icon}
+        className={cn(
+          'h-4.5 w-4.5 shrink-0 transition-transform duration-150 group-hover:scale-105',
+          isActive ? 'text-primary' : 'text-muted-foreground'
+        )}
+      />
       {collapsed ? (
         <span className="sr-only">{item.label}</span>
       ) : (
@@ -328,7 +347,8 @@ export function SidebarSection({
   const pathname = usePathname() ?? '';
   const hasActiveItem = React.useMemo(() => {
     return section.items.some(
-      (item) => item.href === pathname || (item.href !== '/' && pathname.startsWith(`${item.href}/`))
+      (item) =>
+        item.href === pathname || (item.href !== '/' && pathname.startsWith(`${item.href}/`))
     );
   }, [section.items, pathname]);
 
@@ -369,7 +389,11 @@ export function SidebarSection({
         >
           <span>{section.label}</span>
           <span className="text-muted-foreground/50 group-hover:text-foreground transition-transform duration-150">
-            {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            {isOpen ? (
+              <ChevronDown className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5" />
+            )}
           </span>
         </button>
       )}
@@ -382,25 +406,35 @@ export function SidebarSection({
           )}
           aria-label={section.label}
         >
-          {hasGroups && groupedItems && !collapsed ? (
-            groupedItems.map(([groupName, groupItems], idx) => (
-              <div key={groupName} className="space-y-0.5">
-                <p className={cn(
-                  "px-3 pt-2.5 pb-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest",
-                  idx > 0 && "mt-2 border-t border-border/20 pt-3"
-                )}>
-                  {groupName}
-                </p>
-                {groupItems.map((item) => (
-                  <NavItemLink key={item.id} item={item} collapsed={collapsed} onNavigate={onNavigate} />
-                ))}
-              </div>
-            ))
-          ) : (
-            section.items.map((item) => (
-              <NavItemLink key={item.id} item={item} collapsed={collapsed} onNavigate={onNavigate} />
-            ))
-          )}
+          {hasGroups && groupedItems && !collapsed
+            ? groupedItems.map(([groupName, groupItems], idx) => (
+                <div key={groupName} className="space-y-0.5">
+                  <p
+                    className={cn(
+                      'px-3 pt-2.5 pb-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest',
+                      idx > 0 && 'mt-2 border-t border-border/20 pt-3'
+                    )}
+                  >
+                    {groupName}
+                  </p>
+                  {groupItems.map((item) => (
+                    <NavItemLink
+                      key={item.id}
+                      item={item}
+                      collapsed={collapsed}
+                      onNavigate={onNavigate}
+                    />
+                  ))}
+                </div>
+              ))
+            : section.items.map((item) => (
+                <NavItemLink
+                  key={item.id}
+                  item={item}
+                  collapsed={collapsed}
+                  onNavigate={onNavigate}
+                />
+              ))}
         </nav>
       )}
     </div>
@@ -494,7 +528,11 @@ export function Sidebar({
               name={collapsed ? 'chevron-right' : 'chevron-left'}
               className="h-4 w-4 shrink-0"
             />
-            {collapsed ? <span className="sr-only">Expand sidebar</span> : <span>Collapse sidebar</span>}
+            {collapsed ? (
+              <span className="sr-only">Expand sidebar</span>
+            ) : (
+              <span>Collapse sidebar</span>
+            )}
           </button>
 
           <button
@@ -525,8 +563,6 @@ export interface TopNavbarProps {
   logoUrl?: string | null;
   schoolName?: string | null;
   portalName: string;
-  /** Portal-specific account settings route. */
-  settingsHref: string;
   user: ShellUser;
   accountStatus?: string;
   onLogout: () => void;
@@ -542,7 +578,6 @@ export function TopNavbar({
   logoUrl,
   schoolName,
   portalName,
-  settingsHref,
   user,
   accountStatus,
   onLogout,
@@ -624,12 +659,7 @@ export function TopNavbar({
 
         <div className="mx-1 hidden h-5 w-px bg-border/60 sm:block" aria-hidden />
 
-        <UserMenu
-          user={user}
-          accountStatus={accountStatus}
-          onLogout={onLogout}
-          settingsHref={settingsHref}
-        />
+        <UserMenu user={user} accountStatus={accountStatus} onLogout={onLogout} />
       </div>
     </header>
   );
@@ -748,8 +778,6 @@ export interface AppShellProps {
   logoUrl?: string | null;
   schoolName?: string | null;
   portalName: string;
-  /** Portal-specific account settings route, from settingsHrefFor(app). */
-  settingsHref: string;
   /** Real support channel. Omit to hide the Support entry. */
   supportHref?: string | null;
   notificationCount?: number;
@@ -768,7 +796,6 @@ export function AppShell({
   logoUrl,
   schoolName,
   portalName,
-  settingsHref,
   supportHref,
   notificationCount,
   onLogout,
@@ -786,7 +813,6 @@ export function AppShell({
         logoUrl={logoUrl}
         schoolName={schoolName}
         portalName={portalName}
-        settingsHref={settingsHref}
         supportHref={supportHref}
         notificationCount={notificationCount}
         onLogout={onLogout}
@@ -808,7 +834,6 @@ function ShellFrame({
   logoUrl,
   schoolName,
   portalName,
-  settingsHref,
   supportHref,
   notificationCount,
   onLogout,
@@ -850,7 +875,6 @@ function ShellFrame({
           logoUrl={logoUrl}
           schoolName={schoolName}
           portalName={portalName}
-          settingsHref={settingsHref}
           user={user}
           accountStatus={accountStatus}
           onLogout={onLogout}

@@ -68,9 +68,7 @@ export async function listStaff(schoolId: string, input: ListStaffInput) {
   const where: Record<string, unknown> = {
     ...(input.status ? { status: input.status } : {}),
     ...(input.accountStatus ? { user: { status: input.accountStatus } } : {}),
-    ...(input.role
-      ? { user: { roleMemberships: { some: { role: { name: input.role } } } } }
-      : {}),
+    ...(input.role ? { user: { roleMemberships: { some: { role: { name: input.role } } } } } : {}),
     ...(input.search
       ? {
           OR: [
@@ -224,7 +222,11 @@ export async function getStaffMember(schoolId: string, staffId: string) {
   };
 }
 
-export async function createStaff(schoolId: string, input: CreateStaffInput, actorId: string | null) {
+export async function createStaff(
+  schoolId: string,
+  input: CreateStaffInput,
+  actorId: string | null
+) {
   const user = await prisma.user.findFirst({
     where: { id: input.userId, schoolMemberships: { some: { schoolId } } },
   });

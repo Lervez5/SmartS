@@ -23,6 +23,7 @@ import { requirePermissions } from '../../middleware/rbac';
 import { asyncHandler } from '../../shared/asyncHandler';
 import { ApiError } from '../../shared/logger';
 import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
+import { currentSessionId } from '../academics/allocation/scope';
 
 export const router: Router = Router();
 
@@ -91,21 +92,92 @@ const listSchema = z.object({
 /**
  * Counts that genuinely belong to a session.
  *
- * Financial and learner activity are attributed to a session by falling inside
- * its date range: an invoice by its issue date, a receipt by when it was
- * received, a learner by when they enrolled. No metric is invented to fill the
- * column.
+ * Financial activity is attributed to a session by falling inside its date
+ * range: an invoice by its issue date, a receipt by when it was received.
+ *
+ * Learners are attributed three ways, because a learner can be real on the
+ * school's books while carrying none of the stronger signals:
+ *
+ *   1. placed - they are enrolled in a class of this session. This is the record
+ *      attendance, results and reporting actually read, and it is what the rest
+ *      of the platform means by "in a session".
+ *   2. dated - they carry an enrolment date inside the session's window. Weak on
+ *      its own, since the field is optional and routinely unset, but it is real
+ *      where it exists.
+ *   3. unplaced - they are a learner of the school with no placement in any
+ *      session at all. Someone has to hold them, and the session that does is
+ *      the one the school is running now: attributing an unplaced learner to an
+ *      archived session would be inventing a history they do not have.
+ *
+ * The three sets are unioned, so a learner who is placed and dated is still one
+ * learner. Only the school's current session takes unplaced learners, so a
+ * closed session never gains learners it did not have.
  */
-async function summarise(session: { startDate: Date; endDate: Date }) {
+async function summarise(
+  schoolId: string,
+  session: { id: string; startDate: Date; endDate: Date },
+  isCurrentSession: boolean
+) {
   const window = { gte: session.startDate, lte: session.endDate };
 
-  const [invoiceCount, receiptCount, learnerCount] = await Promise.all([
-    prisma.invoice.count({ where: { issuedAt: window } }),
-    prisma.receipt.count({ where: { receivedAt: window } }),
-    prisma.studentProfile.count({ where: { enrollmentDate: window } }),
+  const [invoiceCount, receiptCount, placed, dated, unplaced] = await Promise.all([
+    prisma.invoice.count({
+      where: {
+        issuedAt: window,
+        student: { schoolMemberships: { some: { schoolId } } },
+      },
+    }),
+    prisma.receipt.count({
+      where: {
+        receivedAt: window,
+        invoice: { student: { schoolMemberships: { some: { schoolId } } } },
+      },
+    }),
+    // Placed in a class that belongs to this session, in the caller's school.
+    prisma.enrollment.findMany({
+      where: {
+        studentId: { not: null },
+        class: { schoolId, academicYearId: session.id },
+      },
+      select: { studentId: true },
+      distinct: ['studentId'],
+    }),
+    // Dated inside the session, for learners who are on record but not yet placed.
+    prisma.studentProfile.findMany({
+      where: {
+        enrollmentDate: window,
+        user: { schoolMemberships: { some: { schoolId } } },
+      },
+      select: { userId: true },
+    }),
+    // On the school's books but not in any session yet. Only counted for the
+    // session the school is actually running.
+    isCurrentSession
+      ? prisma.studentProfile.findMany({
+          where: {
+            user: {
+              schoolMemberships: { some: { schoolId } },
+              enrollments: { none: {} },
+            },
+          },
+          select: { userId: true },
+        })
+      : Promise.resolve([]),
   ]);
 
-  return { invoiceCount, receiptCount, learnerCount };
+  // Union rather than sum: a learner is one learner however they qualified.
+  const learnerIds = new Set<string>();
+  for (const row of placed) {
+    if (row.studentId) learnerIds.add(row.studentId);
+  }
+  for (const row of dated) {
+    if (row.userId) learnerIds.add(row.userId);
+  }
+  for (const row of unplaced) {
+    if (row.userId) learnerIds.add(row.userId);
+  }
+
+  return { invoiceCount, receiptCount, learnerCount: learnerIds.size };
 }
 
 function present(session: {
@@ -199,7 +271,12 @@ router.get(
       ...(query.limit ? { take: query.limit } : {}),
     });
 
-    const summaries = await Promise.all(sessions.map((session) => summarise(session)));
+    // Resolved once for the whole page: an unplaced learner belongs to the
+    // session the school is running, not to whichever row happens to be listed.
+    const currentId = await currentSessionId(schoolId);
+    const summaries = await Promise.all(
+      sessions.map((session) => summarise(schoolId, session, session.id === currentId))
+    );
 
     res.json({
       sessions: sessions.map((session, index) => ({
@@ -234,7 +311,9 @@ router.get(
       return;
     }
 
-    res.json({ session: { ...present(session), data: await summarise(session) } });
+    // This route resolves the school's active session, which is by definition
+    // the one it is running, so unplaced learners belong to it.
+    res.json({ session: { ...present(session), data: await summarise(schoolId, session, true) } });
   })
 );
 
@@ -249,7 +328,13 @@ router.get(
     });
     if (!session) throw new ApiError(404, 'Academic session not found');
 
-    res.json({ session: { ...present(session), data: await summarise(session) } });
+    const currentId = await currentSessionId(schoolId);
+    res.json({
+      session: {
+        ...present(session),
+        data: await summarise(schoolId, session, session.id === currentId),
+      },
+    });
   })
 );
 
@@ -293,7 +378,13 @@ router.post(
       include: { terms: true },
     });
 
-    res.status(201).json({ session: { ...present(created), data: await summarise(created) } });
+    const activeId = await currentSessionId(schoolId);
+    res.status(201).json({
+      session: {
+        ...present(created),
+        data: await summarise(schoolId, created, created.id === activeId),
+      },
+    });
   })
 );
 
@@ -342,7 +433,13 @@ router.patch(
       include: { terms: true },
     });
 
-    res.json({ session: { ...present(saved), data: await summarise(saved) } });
+    const activeId = await currentSessionId(schoolId);
+    res.json({
+      session: {
+        ...present(saved),
+        data: await summarise(schoolId, saved, saved.id === activeId),
+      },
+    });
   })
 );
 

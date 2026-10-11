@@ -142,7 +142,9 @@ describe('Staff module', () => {
     it('filters by role', async () => {
       const res = await adminAgent.get(`${BASE}?role=TEACHER&limit=5`);
       expect(res.status).toBe(200);
-      expect(res.body.staff.every((s: any) => s.roles.some((r: any) => r.name === 'TEACHER'))).toBe(true);
+      expect(res.body.staff.every((s: any) => s.roles.some((r: any) => r.name === 'TEACHER'))).toBe(
+        true
+      );
     });
 
     it('searches by name', async () => {

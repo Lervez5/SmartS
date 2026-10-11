@@ -11,6 +11,7 @@ import { router as parentsRouter } from './modules/parents';
 import { router as teachersRouter } from './modules/teachers';
 import { router as staffRouter } from './modules/staff';
 import { router as admissionsRouter } from './modules/admissions';
+import { router as enrollmentRouter } from './modules/enrollment';
 import { router as academicsRouter } from './modules/academics';
 import { router as academicSessionsRouter } from './modules/academic-sessions';
 import { router as streamsRouter } from './modules/academics/streams';
@@ -18,6 +19,7 @@ import { router as resultsEntryRouter } from './modules/academics/results-entry'
 import { router as teacherAllocationRouter } from './modules/academics/allocation/routes';
 import { router as classesRouter } from './modules/classes';
 import { router as subjectsRouter } from './modules/subjects';
+import { router as learningAreasRouter } from './modules/learning-areas';
 import { router as attendanceRouter } from './modules/attendance';
 import { router as examinationsRouter } from './modules/examinations';
 import { router as gradingRouter } from './modules/grading';
@@ -30,6 +32,7 @@ import { router as libraryRouter } from './modules/library';
 import { router as inventoryRouter } from './modules/inventory';
 import { router as communicationRouter } from './modules/communication';
 import { router as notificationsRouter } from './modules/notifications';
+import { router as smsRouter, deliveryRouter as smsDeliveryRouter } from './modules/sms';
 import { router as documentsRouter } from './modules/documents';
 import { router as reportsRouter } from './modules/reports';
 
@@ -55,6 +58,10 @@ router.use('/public', publicRouter);
 
 // The raw body parser for this path is registered in app.ts before the JSON one.
 router.use('/uploads', uploadsRouter);
+
+// Delivery reports come from the SMS gateway, which has no session. Mounted
+// before auth for that reason and guarded by a shared secret instead.
+router.use('/sms', smsDeliveryRouter);
 router.use(requireAuth);
 
 // Registers live under the attendance module, so they mount with it and are
@@ -69,9 +76,11 @@ router.use('/parents', parentsRouter);
 router.use('/teachers', teachersRouter);
 router.use('/staff', staffRouter);
 router.use('/admissions', admissionsRouter);
+router.use('/enrollment', enrollmentRouter);
 router.use('/academics', academicsRouter);
 router.use('/classes', classesRouter);
 router.use('/subjects', subjectsRouter);
+router.use('/learning-areas', learningAreasRouter);
 router.use('/attendance', attendanceRouter);
 router.use('/examinations', examinationsRouter);
 router.use('/grading', gradingRouter);
@@ -84,6 +93,7 @@ router.use('/library', libraryRouter);
 router.use('/inventory', inventoryRouter);
 router.use('/communication', communicationRouter);
 router.use('/notifications', notificationsRouter);
+router.use('/sms', smsRouter);
 router.use('/documents', documentsRouter);
 router.use('/dashboard', dashboardRouter);
 router.use('/courses', coursesRouter);

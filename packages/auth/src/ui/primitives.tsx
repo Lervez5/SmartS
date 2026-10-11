@@ -122,11 +122,7 @@ export function AuthForm({
 
       {children}
 
-      <button
-        type="submit"
-        disabled={isLoading}
-        className="form-submit"
-      >
+      <button type="submit" disabled={isLoading} className="form-submit">
         {isLoading ? (
           <>
             <span
@@ -259,7 +255,9 @@ export function AuthNotice({
         </svg>
       </span>
       <p className="text-base font-bold text-foreground tracking-tight">{title}</p>
-      {children ? <div className="text-sm text-muted-foreground leading-relaxed">{children}</div> : null}
+      {children ? (
+        <div className="text-sm text-muted-foreground leading-relaxed">{children}</div>
+      ) : null}
       {action ? <div className="pt-2">{action}</div> : null}
     </div>
   );

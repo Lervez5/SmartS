@@ -122,7 +122,7 @@ function displayName(
 }
 
 function sessionLabel(s: { name: string; label: string | null }): string {
-  return s.label ? `${s.name} — ${s.label}` : s.name;
+  return s.label ? `${s.name} - ${s.label}` : s.name;
 }
 
 export default function StudentTransitionsPage() {
@@ -567,7 +567,7 @@ export default function StudentTransitionsPage() {
         <div className="flex items-end gap-3">
           <Field
             label="Transition Reason"
-            hint="Optional — e.g. Promotion, Re-enrolment, Stream change"
+            hint="Optional - e.g. Promotion, Re-enrolment, Stream change"
           >
             <TextInput
               value={transitionReason}
@@ -576,7 +576,7 @@ export default function StudentTransitionsPage() {
               className="w-64"
             />
           </Field>
-          <Field label="Notes" hint="Optional — visible in the audit log">
+          <Field label="Notes" hint="Optional - visible in the audit log">
             <TextInput
               value={transitionNotes}
               onChange={(e) => setTransitionNotes(e.target.value)}
@@ -702,14 +702,14 @@ export default function StudentTransitionsPage() {
               <p className="mt-1 text-sm font-medium text-foreground">
                 {sessionLabel(
                   allSessions.find((s) => s.id === sourceAcademicYearId) ?? {
-                    name: '—',
+                    name: '-',
                     label: null,
                   }
                 )}
               </p>
               {selectedClass && selectedClass?.gradeLevel ? (
                 <p className="text-xs text-muted-foreground">
-                  {sourceClassOptions.find((c) => c.id === sourceClassId)?.label ?? '—'}
+                  {sourceClassOptions.find((c) => c.id === sourceClassId)?.label ?? '-'}
                 </p>
               ) : null}
             </div>
@@ -718,7 +718,7 @@ export default function StudentTransitionsPage() {
               <p className="mt-1 text-sm font-medium text-foreground">
                 {sessionLabel(
                   allSessions.find((s) => s.id === targetAcademicYearId) ?? {
-                    name: '—',
+                    name: '-',
                     label: null,
                   }
                 )}

@@ -34,6 +34,7 @@ export const PERMISSION_DOMAINS = [
   'teaching',
   'calendar',
   'communications',
+  'sms',
   'announcements',
   'documents',
   'inventory',
@@ -129,6 +130,16 @@ export const PERMISSIONS = [
   // Communication and scheduling
   'communications.view',
   'communications.send',
+
+  // SMS Centre. Separate from `communications.*` on purpose: that pair governs
+  // in-app and announcement messaging, and holding it must not by itself let a
+  // role send bulk SMS, read another guardian's financial position, or change
+  // automation rules. Each capability below is granted explicitly.
+  'sms.view',       // open the workspace and read campaign history
+  'sms.send',       // compose and send a bulk campaign to guardians
+  'sms.reminders',  // resolve and send balance reminders from the Finance domain
+  'sms.manage',     // configure automation rules and manage opt-outs
+  'sms.credits',    // inspect credit status and the provider configuration
   'announcements.view',
   'announcements.manage',
   'calendar.view',
@@ -229,6 +240,10 @@ const ACADEMIC_STAFF: Permission[] = [
   'reports.export',
   'reports.academic',
   'reports.attendance',
+  'sms.view',
+  'sms.send',
+  'sms.manage',
+  'sms.credits',
   'users.create',
   'users.activate',
   'settings.view',
@@ -237,6 +252,12 @@ const ACADEMIC_STAFF: Permission[] = [
 /**
  * ACCOUNTANT: finance. Sees only the learner, parent and staff information
  * needed to bill and reconcile, and no academic operations.
+ *
+ * Holds `sms.view` and `sms.reminders` so the SMS Centre is reachable for the
+ * job that is genuinely theirs - chasing an outstanding balance. It does not
+ * hold `sms.send`: composing a broadcast to every guardian in the school is not
+ * a finance operation, and the role has no academic or cohort data to choose an
+ * audience with. Nor `sms.manage` or `sms.credits`, which are administrative.
  */
 const FINANCE_STAFF: Permission[] = [
   'finance.view',
@@ -260,6 +281,8 @@ const FINANCE_STAFF: Permission[] = [
   'communications.view',
   'communications.send',
   'announcements.view',
+  'sms.view',
+  'sms.reminders',
   'settings.view',
 ];
 

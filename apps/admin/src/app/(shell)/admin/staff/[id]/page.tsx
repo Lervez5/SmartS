@@ -207,9 +207,15 @@ export default function AdminStaffProfilePage() {
 
   const name = displayName(member);
 
-  const mainTeacherCount = assignments.filter((a) => a.responsibility === 'main_class_teacher' && a.status === 'active').length;
-  const assistantTeacherCount = assignments.filter((a) => a.responsibility === 'assistant_class_teacher' && a.status === 'active').length;
-  const subjectTeacherCount = assignments.filter((a) => a.responsibility === 'subject_teacher' && a.status === 'active').length;
+  const mainTeacherCount = assignments.filter(
+    (a) => a.responsibility === 'main_class_teacher' && a.status === 'active'
+  ).length;
+  const assistantTeacherCount = assignments.filter(
+    (a) => a.responsibility === 'assistant_class_teacher' && a.status === 'active'
+  ).length;
+  const subjectTeacherCount = assignments.filter(
+    (a) => a.responsibility === 'subject_teacher' && a.status === 'active'
+  ).length;
   const activeAssignments = assignments.filter((a) => a.status === 'active');
 
   const detailRows = [
@@ -268,9 +274,7 @@ export default function AdminStaffProfilePage() {
               {row.canManage ? 'Can manage stream' : 'View only'}
             </span>
           )}
-          {row.subject && (
-            <span className="text-xs text-muted-foreground">{row.subject.name}</span>
-          )}
+          {row.subject && <span className="text-xs text-muted-foreground">{row.subject.name}</span>}
         </div>
       ),
       sortValue: (row) => row.responsibility,
@@ -281,7 +285,9 @@ export default function AdminStaffProfilePage() {
       cell: (row) => (
         <div className="text-xs">
           <p>{formatDate(row.effectiveFrom)}</p>
-          {row.effectiveTo && <p className="text-muted-foreground">to {formatDate(row.effectiveTo)}</p>}
+          {row.effectiveTo && (
+            <p className="text-muted-foreground">to {formatDate(row.effectiveTo)}</p>
+          )}
         </div>
       ),
       sortValue: (row) => row.effectiveFrom,
@@ -290,10 +296,7 @@ export default function AdminStaffProfilePage() {
       id: 'status',
       header: 'Status',
       cell: (row) => (
-        <StatusPill
-          label={row.status}
-          tone={row.status === 'active' ? 'success' : 'neutral'}
-        />
+        <StatusPill label={row.status} tone={row.status === 'active' ? 'success' : 'neutral'} />
       ),
       sortValue: (row) => row.status,
     },
@@ -384,9 +387,27 @@ export default function AdminStaffProfilePage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <DashboardCard title="Main teacher" value={mainTeacherCount} icon="user-round-check" tone="success" description="Streams led" />
-        <DashboardCard title="Assistant teacher" value={assistantTeacherCount} icon="user-round" tone="accent" description="Streams supported" />
-        <DashboardCard title="Subject teacher" value={subjectTeacherCount} icon="book-open" tone="default" description="Learning areas taught" />
+        <DashboardCard
+          title="Main teacher"
+          value={mainTeacherCount}
+          icon="user-round-check"
+          tone="success"
+          description="Streams led"
+        />
+        <DashboardCard
+          title="Assistant teacher"
+          value={assistantTeacherCount}
+          icon="user-round"
+          tone="accent"
+          description="Streams supported"
+        />
+        <DashboardCard
+          title="Subject teacher"
+          value={subjectTeacherCount}
+          icon="book-open"
+          tone="default"
+          description="Learning areas taught"
+        />
         <DashboardCard title="Hired" value={formatDate(member.hireDate)} icon="calendar-check" />
       </div>
 

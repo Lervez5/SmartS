@@ -40,7 +40,9 @@ interface GradeRow {
 export default function AdminResultsPage() {
   const { can } = useAuth();
   const allowed = can('grading.view');
-  const { data, loading, error } = useApi<{ results: GradeRow[] }>(allowed ? '/api/grading/results' : null);
+  const { data, loading, error } = useApi<{ results: GradeRow[] }>(
+    allowed ? '/api/grading/results' : null
+  );
 
   const columns: Array<DataTableColumn<GradeRow>> = [
     {
@@ -60,7 +62,12 @@ export default function AdminResultsPage() {
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">{row.assessment.title}</p>
           <p className="truncate text-xs text-muted-foreground">
-            {[row.assessment.assessmentType, row.assessment.className, row.assessment.termName, row.assessment.sessionName]
+            {[
+              row.assessment.assessmentType,
+              row.assessment.className,
+              row.assessment.termName,
+              row.assessment.sessionName,
+            ]
               .filter(Boolean)
               .join(' · ') || 'No context set'}
           </p>
@@ -84,7 +91,9 @@ export default function AdminResultsPage() {
       align: 'right',
       cell: (row) => (
         <span className="text-sm font-medium text-foreground">
-          {row.score !== null && row.score !== undefined ? `${row.score} / ${row.assessment.maxScore ?? '?'}` : '-'}
+          {row.score !== null && row.score !== undefined
+            ? `${row.score} / ${row.assessment.maxScore ?? '?'}`
+            : '-'}
         </span>
       ),
       sortValue: (row) => row.score ?? -1,
@@ -101,9 +110,7 @@ export default function AdminResultsPage() {
       id: 'racefield',
       header: 'Grade',
       align: 'right',
-      cell: (row) => (
-        <StatusPill label={row.racefieldBand ?? '-'} tone="neutral" />
-      ),
+      cell: (row) => <StatusPill label={row.racefieldBand ?? '-'} tone="neutral" />,
     },
   ];
 

@@ -11,11 +11,7 @@ import {
   updateStaff,
   getStaffAssignments,
 } from './service';
-import {
-  listStaffSchema,
-  createStaffSchema,
-  updateStaffSchema,
-} from './schema';
+import { listStaffSchema, createStaffSchema, updateStaffSchema } from './schema';
 
 export const requireStaffView = requirePermissions('staff.view');
 export const requireStaffManage = requirePermissions('staff.manage');

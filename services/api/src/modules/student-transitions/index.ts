@@ -1,11 +1,11 @@
 /**
- * Student Transitions — the authoritative academic-progression workspace.
+ * Student Transitions - the authoritative academic-progression workspace.
  *
  * The central concept of this module is the `Enrollment` record: a learner's
  * placement in a particular Academic Session, Class/Grade, and optional Stream.
  * When the school proceeds a learner to the next session the system creates a
  * *new* enrollment for the target placement while retaining the previous one as
- * historical data — the learner's permanent identity, admission number, parent
+ * historical data - the learner's permanent identity, admission number, parent
  * links, documents, and other non-session-specific records are never touched and
  * never duplicated.
  *
@@ -20,9 +20,9 @@
  * belongs to the selected target AcademicSession.
  *
  * Permissions:
- *   students.view        — read placements, sessions, classes, streams, exits
- *   academics.manage     — record academic transitions (create/update placement)
- *   students.manage      — record exits, update exits, restore learners
+ *   students.view        - read placements, sessions, classes, streams, exits
+ *   academics.manage     - record academic transitions (create/update placement)
+ *   students.manage      - record exits, update exits, restore learners
  */
 
 import { Router, type Request, type Response } from 'express';
@@ -216,7 +216,7 @@ router.get(
 );
 
 /**
- * List classes/grades — optionally filtered to a single academic session.
+ * List classes/grades - optionally filtered to a single academic session.
  *
  * When `academicYearId` is provided, only classes that belong to that session
  * are returned. This enforces the hierarchy: a class cannot be placed under a

@@ -116,6 +116,22 @@ const REQUIRED: IndexSpec[] = [
   },
 
   /*
+   * A campaign's idempotency key is what makes a repeated confirm harmless: the
+   * same key returns the campaign it created rather than building a second. It
+   * is optional, because an automation rule creates its campaign without one -
+   * and a plain unique index would make every such campaign collide on a single
+   * null, so the second automated run would fail for a reason that has nothing
+   * to do with idempotency. Partial, so only a keyed document competes.
+   */
+  {
+    collection: 'SmsCampaign',
+    name: 'SmsCampaign_idempotencyKey_key',
+    key: { idempotencyKey: 1 },
+    unique: true,
+    partialOn: 'idempotencyKey',
+  },
+
+  /*
    * A stream may have many assistant and learning-area teachers, but only one
    * main class teacher, per academic session. The service checks this too, so a
    * caller gets a readable 409 rather than a database error, but the rule is

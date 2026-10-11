@@ -223,10 +223,18 @@ export default function AdminEditStreamPage() {
       >
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <Field label="Stream name" required>
-            <TextInput value={name} onChange={(e) => setName(e.target.value)} />
+            <TextInput
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. East"
+            />
           </Field>
           <Field label="Stream code" required hint="Unique within the class">
-            <TextInput value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} />
+            <TextInput
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="e.g. E"
+            />
           </Field>
           <Field label="Capacity" hint="Optional">
             <TextInput
@@ -234,6 +242,7 @@ export default function AdminEditStreamPage() {
               min={0}
               value={capacity}
               onChange={(e) => setCapacity(e.target.value)}
+              placeholder="e.g. 40"
             />
           </Field>
           <Field label="Status">

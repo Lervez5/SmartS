@@ -150,11 +150,7 @@ export function AuthShell({
         {/* School identity above the card */}
         {schoolName || logoUrl || portalLabel ? (
           <div className="mb-6 flex justify-center">
-            <AuthIdentity
-              portalLabel={portalLabel}
-              schoolName={schoolName}
-              logoUrl={logoUrl}
-            />
+            <AuthIdentity portalLabel={portalLabel} schoolName={schoolName} logoUrl={logoUrl} />
           </div>
         ) : null}
 
@@ -180,9 +176,7 @@ export function AuthShell({
         </div>
 
         {/* Subtle tagline below card */}
-        <p className="mt-5 text-center text-xs text-muted-foreground/70">
-          Secure sign-in
-        </p>
+        <p className="mt-5 text-center text-xs text-muted-foreground/70">Secure sign-in</p>
       </div>
     </div>
   );
@@ -264,7 +258,9 @@ export function AuthIdentity({
             </span>
           ) : null}
           {portalLabel ? (
-            <span className="block truncate text-xs font-medium text-primary/80">{portalLabel}</span>
+            <span className="block truncate text-xs font-medium text-primary/80">
+              {portalLabel}
+            </span>
           ) : null}
         </span>
       ) : null}

@@ -148,9 +148,7 @@ export default function AdminClassesPage() {
     {
       id: 'gradeLevel',
       header: 'Grade / Level',
-      cell: (row) => (
-        <span className="text-sm text-foreground">{row.gradeLevel ?? '-'}</span>
-      ),
+      cell: (row) => <span className="text-sm text-foreground">{row.gradeLevel ?? '-'}</span>,
       sortValue: (row) => row.gradeLevel ?? '',
     },
     {
@@ -193,17 +191,13 @@ export default function AdminClassesPage() {
     {
       id: 'status',
       header: 'Status',
-      cell: (row) => (
-        <StatusPill label={row.status} tone={STATUS_TONE[row.status] ?? 'neutral'} />
-      ),
+      cell: (row) => <StatusPill label={row.status} tone={STATUS_TONE[row.status] ?? 'neutral'} />,
       sortValue: (row) => row.status,
     },
     {
       id: 'subject',
       header: 'Subject',
-      cell: (row) => (
-        <span className="text-sm text-foreground">{row.subject?.name ?? '-'}</span>
-      ),
+      cell: (row) => <span className="text-sm text-foreground">{row.subject?.name ?? '-'}</span>,
       sortValue: (row) => row.subject?.name ?? '',
     },
   ];
@@ -232,8 +226,8 @@ export default function AdminClassesPage() {
         title="Classes"
         description={
           <>
-            Academic classes (grades) and their child streams. A class is the academic
-            unit; streams subdivide it for teaching groups. {sessionDescription}
+            Academic classes (grades) and their child streams. A class is the academic unit; streams
+            subdivide it for teaching groups. {sessionDescription}
           </>
         }
         action={
@@ -244,7 +238,8 @@ export default function AdminClassesPage() {
               icon="plus"
               title="Create a new class for the selected academic session"
             />
-          ) : null}
+          ) : null
+        }
       />
 
       {classes.loading ? (

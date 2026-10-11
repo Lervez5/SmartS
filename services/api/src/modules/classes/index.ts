@@ -7,7 +7,7 @@
  * matches the selected academic session.
  *
  * Class lifecycle is managed through `status` (active / inactive / archived).
- * Archiving retains enrolments, attendance and results — it does not delete.
+ * Archiving retains enrolments, attendance and results - it does not delete.
  */
 
 import { Router, type Request, type Response } from 'express';
@@ -124,23 +124,31 @@ function mapClass(cls: any) {
   };
 }
 
-router.get('/teacher/my-cohorts', requireClassView, asyncHandler(async (req: Request, res: Response) => {
-  const classes = await prisma.class.findMany({
-    where: { schoolId: schoolScopeOf(req).schoolId, teacherId: req.user!.id },
-    include: classInclude,
-    orderBy: { createdAt: 'desc' },
-  });
-  res.json({ classes: classes.map(mapClass) });
-}));
+router.get(
+  '/teacher/my-cohorts',
+  requireClassView,
+  asyncHandler(async (req: Request, res: Response) => {
+    const classes = await prisma.class.findMany({
+      where: { schoolId: schoolScopeOf(req).schoolId, teacherId: req.user!.id },
+      include: classInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ classes: classes.map(mapClass) });
+  })
+);
 
-router.get('/admin/all-cohorts', requireClassView, asyncHandler(async (req: Request, res: Response) => {
-  const classes = await prisma.class.findMany({
-    where: { schoolId: schoolScopeOf(req).schoolId },
-    include: classInclude,
-    orderBy: { createdAt: 'desc' },
-  });
-  res.json({ classes: classes.map(mapClass) });
-}));
+router.get(
+  '/admin/all-cohorts',
+  requireClassView,
+  asyncHandler(async (req: Request, res: Response) => {
+    const classes = await prisma.class.findMany({
+      where: { schoolId: schoolScopeOf(req).schoolId },
+      include: classInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ classes: classes.map(mapClass) });
+  })
+);
 
 router.get(
   '/',
@@ -226,7 +234,10 @@ router.post(
         select: { id: true },
       });
       if (clash) {
-        throw new ApiError(409, `That school already has a class with the code "${payload.classCode}".`);
+        throw new ApiError(
+          409,
+          `That school already has a class with the code "${payload.classCode}".`
+        );
       }
     }
 
@@ -239,7 +250,10 @@ router.post(
         throw new ApiError(400, 'The selected academic session does not belong to this school');
       }
       if (session.status !== 'active' && session.status !== 'planned') {
-        throw new ApiError(400, `Cannot assign a class to an academic session that is ${session.status}.`);
+        throw new ApiError(
+          400,
+          `Cannot assign a class to an academic session that is ${session.status}.`
+        );
       }
     }
 
@@ -298,7 +312,10 @@ router.put(
         throw new ApiError(400, 'The selected academic session does not belong to this school');
       }
       if (session.status !== 'active' && session.status !== 'planned') {
-        throw new ApiError(400, `Cannot assign a class to an academic session that is ${session.status}.`);
+        throw new ApiError(
+          400,
+          `Cannot assign a class to an academic session that is ${session.status}.`
+        );
       }
     }
 
@@ -307,7 +324,10 @@ router.put(
         where: { classId: existing.id, status: { not: 'archived' } },
       });
       if (streamCount > 0) {
-        throw new ApiError(409, `This class has ${streamCount} active or inactive stream(s). Archive its streams first.`);
+        throw new ApiError(
+          409,
+          `This class has ${streamCount} active or inactive stream(s). Archive its streams first.`
+        );
       }
     }
 
@@ -350,12 +370,18 @@ router.patch(
         where: { classId: existing.id, status: { not: 'archived' } },
       });
       if (streamCount > 0) {
-        throw new ApiError(409, `This class has ${streamCount} active or inactive stream(s). Archive its streams first.`);
+        throw new ApiError(
+          409,
+          `This class has ${streamCount} active or inactive stream(s). Archive its streams first.`
+        );
       }
     }
 
     if (status === 'active' && existing.status === 'archived') {
-      throw new ApiError(409, 'Restoring an archived class requires re-creating it; use PUT to re-establish the class.');
+      throw new ApiError(
+        409,
+        'Restoring an archived class requires re-creating it; use PUT to re-establish the class.'
+      );
     }
 
     const updated = await prisma.class.update({
@@ -388,7 +414,12 @@ router.post(
 
     const existing = await prisma.class.findFirst({
       where: { id: req.params.id, schoolId },
-      select: { id: true, name: true, status: true, _count: { select: { enrollments: true, streams: true } } },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        _count: { select: { enrollments: true, streams: true } },
+      },
     });
     if (!existing) {
       res.status(404).json({ error: { message: 'Class not found' } });
@@ -456,12 +487,18 @@ router.delete(
 
     const streamCount = await prisma.stream.count({ where: { classId: existing.id } });
     if (streamCount > 0) {
-      throw new ApiError(409, `This class has ${streamCount} stream(s). Archive the class and its streams before deleting.`);
+      throw new ApiError(
+        409,
+        `This class has ${streamCount} stream(s). Archive the class and its streams before deleting.`
+      );
     }
 
     const enrollmentCount = await prisma.enrollment.count({ where: { classId: existing.id } });
     if (enrollmentCount > 0) {
-      throw new ApiError(409, `This class has ${enrollmentCount} enrolment(s). Archive the class before deleting.`);
+      throw new ApiError(
+        409,
+        `This class has ${enrollmentCount} enrolment(s). Archive the class before deleting.`
+      );
     }
 
     await prisma.class.delete({ where: { id: req.params.id } });

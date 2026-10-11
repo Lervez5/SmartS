@@ -8,13 +8,15 @@
  *
  * Where the data comes from, and what it honestly can and cannot do today:
  *
- *  - The API has NO AcademicYear or Term model. `SchoolAcademicSettings`
- *    carries a single free-text `currentAcademicYearId`, plus `termsPerYear`.
- *    So there is exactly one session to show, and the selector becomes a real
- *    dropdown only once the model exists.
- *  - Status is DERIVED, never invented: the session matching the school's
- *    configured `currentAcademicYearId` is Active, anything else is Archived.
- *    There is no "Support" term state to reflect because no term model exists.
+ *  - The session list is read from `GET /api/academic-sessions`, which returns
+ *    `AcademicYear` rows scoped to the signed-in user's school. Each session is
+ *    created with `termsPerYear` `Term` rows. A school with no sessions renders
+ *    the navbar pill as "No academic session set" until an administrator creates
+ *    one; the pill cannot be created from the client because writing is gated on
+ *    `academics.manage`.
+ *  - `status` comes straight from the row: `active` reads as Active, every
+ *    other value as Archived. The selected session is a UI preference persisted
+ *    locally; the backend re-authorizes every request regardless of selection.
  *  - Editing is gated on `academics.manage`, so an ACCOUNTANT sees the session
  *    read-only while a DEAN or SUPER_ADMIN can change it.
  *
@@ -24,6 +26,7 @@
  */
 
 import * as React from 'react';
+import { refreshSession } from '@schoolos/auth';
 
 export type AcademicSessionStatus = 'active' | 'archived' | 'unset';
 
@@ -53,7 +56,8 @@ interface AcademicSessionValue {
   termId: string;
   setTermId: (id: string) => void;
   /** The term object matching termId, or null. */
-  currentTerm: Array<{ id: string; name: string; termNumber: number; status: string }>[number] | null;
+  currentTerm:
+    Array<{ id: string; name: string; termNumber: number; status: string }>[number] | null;
   /** Terms for the selected session (alias for terms, for backward compat). */
   termsForSelectedYear: Array<{ id: string; name: string; termNumber: number; status: string }>;
 }
@@ -95,21 +99,34 @@ export function AcademicSessionProvider({
   const [sessions, setSessions] = React.useState<AcademicSession[]>([]);
   const [sessionId, setSessionIdState] = React.useState('');
   const [ready, setReady] = React.useState(false);
-  const [terms, setTerms] = React.useState<Array<{ id: string; name: string; termNumber: number; status: string }>>([]);
+  const [terms, setTerms] = React.useState<
+    Array<{ id: string; name: string; termNumber: number; status: string }>
+  >([]);
   const [termId, setTermIdState] = React.useState('');
 
   const load = React.useCallback(async (signal?: AbortSignal) => {
-    try {
+    const fetchSessions = async (): Promise<AcademicSessionRecord[] | null> => {
       const res = await fetch('/api/academic-sessions?sort=start_desc&limit=50', {
         credentials: 'include',
         signal,
       });
-      if (!res.ok) return;
+      if (!res.ok) return null;
       const body = (await res.json()) as { sessions?: AcademicSessionRecord[] };
-      const mapped = (body.sessions ?? []).map(sessionFromRecord);
+      return body.sessions ?? [];
+    };
+
+    try {
+      let sessions = await fetchSessions();
+      if (sessions === null && (await refreshSession())) {
+        // Stale token (expired or minted before a grant was added): the refresh
+        // re-resolves the role's permissions from the database, so retry once.
+        sessions = await fetchSessions();
+      }
+      if (sessions === null) return;
+      const mapped = sessions.map(sessionFromRecord);
       setSessions(mapped);
       // Populate terms from the active or first session.
-      const active = body.sessions?.find((s) => s.status === 'active') ?? body.sessions?.[0];
+      const active = sessions.find((s) => s.status === 'active') ?? sessions[0];
       setTerms(active?.terms ?? []);
     } catch {
       // A failure leaves the selector empty rather than guessing a session.

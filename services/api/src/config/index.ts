@@ -38,6 +38,29 @@ const envSchema = z.object({
   STORAGE_S3_SECRET_ACCESS_KEY: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   FROM_EMAIL: z.string().default('School OS <noreply@school.example>'),
+  // SMS gateway. All optional: a deployment with none of them set simply has
+  // no gateway, which the SMS Centre reports as unavailable rather than failing
+  // to start. The provider is chosen from this list rather than from the
+  // school's free-text settings field, so a typo cannot select a client that
+  // does not exist.
+  SMS_PROVIDER: z.enum(['africastalking', 'termii']).optional(),
+  SMS_API_KEY: z.string().optional(),
+  SMS_USERNAME: z.string().optional(),
+  SMS_SENDER_ID: z.string().optional(),
+  /**
+   * Overrides the provider's default base URL. Mainly for sandbox endpoints.
+   *
+   * An empty string is allowed alongside a valid URL, because the .env ships it
+   * blank for an operator to fill in - and `z.string().url()` alone would reject
+   * the blank at startup rather than treating it as "not set".
+   */
+  SMS_BASE_URL: z.string().url().optional().or(z.literal('')),
+  /**
+   * Shared secret a delivery callback must carry. The callback route is
+   * unauthenticated by necessity, so this is the only thing standing between a
+   * stranger's request and a forged "delivered" status.
+   */
+  SMS_WEBHOOK_SECRET: z.string().optional(),
   APP_CURRENCY: z.string().default('KES'),
   APP_CURRENCY_SYMBOL: z.string().default('KSh'),
   APP_CURRENCY_MINOR_UNIT: z.string().default('cents'),
@@ -84,6 +107,14 @@ export const config = {
   email: {
     resendApiKey: parsed.RESEND_API_KEY,
     fromEmail: parsed.FROM_EMAIL,
+  },
+  sms: {
+    provider: parsed.SMS_PROVIDER,
+    apiKey: parsed.SMS_API_KEY,
+    username: parsed.SMS_USERNAME,
+    senderId: parsed.SMS_SENDER_ID,
+    baseUrl: parsed.SMS_BASE_URL,
+    webhookSecret: parsed.SMS_WEBHOOK_SECRET,
   },
   currency: {
     code: parsed.APP_CURRENCY,

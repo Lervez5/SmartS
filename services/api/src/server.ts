@@ -6,6 +6,11 @@ import { connectDatabase, disconnectDatabase } from './infrastructure/database';
 import { connectRedis, disconnectRedis } from './infrastructure/redis';
 import { config } from './config';
 import { initSocket } from './shared/socket';
+import {
+  startSmsAutomationWorker,
+  stopSmsAutomationWorker,
+  scheduleEnabledRules,
+} from './modules/sms/automation';
 
 /**
  * Start listening, rejecting on a listen failure.
@@ -65,6 +70,19 @@ async function main(): Promise<void> {
   await connectDatabase();
   await connectRedis();
 
+  // The SMS automation runner. Without this the job queue has a producer and no
+  // consumer, so every job added - including the invitation flow's emails - sits
+  // in Redis until it is removed. Starting the worker is what makes an enabled
+  // rule's schedule mean anything.
+  await startSmsAutomationWorker();
+  const scheduled = await scheduleEnabledRules();
+  if (scheduled > 0) {
+    logger.info('SMS automation rules scheduled', {
+      event: 'sms_automation_scheduled',
+      count: scheduled,
+    });
+  }
+
   const server = http.createServer(app);
   initSocket(server);
 
@@ -88,6 +106,9 @@ async function main(): Promise<void> {
     server.close(() => {
       logger.info('Server closed');
     });
+    // The worker is closed before Redis, or its connection is torn out from
+    // under it and the shutdown logs a connection error it did not deserve.
+    await stopSmsAutomationWorker();
     await disconnectDatabase();
     await disconnectRedis();
     process.exit(0);

@@ -203,8 +203,12 @@ function CollectionsBreakdown({ data }: { data: AdminDashboardResponse['collecti
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium text-foreground">{paymentMethodLabel(item.method)}</span>
               <div className="text-right">
-                <span className="font-semibold text-foreground">{formatMoney(item.amountCents)}</span>
-                <span className="ml-2 text-xs text-muted-foreground">{item.percentage.toFixed(1)}%</span>
+                <span className="font-semibold text-foreground">
+                  {formatMoney(item.amountCents)}
+                </span>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {item.percentage.toFixed(1)}%
+                </span>
               </div>
             </div>
             <div className="h-2 w-full rounded-full bg-muted">
@@ -349,7 +353,8 @@ function TeacherLeaderboard({ data }: { data: TeacherActivity[] }) {
 export function AdminDashboard() {
   const { user, can } = useAuth();
   const role = user?.role ?? 'DEAN';
-  const { sessionId, setSessionId, termId, setTermId, current, termsForSelectedYear, ready } = useAcademicSession();
+  const { sessionId, setSessionId, termId, setTermId, current, termsForSelectedYear, ready } =
+    useAcademicSession();
 
   const showAcademic = can('students.view') && can('cohorts.view') && can('courses.view');
   const showUsers = can('users.view');
@@ -401,7 +406,8 @@ export function AdminDashboard() {
               <span className="hidden sm:inline">Record Payment</span>
               <span className="sm:hidden">Payment</span>
             </button>
-          ) : null}
+          ) : null
+        }
       />
 
       {/* Academic Session / Term Context */}
@@ -433,9 +439,7 @@ export function AdminDashboard() {
             </select>
           </div>
         ) : null}
-        {data?.context?.termName ? (
-          <StatusPill label={data.context.termName} tone="info" />
-        ) : null}
+        {data?.context?.termName ? <StatusPill label={data.context.termName} tone="info" /> : null}
       </div>
 
       {error ? (
@@ -460,7 +464,10 @@ export function AdminDashboard() {
             <section className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-foreground">Recent Payments</h3>
-                <Link href="/admin/finance" className="text-sm font-medium text-primary hover:underline">
+                <Link
+                  href="/admin/finance"
+                  className="text-sm font-medium text-primary hover:underline"
+                >
                   All finance
                 </Link>
               </div>
@@ -834,7 +841,13 @@ function UsersOverview({
  * Administration Overview
  * ------------------------------------------------------------------ */
 
-function AdministrationOverview({ data, loading }: { data: AdminDashboardResponse | null | undefined; loading: boolean }) {
+function AdministrationOverview({
+  data,
+  loading,
+}: {
+  data: AdminDashboardResponse | null | undefined;
+  loading: boolean;
+}) {
   const { can, permissions } = useAuth();
 
   if (loading) return <LoadingState label="Loading platform administration" />;

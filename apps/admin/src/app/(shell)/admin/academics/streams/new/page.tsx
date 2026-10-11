@@ -49,7 +49,9 @@ export default function AdminNewStreamPage() {
   const router = useRouter();
   const { sessionId, current: session, ready } = useAcademicSession();
 
-  const classes = useApi<ClassesResponse>(allowed && ready ? `/api/classes?academicYearId=${sessionId}` : (allowed ? '/api/classes' : null));
+  const classes = useApi<ClassesResponse>(
+    allowed && ready ? `/api/classes?academicYearId=${sessionId}` : allowed ? '/api/classes' : null
+  );
 
   const options = React.useMemo(() => classes.data?.classes ?? [], [classes.data]);
   const [classId, setClassId] = React.useState('');
@@ -69,13 +71,13 @@ export default function AdminNewStreamPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({
-           classId,
-           ...(parent?.academicYearId ? { academicYearId: parent.academicYearId } : {}),
-           name: name.trim(),
-           code: code.trim(),
-           ...(capacity.trim() ? { capacity: Number(capacity) } : {}),
-         }),
+        body: JSON.stringify({
+          classId,
+          ...(parent?.academicYearId ? { academicYearId: parent.academicYearId } : {}),
+          name: name.trim(),
+          code: code.trim(),
+          ...(capacity.trim() ? { capacity: Number(capacity) } : {}),
+        }),
       });
 
       if (!res.ok) {
