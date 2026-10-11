@@ -8,11 +8,10 @@
  */
 
 import { Router, type Request, type Response } from 'express';
-import { SmsCampaignPurpose, SmsCampaignStatus, SmsRecipientStatus } from '@prisma/client';
+import { SmsCampaignPurpose, SmsCampaignStatus } from '@prisma/client';
 import { z } from 'zod';
 import { getSmsGateway, normaliseDeliveryReport } from './gateway';
 import { requirePermissions } from '../../middleware/rbac';
-import { config } from '../../config';
 import { hasPermission } from '@schoolos/auth/permissions';
 import { isAutomationWorkerRunning } from './automation';
 import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
@@ -27,7 +26,6 @@ import {
   resolveAudienceStudentIds,
   estimateSegments,
   normalisePhone,
-  maskPhone,
   createCampaign,
   confirmCampaign,
   applyDeliveryReport,
@@ -48,7 +46,6 @@ router.use(requireSchoolScope());
 
 const requireView = requirePermissions('sms.view');
 const requireSend = requirePermissions('sms.send');
-const requireReminders = requirePermissions('sms.reminders');
 const requireManage = requirePermissions('sms.manage');
 const requireCredits = requirePermissions('sms.credits');
 
@@ -667,7 +664,7 @@ deliveryRouter.post(
   asyncHandler(async (req: Request, res: Response) => {
     const gateway = getSmsGateway();
 
-    if (!config.sms.webhookSecret) {
+    if (!process.env.SMS_WEBHOOK_SECRET) {
       // No secret configured means nothing can verify a caller, which would make
       // every report forgeable. Refusing outright is safer than accepting.
       res.status(503).json({
@@ -684,7 +681,7 @@ deliveryRouter.post(
       (req.get('x-sms-webhook-secret') as string | undefined) ??
       (req.body?.webhookSecret as string | undefined);
 
-    if (presented !== config.sms.webhookSecret) {
+    if (presented !== process.env.SMS_WEBHOOK_SECRET) {
       res.status(401).json({ error: { message: 'That delivery report could not be verified.' } });
       return;
     }

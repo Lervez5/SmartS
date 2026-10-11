@@ -11,6 +11,7 @@ import {
   stopSmsAutomationWorker,
   scheduleEnabledRules,
 } from './modules/sms/automation';
+import { startNotificationWorker, stopNotificationWorker } from './modules/enrollment/worker';
 
 /**
  * Start listening, rejecting on a listen failure.
@@ -109,6 +110,7 @@ async function main(): Promise<void> {
     // The worker is closed before Redis, or its connection is torn out from
     // under it and the shutdown logs a connection error it did not deserve.
     await stopSmsAutomationWorker();
+    await stopNotificationWorker();
     await disconnectDatabase();
     await disconnectRedis();
     process.exit(0);

@@ -30,9 +30,8 @@ import { prisma } from '../../infrastructure/database';
 import { config } from '../../config';
 import { ApiError } from '../../shared/logger';
 import { recordAuditLog } from '../audit-logs/service';
-import { getSmsGateway } from '../sms/gateway';
 import { normalisePhone } from '../sms/service';
-import { addEmailJob } from '../../infrastructure/queues';
+import { addNotificationJob } from '../../infrastructure/queues';
 import { createInvitation } from '../invitations/repository';
 
 /** How long an enrollment activation stays valid. */
@@ -260,8 +259,6 @@ export async function notifyGuardiansOfEnrollment(input: {
     channels: [],
   };
 
-  const gateway = getSmsGateway();
-
   for (const guardian of guardians) {
     const channels = chooseChannels({ guardian, defaultChannel, smsEnabled, emailEnabled });
 
@@ -357,42 +354,27 @@ export async function notifyGuardiansOfEnrollment(input: {
         idempotencyKey,
       });
 
-      // Another trigger created this row between the check above and here. It is
-      // already accounted for, so this one must not dispatch a second copy.
+      // Another trigger created this row between the check above and here. It
+      // already accounted for, so this one must not queue a second copy.
       if (!row) {
         outcome.duplicatesSuppressed += 1;
         continue;
       }
 
-      // Dispatch. An exception here is contained: the row stays `pending` and is
-      // eligible for a retry, and the enrollment is untouched.
-      try {
-        if (channel === EnrollmentChannel.sms) {
-          await dispatchSms({
-            notificationId: row.id,
-            to: guardian.phone!,
-            body: message.body,
-          });
-        } else {
-          await dispatchEmail({
-            notificationId: row.id,
-            to: guardian.email!,
-            subject: message.subject,
-            body: message.body,
-          });
-        }
-        outcome.dispatched += 1;
-        if (!outcome.channels.includes(channel)) outcome.channels.push(channel);
-      } catch (err) {
-        await markFailed(row.id, err);
-      }
+      // Queue rather than send. The queue's own attempts and backoff carry the
+      // retry, so a provider outage is retried by the worker instead of by an
+      // administrator re-running the enrollment - and the request that enrolled
+      // the learner returns without waiting on a gateway.
+      await addNotificationJob(row.id);
+      outcome.dispatched += 1;
+      if (!outcome.channels.includes(channel)) outcome.channels.push(channel);
     }
   }
 
   await recordAuditLog(
     actorId,
-    'enrollment.notifications.dispatched',
-    `Enrollment ${enrollmentId}: ${outcome.dispatched} message(s) to ${outcome.guardians} ` +
+    'enrollment.notifications.queued',
+    `Enrollment ${enrollmentId}: ${outcome.dispatched} message(s) queued for ${outcome.guardians} ` +
       `guardian(s), ${outcome.awaitingContact} awaiting contact, ` +
       `${outcome.duplicatesSuppressed} duplicate(s) suppressed.`,
     schoolId
@@ -466,101 +448,6 @@ async function recordNotification(input: {
 }
 
 /**
- * Hands an SMS to the gateway.
- *
- * A provider acceptance is recorded as `provider_accepted`, never as `delivered`:
- * the gateway saying it took the message is not the handset saying it received
- * it, and only a delivery report may move the row on.
- */
-async function dispatchSms(input: {
-  notificationId: string;
-  to: string;
-  body: string;
-}): Promise<void> {
-  const gateway = getSmsGateway();
-
-  if (!gateway.configured) {
-    // No gateway is a configuration state, not a send failure. The row stays
-    // queued so a retry works the moment credentials exist, rather than being
-    // marked failed for something the school has not set up yet.
-    await prisma.enrollmentNotification.update({
-      where: { id: input.notificationId },
-      data: {
-        status: NotificationStatus.queued,
-        providerError: 'No SMS gateway is configured. Set SMS_PROVIDER with its credentials.',
-        lastAttemptAt: new Date(),
-      },
-    });
-    return;
-  }
-
-  const result = await gateway.send({ to: [input.to], body: input.body });
-
-  await prisma.enrollmentNotification.update({
-    where: { id: input.notificationId },
-    data: {
-      status: result.accepted ? NotificationStatus.provider_accepted : NotificationStatus.failed,
-      providerMessageId: result.providerMessageId,
-      providerError: result.error,
-      attemptCount: { increment: 1 },
-      lastAttemptAt: new Date(),
-      sentAt: result.accepted ? new Date() : null,
-    },
-  });
-
-  if (!result.accepted) {
-    throw new ApiError(502, result.error ?? 'The gateway refused the message.');
-  }
-}
-
-/** Hands an email to the existing email queue, and records it as queued. */
-async function dispatchEmail(input: {
-  notificationId: string;
-  to: string;
-  subject: string;
-  body: string;
-}): Promise<void> {
-  await prisma.enrollmentNotification.update({
-    where: { id: input.notificationId },
-    data: {
-      status: NotificationStatus.queued,
-      queuedAt: new Date(),
-      attemptCount: { increment: 1 },
-      lastAttemptAt: new Date(),
-    },
-  });
-
-  // Reuses the queue the invitation flow already writes to rather than opening a
-  // second one.
-  await addEmailJob(input.to, 'enrollment-confirmation', {
-    to: input.to,
-    subject: input.subject,
-    body: input.body,
-  });
-}
-
-/**
- * Records a dispatch failure without losing the attempt.
- *
- * The body stays queued-for-retry rather than failed when the failure looks
- * temporary, because a rate limit or a timeout is not the guardian's fault and a
- * retry a minute later usually works.
- */
-async function markFailed(notificationId: string, err: unknown): Promise<void> {
-  const message = err instanceof Error ? err.message : 'Unknown error';
-  const transient = /timeout|rate|temporar|unavailable|network/i.test(message);
-
-  await prisma.enrollmentNotification.update({
-    where: { id: notificationId },
-    data: {
-      status: transient ? NotificationStatus.awaiting_retry : NotificationStatus.failed,
-      providerError: message.slice(0, 300),
-      lastAttemptAt: new Date(),
-    },
-  });
-}
-
-/**
  * Re-attempts a message that did not get out.
  *
  * Only a row that has not already reached a provider is retried, so a message the
@@ -592,33 +479,22 @@ export async function retryNotification(input: {
     throw new ApiError(400, 'There is no contact address on record to retry to.');
   }
 
-  if (existing.channel === EnrollmentChannel.sms) {
-    await dispatchSms({
-      notificationId: existing.id,
-      to: existing.destination,
-      body: existing.body,
-    });
-  } else {
-    await dispatchEmail({
-      notificationId: existing.id,
-      to: existing.destination,
-      subject: existing.subject ?? 'Message from your school',
-      body: existing.body,
-    });
-  }
-
-  const updated = await prisma.enrollmentNotification.findUniqueOrThrow({
+  // Queued, not sent inline, so the retry gets the same attempts and backoff as
+  // the first dispatch and the staff member's request does not wait on a gateway.
+  await addNotificationJob(existing.id);
+  await prisma.enrollmentNotification.update({
     where: { id: existing.id },
+    data: { status: NotificationStatus.queued, queuedAt: new Date() },
   });
 
   await recordAuditLog(
     input.actorId,
     'enrollment.notifications.retried',
-    `Notification ${existing.id} re-attempted (attempt ${updated.attemptCount}).`,
+    `Notification ${existing.id} re-queued for delivery (attempt ${existing.attemptCount}).`,
     input.schoolId
   );
 
-  return updated;
+  return prisma.enrollmentNotification.findUniqueOrThrow({ where: { id: existing.id } });
 }
 
 /**

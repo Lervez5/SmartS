@@ -18,7 +18,6 @@
  *      workspace can report the truth instead of a green tick.
  */
 
-import { config } from '../../config';
 
 /** Which gateways this client can actually speak. */
 export type SmsProviderName = 'africastalking' | 'termii';
@@ -83,6 +82,27 @@ export interface SmsGatewayClient {
 /* ------------------------------------------------------------------ *
  * Configuration
  * ------------------------------------------------------------------ */
+/**
+ * The SMS configuration as it stands right now.
+ *
+ * Read from the environment on each call rather than from the frozen `config`
+ * object, which is parsed once at import. That mattered twice over: it made the
+ * client untestable, because a test that set the variables after the module was
+ * loaded was talking to a config that had already been built; and it meant a
+ * deployment that edited its environment and reloaded kept using the old
+ * credentials with nothing to indicate it.
+ */
+function smsConfig() {
+  const env = process.env;
+  return {
+    provider: env.SMS_PROVIDER,
+    apiKey: env.SMS_API_KEY,
+    username: env.SMS_USERNAME,
+    senderId: env.SMS_SENDER_ID,
+    baseUrl: env.SMS_BASE_URL,
+    webhookSecret: env.SMS_WEBHOOK_SECRET,
+  };
+}
 
 /**
  * Resolves which gateway, if any, this deployment has.
@@ -92,32 +112,49 @@ export interface SmsGatewayClient {
  * surface per message rather than at startup.
  */
 function resolveProvider(): { provider: SmsProviderName; blocker: string | null } {
-  const configured = config.sms;
+  const configured = smsConfig();
+
+  // An unknown value cannot select a client that exists, so it falls back to the
+  // default adapter and says so - rather than silently sending through the wrong
+  // gateway or failing at runtime on the first message.
+  const provider: SmsProviderName =
+    configured.provider === 'termii' || configured.provider === 'africastalking'
+      ? configured.provider
+      : 'africastalking';
 
   if (!configured.provider) {
     return {
-      provider: 'africastalking',
+      provider,
       blocker:
         'No SMS provider is configured. Set SMS_PROVIDER along with SMS_API_KEY, ' +
         'SMS_USERNAME and SMS_SENDER_ID.',
     };
   }
 
-  if (!configured.apiKey) {
+  if (configured.provider !== 'termii' && configured.provider !== 'africastalking') {
     return {
-      provider: configured.provider,
-      blocker: `SMS_API_KEY is not set for ${configured.provider}.`,
+      provider,
+      blocker:
+        `SMS_PROVIDER "${configured.provider}" is not a gateway this build supports; ` +
+        'expected africastalking or termii.',
     };
   }
 
-  if (configured.provider === 'africastalking' && !configured.username) {
+  if (!configured.apiKey) {
     return {
-      provider: configured.provider,
+      provider,
+      blocker: `SMS_API_KEY is not set for ${provider}.`,
+    };
+  }
+
+  if (provider === 'africastalking' && !configured.username) {
+    return {
+      provider,
       blocker: "Africa's Talking requires SMS_USERNAME in addition to SMS_API_KEY.",
     };
   }
 
-  return { provider: configured.provider, blocker: null };
+  return { provider, blocker: null };
 }
 
 /* ------------------------------------------------------------------ *
@@ -143,9 +180,9 @@ class AfricasTalkingClient implements SmsGatewayClient {
   readonly blocker: string | null;
 
   constructor(blocker: string | null) {
-    this.apiKey = config.sms.apiKey;
-    this.username = config.sms.username;
-    this.baseUrl = (config.sms.baseUrl?.trim() || AT_DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.apiKey = smsConfig().apiKey;
+    this.username = smsConfig().username;
+    this.baseUrl = (smsConfig().baseUrl?.trim() || AT_DEFAULT_BASE_URL).replace(/\/+$/, '');
     this.blocker = blocker;
   }
 
@@ -156,7 +193,7 @@ class AfricasTalkingClient implements SmsGatewayClient {
   get senderId(): string | null {
     // An empty env var is how the shipped .env holds the slot open, and it means
     // "not configured" just as an absent one does.
-    return config.sms.senderId?.trim() || null;
+    return smsConfig().senderId?.trim() || null;
   }
 
   private headers(): Record<string, string> {
@@ -329,8 +366,8 @@ class TermiiClient implements SmsGatewayClient {
   private readonly baseUrl: string;
 
   constructor(blocker: string | null) {
-    this.apiKey = config.sms.apiKey;
-    this.baseUrl = (config.sms.baseUrl?.trim() || TERMII_DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.apiKey = smsConfig().apiKey;
+    this.baseUrl = (smsConfig().baseUrl?.trim() || TERMII_DEFAULT_BASE_URL).replace(/\/+$/, '');
     this.blocker = blocker;
   }
 
@@ -341,7 +378,7 @@ class TermiiClient implements SmsGatewayClient {
   get senderId(): string | null {
     // An empty env var is how the shipped .env holds the slot open, and it means
     // "not configured" just as an absent one does.
-    return config.sms.senderId?.trim() || null;
+    return smsConfig().senderId?.trim() || null;
   }
 
   async send(params: {

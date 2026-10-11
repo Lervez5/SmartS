@@ -27,7 +27,7 @@
 import { Worker, type Job } from 'bullmq';
 import { prisma } from '../../infrastructure/database';
 import { recordAuditLog } from '../audit-logs/service';
-import { resolveOutstandingBalances, resolveGuardianRecipients } from './service';
+import { resolveOutstandingBalances } from './service';
 
 export const SMS_AUTOMATION_QUEUE = 'sms-automation';
 

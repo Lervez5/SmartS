@@ -371,6 +371,17 @@ function normaliseHeader(cell: string): CsvColumn | null {
   return (CSV_COLUMNS as readonly string[]).includes(key) ? (key as CsvColumn) : null;
 }
 
+/** What the backend reports about guardian notifications for an enrollment. */
+interface NotificationSummary {
+  enrollmentsNotified: number;
+  guardians: number;
+  dispatched: number;
+  awaitingContact: number;
+  duplicatesSuppressed: number;
+  channels: string[];
+  enrollmentsAwaitingContact: string[];
+}
+
 interface DraftRow {
   key: string;
   role: UserRole;
@@ -413,6 +424,46 @@ function emptyRow(defaultRole: UserRole): DraftRow {
     department: '',
     hireDate: '',
   };
+}
+
+/**
+ * Reports what the guardians were told after an enrollment.
+ *
+ * The backend returns these figures because "a guardian could not be reached" is
+ * something the operator must see on the screen that just enrolled the child.
+ * Without it the only trace would be a row nobody opens, and the staff member
+ * would reasonably assume the family was told.
+ */
+function reportGuardianNotifications(notified: NotificationSummary | null): void {
+  if (!notified) {
+    notify.error(
+      'The learners are enrolled, but the guardians could not be notified. Check the ' +
+        'notification history and retry once contact details are in place.'
+    );
+    return;
+  }
+
+  if (notified.awaitingContact > 0) {
+    notify.error(
+      `${notified.dispatched} guardian message(s) sent. ${notified.awaitingContact} guardian(s) ` +
+        `have no phone number or email on record, so they were not contacted. Add contact ` +
+        `details on the guardian record to reach them.`
+    );
+    return;
+  }
+
+  if (notified.dispatched === 0 && notified.guardians > 0) {
+    notify.error(
+      'The learners are enrolled, but no guardian message was sent. Check the notification ' +
+        'history for the reason.'
+    );
+    return;
+  }
+
+  notify.success(
+    `${notified.dispatched} guardian message(s) sent for ${notified.enrollmentsNotified} ` +
+      `enrollment(s).`
+  );
 }
 
 export default function EnrollmentHubPage() {
@@ -705,9 +756,11 @@ export default function EnrollmentHubPage() {
         notify.error(await errorMessage(res, 'Could not place the learner'));
         return;
       }
-      notify.success(
-        `${enrollTarget.applicant.name} placed in ${selectedClass?.name ?? 'the class'}.`
-      );
+      const placed = (await res
+        .clone()
+        .json()
+        .catch(() => null)) as { notifications?: NotificationSummary | null } | null;
+      reportGuardianNotifications(placed?.notifications ?? null);
       setEnrollTarget(null);
       applications.refetch();
       overview.refetch();
@@ -876,9 +929,16 @@ export default function EnrollmentHubPage() {
         notify.error(await errorMessage(res, 'Could not run the bulk enrollment'));
         return;
       }
-      const body = (await res.json()) as { batch: BatchRecord };
+      const body = (await res.json()) as {
+        batch: BatchRecord;
+        notifications?: NotificationSummary;
+      };
       const batch = body.batch;
       setLastBatch(batch);
+      // Reported separately from the batch outcome: a guardian who could not be
+      // contacted is not a failed row, and burying it in the batch summary would
+      // hide it.
+      reportGuardianNotifications(body.notifications ?? null);
       const { enrolled, duplicate, failed } = batch.counts;
       if (failed > 0) {
         notify.error(

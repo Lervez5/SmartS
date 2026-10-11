@@ -48,7 +48,9 @@ import { Router, type Request, type Response } from 'express';
 import {
   AdmissionStatus,
   EnrollmentBatchStatus,
+  EnrollmentChannel,
   EnrollmentEntryStatus,
+  NotificationStatus,
   Prisma,
   UserRole,
 } from '@prisma/client';
@@ -58,8 +60,12 @@ import { requirePermissions } from '../../middleware/rbac';
 import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
 import { asyncHandler } from '../../shared/asyncHandler';
 import { ApiError } from '../../shared/logger';
-import { recordAuditLog } from '../audit-logs/service';
-import { notifyGuardiansOfEnrollment } from './notifications';
+import {
+  notifyGuardiansOfEnrollment,
+  retryNotification,
+  listRetryable,
+  type EnrollmentNotificationOutcome,
+} from './notifications';
 
 export const router: Router = Router();
 
@@ -534,14 +540,19 @@ async function onboardEntry(
  * as an enrollment problem. A gateway outage, a bounced email or a rejected
  * number is recorded on the notification row and surfaced to staff; the learner
  * stays enrolled either way.
+ *
+ * Returns the outcome rather than discarding it, because "a guardian could not
+ * be reached" is something the operator has to see on the screen that just
+ * enrolled the learner. Swallowing it here would leave the only trace in a row
+ * nobody looks at, and the staff member would believe the family was told.
  */
 async function notifySafely(input: {
   enrollmentId: string;
   schoolId: string;
   actorId: string | null;
-}): Promise<void> {
+}): Promise<EnrollmentNotificationOutcome | null> {
   try {
-    await notifyGuardiansOfEnrollment(input);
+    return await notifyGuardiansOfEnrollment(input);
   } catch (err) {
     // Logged, not rethrown. The enrollment succeeded; the notification did not,
     // and the operator needs to know that without the request failing.
@@ -549,7 +560,45 @@ async function notifySafely(input: {
       enrollmentId: input.enrollmentId,
       reason: err instanceof Error ? err.message : 'unknown',
     });
+    return null;
   }
+}
+
+/**
+ * Rolls notification outcomes up into the figures the workspace shows.
+ *
+ * `awaitingContact` is the one that matters operationally: it is the number of
+ * guardians the school just enrolled a child for and cannot reach at all, which
+ * is a task rather than a statistic. It is kept separate from `dispatched` so a
+ * run that reached nobody still says so, rather than reporting zero of anything.
+ */
+function summariseNotifications(outcomes: EnrollmentNotificationOutcome[]): {
+  enrollmentsNotified: number;
+  guardians: number;
+  dispatched: number;
+  awaitingContact: number;
+  duplicatesSuppressed: number;
+  channels: string[];
+  /** Enrollment ids whose guardians need contact details, for the staff list. */
+  enrollmentsAwaitingContact: string[];
+} {
+  const channels = new Set<string>();
+  const awaitingContact: string[] = [];
+
+  for (const outcome of outcomes) {
+    for (const channel of outcome.channels) channels.add(channel);
+    if (outcome.awaitingContact > 0) awaitingContact.push(outcome.enrollmentId);
+  }
+
+  return {
+    enrollmentsNotified: outcomes.length,
+    guardians: outcomes.reduce((sum, o) => sum + o.guardians, 0),
+    dispatched: outcomes.reduce((sum, o) => sum + o.dispatched, 0),
+    awaitingContact: outcomes.reduce((sum, o) => sum + o.awaitingContact, 0),
+    duplicatesSuppressed: outcomes.reduce((sum, o) => sum + o.duplicatesSuppressed, 0),
+    channels: [...channels],
+    enrollmentsAwaitingContact: awaitingContact,
+  };
 }
 
 /** Counts a batch from its rows, so the stored counters cannot drift. */
@@ -1093,7 +1142,7 @@ router.post(
     // transaction - means a messaging failure cannot roll back a valid
     // enrollment, and a retried confirm lands on the same notification rows
     // instead of sending the guardian a second message.
-    await notifySafely({
+    const notified = await notifySafely({
       enrollmentId: result.enrollment.id,
       schoolId,
       actorId: req.user?.id ?? null,
@@ -1102,6 +1151,10 @@ router.post(
     res.status(201).json({
       placement: mapPlacement(result.enrollment),
       application: mapApplication(result.application),
+      // Null when notification itself failed outright: the enrollment stands, and
+      // the response says the family could not be told rather than implying it
+      // was.
+      notifications: notified ? summariseNotifications([notified]) : null,
     });
   })
 );
@@ -1274,6 +1327,10 @@ router.post(
       select: { id: true },
     });
 
+    // Notification outcomes for the rows this run placed, so the response can
+    // tell the operator which families were reached and which were not.
+    const notifications: EnrollmentNotificationOutcome[] = [];
+
     for (const row of rows) {
       try {
         // One transaction per row: a rejected row must not undo the rows that
@@ -1294,11 +1351,12 @@ router.post(
         // guardian row produced none, and there is nothing to tell a parent
         // about a teacher's onboarding.
         if (outcome.status === EnrollmentEntryStatus.enrolled && outcome.enrollmentId) {
-          await notifySafely({
+          const notified = await notifySafely({
             enrollmentId: outcome.enrollmentId,
             schoolId,
             actorId: req.user?.id ?? null,
           });
+          if (notified) notifications.push(notified);
         }
       } catch (err) {
         row.status = EnrollmentEntryStatus.failed;
@@ -1323,7 +1381,79 @@ router.post(
       include: batchInclude,
     });
 
-    res.status(201).json({ batch: mapBatch(stored) });
+    // Rolled up so the response carries one figure per outcome rather than one
+    // object per row, which on a 500-row import is unreadable.
+    const notified = summariseNotifications(notifications);
+
+    res.status(201).json({
+      batch: mapBatch(stored),
+      // What the guardians were told, so the operator sees it on this screen
+      // rather than having to trust that messaging happened.
+      notifications: notified,
+    });
+  })
+);
+
+/**
+ * Messages that did not get out and are eligible for another attempt.
+ *
+ * A row the provider already accepted is excluded, because sending it again is
+ * what a duplicate is. `awaiting_contact` is excluded too - there is no address
+ * to retry to until the school adds one, which is a data task rather than a
+ * retry.
+ */
+router.get(
+  '/notifications/retryable',
+  requirePermissions('admissions.manage'),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { schoolId } = schoolScopeOf(req);
+    const rows = await listRetryable(schoolId);
+    res.json({
+      retryable: rows.map((row) => ({
+        id: row.id,
+        enrollmentId: row.enrollmentId,
+        channel: row.channel as EnrollmentChannel,
+        status: row.status as NotificationStatus,
+        destination: row.destination,
+        subject: row.subject,
+        attemptCount: row.attemptCount,
+        lastAttemptAt: row.lastAttemptAt,
+        providerError: row.providerError,
+      })),
+    });
+  })
+);
+
+/**
+ * Re-attempts one message that did not get out.
+ *
+ * Gated on the same permission that sends, so front-end visibility of the retry
+ * button is not the authorisation. The service refuses a row the provider
+ * already accepted, which is the case that would send the family a duplicate.
+ */
+router.post(
+  '/notifications/:id/retry',
+  requirePermissions('admissions.manage'),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { schoolId } = schoolScopeOf(req);
+    const actorId = req.user?.id ?? null;
+
+    const updated = await retryNotification({
+      schoolId,
+      actorId,
+      notificationId: req.params.id,
+    });
+
+    res.json({
+      notification: {
+        id: updated.id,
+        channel: updated.channel as EnrollmentChannel,
+        status: updated.status as NotificationStatus,
+        attemptCount: updated.attemptCount,
+        providerMessageId: updated.providerMessageId,
+        providerError: updated.providerError,
+      },
+    });
   })
 );
 

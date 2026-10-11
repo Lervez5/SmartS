@@ -304,25 +304,42 @@ describe('Enrollment notifications', () => {
   });
 
   describe('provider outcome', () => {
+    it('leaves the row pending for the worker rather than sending in the request', async () => {
+      const enrolmentId = await placeLearner();
+      const { rows } = await notify(enrolmentId);
+
+      // Dispatch is queued, not inline: enrolling a learner must return without
+      // waiting on a gateway, so the row is written `pending` and the worker
+      // moves it. Anything else would put a provider round-trip in the request.
+      const sms = rows.find((row) => row.channel === EnrollmentChannel.sms)!;
+      expect(sms.status).toBe(NotificationStatus.pending);
+      expect(sms.deliveredAt).toBeNull();
+      expect(sms.sentAt).toBeNull();
+    });
+
     it('records an unconfigured gateway as queued, never as delivered', async () => {
       const enrolmentId = await placeLearner();
       const { rows } = await notify(enrolmentId);
 
       const sms = rows.find((row) => row.channel === EnrollmentChannel.sms)!;
+
+      // The worker is what calls the gateway, so this is the same code path the
+      // queue runs - not a second implementation.
+      const { dispatchNotification } = await import('../src/modules/enrollment/worker');
+      const result = await dispatchNotification(sms.id);
+
       // No gateway is configured, so nothing was handed anywhere. The row says so
-      // and remains eligible for a retry the moment credentials exist.
-      expect(sms.status).toBe(NotificationStatus.queued);
-      expect(sms.providerError).toContain('No SMS gateway');
-      expect(sms.deliveredAt).toBeNull();
-    });
+      // and stays retryable the moment credentials exist.
+      expect(result.status).toBe(NotificationStatus.queued);
+      expect(result.error).toContain('No SMS gateway');
 
-    it('stays queued rather than failed when the gateway is merely unconfigured', async () => {
-      const enrolmentId = await placeLearner();
-      const { rows } = await notify(enrolmentId);
-
-      const sms = rows.find((row) => row.channel === EnrollmentChannel.sms)!;
-      // `queued` is retryable; `failed` would read as the number being bad.
-      expect(sms.status).not.toBe(NotificationStatus.failed);
+      const after = await prisma.enrollmentNotification.findUnique({ where: { id: sms.id } });
+      expect(after?.status).toBe(NotificationStatus.queued);
+      expect(after?.attemptCount).toBe(1);
+      // Never a delivery, and never a refusal: the credentials are not set yet,
+      // which is not the same thing as the number being bad.
+      expect(after?.deliveredAt).toBeNull();
+      expect(after?.status).not.toBe(NotificationStatus.failed);
     });
   });
 
@@ -429,6 +446,105 @@ describe('Enrollment notifications', () => {
       await expect(activateAccountService(reactivated.token, 'supersecret')).rejects.toThrow(
         /already|invalid/i
       );
+    });
+  });
+
+  describe('no-resend guarantee', () => {
+    /**
+     * The queue may deliver the same job several times - that is what its
+     * `attempts` mean - so the worker must re-read the row and refuse to send one
+     * the provider already accepted. Without this, a BullMQ retry after a timeout
+     * would send the family a second message.
+     *
+     * Tested against a stub gateway on a local port, so the number of real HTTP
+     * requests is observable rather than assumed.
+     */
+    it('never sends twice, however many times the job is delivered', async () => {
+      const http = await import('node:http');
+      const { resetSmsGateway } = await import('../src/modules/sms/gateway');
+
+      const calls: string[] = [];
+      const server = http.createServer((req, res) => {
+        let body = '';
+        req.on('data', (chunk) => (body += chunk));
+        req.on('end', () => {
+          calls.push(body);
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              SMSMessageData: {
+                Recipients: [
+                  { messageId: 'ATX-stub-1', status: 'Success', statusCode: 101, cost: 'KES 0.80' },
+                ],
+              },
+            })
+          );
+        });
+      });
+
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+      const port = (server.address() as { port: number }).port;
+
+      const previous = {
+        provider: process.env.SMS_PROVIDER,
+        key: process.env.SMS_API_KEY,
+        username: process.env.SMS_USERNAME,
+        sender: process.env.SMS_SENDER_ID,
+        base: process.env.SMS_BASE_URL,
+      };
+      process.env.SMS_PROVIDER = 'africastalking';
+      process.env.SMS_API_KEY = 'stub-key';
+      process.env.SMS_USERNAME = 'sandbox';
+      process.env.SMS_SENDER_ID = 'RACEFIELD';
+      process.env.SMS_BASE_URL = `http://127.0.0.1:${port}`;
+
+      try {
+        const { dispatchNotification } = await import('../src/modules/enrollment/worker');
+        resetSmsGateway();
+
+        // A placement this row can belong to: the model requires one, and a
+        // notification that is not about a real placement is not a thing.
+        const enrolmentId = await placeLearner();
+        const row = await prisma.enrollmentNotification.create({
+          data: {
+            enrollmentId: enrolmentId,
+            schoolId,
+            channel: EnrollmentChannel.sms,
+            type: NotificationType.enrollment_confirmation,
+            destination: '+254712345678',
+            body: 'A stub message.',
+            subject: 'Stub',
+            idempotencyKey: `stub-${stamp}-${Date.now()}`,
+          },
+          select: { id: true },
+        });
+        createdNotificationIds.push(row.id);
+
+        const first = await dispatchNotification(row.id);
+        expect(first.status).toBe(NotificationStatus.provider_accepted);
+        expect(first.providerMessageId).toBe('ATX-stub-1');
+        expect(calls).toHaveLength(1);
+
+        // Twice more, exactly as a queue retry would deliver it.
+        await dispatchNotification(row.id);
+        await dispatchNotification(row.id);
+        expect(calls).toHaveLength(1);
+
+        const stored = await prisma.enrollmentNotification.findUnique({ where: { id: row.id } });
+        expect(stored?.attemptCount).toBe(1);
+        // Accepted is not delivered, and only a provider delivery report may say
+        // otherwise.
+        expect(stored?.deliveredAt).toBeNull();
+        expect(stored?.status).toBe(NotificationStatus.provider_accepted);
+      } finally {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+        process.env.SMS_PROVIDER = previous.provider;
+        process.env.SMS_API_KEY = previous.key;
+        process.env.SMS_USERNAME = previous.username;
+        process.env.SMS_SENDER_ID = previous.sender;
+        process.env.SMS_BASE_URL = previous.base;
+        resetSmsGateway();
+      }
     });
   });
 

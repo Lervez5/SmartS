@@ -29,18 +29,11 @@
  * tampered count or a hand-supplied phone list has no effect.
  */
 
-import {
-  GradeScope,
-  LearningAreaStatus,
-  Prisma,
-  SmsCampaignPurpose,
-  SmsCampaignStatus,
-  SmsRecipientStatus,
-} from '@prisma/client';
+import { Prisma, SmsCampaignPurpose, SmsCampaignStatus, SmsRecipientStatus } from '@prisma/client';
 import { prisma } from '../../infrastructure/database';
 import { config } from '../../config';
 import { ApiError } from '../../shared/logger';
-import { getSmsGateway, type SmsCreditBalance } from './gateway';
+import { getSmsGateway } from './gateway';
 import { rescheduleRule } from './automation';
 import { recordAuditLog } from '../audit-logs/service';
 
@@ -1229,17 +1222,6 @@ export async function confirmCampaign(input: {
     });
     return { campaign: blocked, capability };
   }
-
-  const submitted = await prisma.smsCampaign.update({
-    where: { id: campaign.id },
-    data: {
-      status: SmsCampaignStatus.submitted,
-      submittedAt: new Date(),
-      recipientCount: stillSendable.length,
-    },
-    include: campaignInclude,
-  });
-
   // One handoff per recipient, marked by what the provider said about it. A
   // provider acknowledgement is a receipt for the request, never a delivery.
   const callbackUrl = buildCallbackUrl();
