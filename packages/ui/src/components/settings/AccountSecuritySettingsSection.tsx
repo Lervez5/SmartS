@@ -57,7 +57,10 @@ export function AccountSecuritySettingsSection() {
   async function revokeSessions() {
     setRevoking(true);
     try {
-      const res = await fetch('/auth/revoke-sessions', {
+      // `/api/auth/...`, not `/auth/...`: the portal only proxies `/api`, so the
+      // shorter path hit the Next app itself and 404'd - the button did nothing
+      // and reported nothing, which is worse than failing visibly.
+      const res = await fetch('/api/auth/revoke-sessions', {
         method: 'POST',
         credentials: 'include',
       });
@@ -69,7 +72,7 @@ export function AccountSecuritySettingsSection() {
         notify.error(message);
         return;
       }
-      notify.success('All other sessions have been signed out');
+      notify.success('Every other device is signed out. You are still signed in here.');
     } catch {
       notify.error('Could not reach the API. Check that it is running.');
     } finally {

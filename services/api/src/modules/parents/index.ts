@@ -22,8 +22,15 @@ import { prisma } from '../../infrastructure/database';
 import { requirePermissions } from '../../middleware/rbac';
 import { asyncHandler } from '../../shared/asyncHandler';
 import { ApiError } from '../../shared/logger';
+import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
+import { recordAuditLog } from '../audit-logs/service';
 
 export const router: Router = Router();
+
+// Guardians belong to a school through their account's membership, and every
+// read and write below is scoped by it. Without this a guardian in another
+// school would be attachable, editable and listable here.
+router.use(requireSchoolScope());
 
 const listSchema = z.object({
   search: z.string().optional(),
@@ -31,8 +38,57 @@ const listSchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 
-const createSchema = z.object({
-  userId: z.string().min(1),
+const optionalName = z.string().trim().max(120).optional().or(z.literal(''));
+
+const optionalPhone = z.string().trim().max(40).optional().or(z.literal(''));
+
+/**
+ * Creating a guardian, in the two shapes a school actually needs.
+ *
+ * `attach` marks an account that already exists as a guardian - what this route
+ * has always done, and what the Add Parent page's "existing account" list is for.
+ *
+ * `create` provisions the account too, because a guardian usually arrives with
+ * nothing but a name and a phone number: a school enrolling a new intake meets
+ * its parents for the first time on enrolment day. Provisioning here is the same
+ * work enrolment does for a learner - an account with the guardian role and a
+ * school membership, left `pending` so activation is the invitation flow's job -
+ * not a second identity.
+ *
+ * Exactly one of the two is accepted. Sending neither means there is nothing to
+ * act on; sending both means the intent is ambiguous.
+ */
+const createSchema = z
+  .object({
+    userId: z.string().trim().min(1).optional(),
+    email: z.string().trim().email().optional(),
+    firstName: optionalName,
+    lastName: optionalName,
+    phone: optionalPhone,
+  })
+  .refine((value) => Boolean(value.userId) || Boolean(value.email), {
+    message: "Provide either an existing account (userId) or the new guardian's email address.",
+    path: ['email'],
+  })
+  .refine((value) => !(value.userId && value.email), {
+    message: 'Give either an existing account or a new email address, not both.',
+    path: ['email'],
+  });
+
+/**
+ * Contact details, for a guardian already on record.
+ *
+ * The phone number is the field that matters most and the one with no way to set
+ * it before this: the SMS Centre resolves recipients through it, so a guardian
+ * without one is unreachable by the reminder workflow regardless of how many
+ * learners they are linked to. It is validated for shape but stored as given,
+ * since normalising to E.164 is the sending side's job and guessing a country
+ * code here would silently rewrite what the school entered.
+ */
+const updateParentSchema = z.object({
+  firstName: optionalName,
+  lastName: optionalName,
+  phone: optionalPhone,
 });
 
 const linkChildSchema = z.object({
@@ -165,29 +221,161 @@ router.get(
 );
 
 /**
- * Attach a guardian profile to an existing account.
+ * Create a guardian, either by marking an existing account or by provisioning one.
  *
- * Accounts are provisioned separately, so this does not create a user; it marks
- * one as a guardian, which is what unlocks the Parent portal for it.
+ * The two shapes share the outcome - a ParentProfile over an account that did not
+ * have one - and differ only in whether the account already existed.
  */
 router.post(
   '/',
   requirePermissions('parents.manage'),
   asyncHandler(async (req: Request, res: Response) => {
     const payload = createSchema.parse(req.body);
+    const { schoolId } = schoolScopeOf(req);
+    const actorId = req.user?.id ?? null;
 
-    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-    if (!user) throw new ApiError(404, 'User not found');
+    const profile = await prisma.$transaction(async (tx) => {
+      let userId = payload.userId;
 
-    const existing = await prisma.parentProfile.findUnique({ where: { userId: payload.userId } });
-    if (existing) throw new ApiError(409, 'That account is already a guardian');
+      if (userId) {
+        // Attaching to an account that exists. It must be one of the caller's,
+        // so a guardian cannot be attached to a stranger's account.
+        const member = await tx.user.findFirst({
+          where: { id: userId, ...(schoolId ? { schoolMemberships: { some: { schoolId } } } : {}) },
+          select: { id: true },
+        });
+        if (!member) {
+          throw new ApiError(404, 'That account does not exist in your school.');
+        }
+      } else {
+        const email = payload.email!.trim().toLowerCase();
 
-    const profile = await prisma.parentProfile.create({
-      data: { userId: payload.userId },
-      include: { user: { select: userSelect }, children: { include: childInclude } },
+        // An existing account with this email would be silently shaded into if
+        // this were allowed, and the guardian would appear to be a new person
+        // while their history stayed under the old account.
+        const existing = await tx.user.findUnique({ where: { email }, select: { id: true } });
+        if (existing) {
+          throw new ApiError(
+            409,
+            'An account with that email already exists. Use the existing-account option to attach ' +
+              'a guardian profile to it.'
+          );
+        }
+
+        const guardianRole = await tx.role.findUnique({ where: { name: 'PARENT' } });
+
+        const firstName = payload.firstName?.trim() || null;
+        const lastName = payload.lastName?.trim() || null;
+
+        const created = await tx.user.create({
+          data: {
+            email,
+            firstName,
+            lastName,
+            // `name` is what every list and message shows, and it is derived
+            // rather than left empty so a guardian with a typed name is not
+            // rendered as blank email-only text.
+            name: [firstName, lastName].filter(Boolean).join(' ') || null,
+            phone: payload.phone?.trim() || null,
+            // Pending, like every other provisioned account: activation belongs
+            // to the invitation flow, which is what issues the credential.
+            status: 'pending',
+            // Without a membership the guardian belongs to no school, and every
+            // school-scoped read would exclude them.
+            ...(schoolId && guardianRole
+              ? {
+                  schoolMemberships: { create: { schoolId, isDefault: true } },
+                  roleMemberships: { create: { roleId: guardianRole.id } },
+                }
+              : guardianRole
+                ? { roleMemberships: { create: { roleId: guardianRole.id } } }
+                : {}),
+          },
+          select: { id: true },
+        });
+        userId = created.id;
+      }
+
+      // A guardian already present on this account is a duplicate profile, not
+      // an update: two profiles over one account would split the learner links.
+      const alreadyGuardian = await tx.parentProfile.findUnique({ where: { userId } });
+      if (alreadyGuardian) {
+        throw new ApiError(409, 'That account is already a guardian');
+      }
+
+      return tx.parentProfile.create({
+        data: { userId },
+        include: { user: { select: userSelect }, children: { include: childInclude } },
+      });
     });
 
+    const contact = payload.phone?.trim();
+    await recordAuditLog(
+      actorId,
+      payload.userId ? 'parents.attached' : 'parents.created',
+      payload.userId
+        ? `Guardian profile attached to account ${profile.user.email}.`
+        : `Guardian ${profile.user.name || profile.user.email} created${contact ? ` with a contact number` : ''}. ` +
+            `Activation is pending; no credential was issued here.`,
+      schoolId
+    );
+
     res.status(201).json({ parent: present(profile) });
+  })
+);
+
+/**
+ * Update a guardian's contact details.
+ *
+ * Scoped to the caller's school, so a guardian in another school reads as not
+ * found rather than being editable.
+ */
+router.patch(
+  '/:id',
+  requirePermissions('parents.manage'),
+  asyncHandler(async (req: Request, res: Response) => {
+    const payload = updateParentSchema.parse(req.body);
+    const { schoolId } = schoolScopeOf(req);
+    const actorId = req.user?.id ?? null;
+
+    const profile = await prisma.parentProfile.findFirst({
+      where: {
+        id: req.params.id,
+        ...(schoolId ? { user: { schoolMemberships: { some: { schoolId } } } } : {}),
+      },
+      select: { id: true, user: { select: { id: true, email: true, phone: true } } },
+    });
+    if (!profile) throw new ApiError(404, 'Parent profile not found');
+
+    // Contact fields live on the account, so they are written there and the
+    // guardian's own record stays the link set.
+    const account: Record<string, string | null> = {};
+    if (payload.firstName !== undefined) account.firstName = payload.firstName.trim() || null;
+    if (payload.lastName !== undefined) account.lastName = payload.lastName.trim() || null;
+    if (payload.phone !== undefined) account.phone = payload.phone.trim() || null;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      if (Object.keys(account).length > 0) {
+        await tx.user.update({ where: { id: profile.user.id }, data: account });
+      }
+      return tx.parentProfile.findUniqueOrThrow({
+        where: { id: profile.id },
+        include: { user: { select: userSelect }, children: { include: childInclude } },
+      });
+    });
+
+    await recordAuditLog(
+      actorId,
+      'parents.contact_updated',
+      `Guardian contact details updated for ${profile.user.email}` +
+        (payload.phone !== undefined
+          ? ` (phone ${payload.phone?.trim() ? 'set' : 'cleared'})`
+          : '') +
+        '.',
+      schoolId
+    );
+
+    res.json({ parent: present(updated) });
   })
 );
 

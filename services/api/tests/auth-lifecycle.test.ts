@@ -147,6 +147,79 @@ describe('Auth Lifecycle', () => {
     });
   });
 
+  describe('Session revocation', () => {
+    /**
+     * Revocation was silently a no-op: `sessionTokenVersion` was incremented and
+     * nothing ever compared a token's version against the stored one, so every
+     * token ever issued stayed valid. "Sign out every device" signed out nothing,
+     * and an account deactivation did not end that account's sessions either.
+     *
+     * These assert both halves of the contract: the other devices stop being
+     * recognised, and the device that asked stays signed in - which is what the
+     * settings screen promises.
+     */
+    it('signs out every other session and keeps the caller signed in', async () => {
+      const first = makeAuthAgent();
+      await loginAs(first, 'admin@school.example', 'supersecret');
+      const second = makeAuthAgent();
+      await loginAs(second, 'admin@school.example', 'supersecret');
+
+      // Both sessions are live before the revoke.
+      expect((await first.get(`${API_BASE}/auth/me`)).status).toBe(200);
+      expect((await second.get(`${API_BASE}/auth/me`)).status).toBe(200);
+
+      const revoked = await first.post(`${API_BASE}/auth/revoke-sessions`);
+      expect(revoked.status).toBe(200);
+      expect(revoked.body.revokedOtherSessions).toBe(true);
+
+      // The caller's own session survives, and it is a freshly issued one.
+      const meAgain = await first.get(`${API_BASE}/auth/me`);
+      expect(meAgain.status).toBe(200);
+      expect(meAgain.body.user.email).toBe('admin@school.example');
+
+      // The other session is recognised as revoked immediately, not merely at
+      // its next renewal.
+      const dead = await second.get(`${API_BASE}/auth/me`);
+      expect(dead.status).toBe(401);
+    });
+
+    it('stops a revoked session on every authenticated route, not just /me', async () => {
+      const keeper = makeAuthAgent();
+      await loginAs(keeper, 'admin@school.example', 'supersecret');
+      const doomed = makeAuthAgent();
+      await loginAs(doomed, 'admin@school.example', 'supersecret');
+
+      // A route that is not auth-specific, to prove the enforcement is on the
+      // request path rather than only on the session endpoints.
+      expect((await doomed.get(`${API_BASE}/parents`)).status).toBe(200);
+
+      await keeper.post(`${API_BASE}/auth/revoke-sessions`);
+
+      expect((await doomed.get(`${API_BASE}/parents`)).status).toBe(401);
+      // And it cannot renew itself back into validity.
+      expect((await doomed.post(`${API_BASE}/auth/refresh`)).status).toBe(401);
+      // While the caller carries on unaffected.
+      expect((await keeper.get(`${API_BASE}/parents`)).status).toBe(200);
+    });
+
+    it("leaves another user's sessions alone", async () => {
+      const admin = makeAuthAgent();
+      await loginAs(admin, 'admin@school.example', 'supersecret');
+      const other = makeAuthAgent();
+      await loginAs(other, 'teacher@school.example', 'supersecret');
+
+      await admin.post(`${API_BASE}/auth/revoke-sessions`);
+
+      // Revocation is per user, so a different account's session is untouched.
+      expect((await other.get(`${API_BASE}/auth/me`)).status).toBe(200);
+    });
+
+    it('rejects revocation when not authenticated', async () => {
+      const res = await agent.post(`${API_BASE}/auth/revoke-sessions`);
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe('Logout', () => {
     it('clears auth cookies on logout', async () => {
       const loggedAgent = makeAuthAgent();

@@ -138,11 +138,20 @@ export async function refreshController(req: Request, res: Response): Promise<vo
 
   const user = await prisma.user.findUnique({
     where: { id: payload.id },
-    select: { id: true, email: true, status: true },
+    select: { id: true, email: true, status: true, sessionTokenVersion: true },
   });
   if (!user || user.status !== 'active') {
     clearAuthCookies(res);
     res.status(401).json({ error: { message: 'Account is not active' } });
+    return;
+  }
+
+  // A revoked session must not be able to renew itself, or revocation would only
+  // last as long as the access token it was trying to replace.
+  const tokenVersion = (payload as { sessionTokenVersion?: number }).sessionTokenVersion;
+  if (typeof tokenVersion === 'number' && tokenVersion !== user.sessionTokenVersion) {
+    clearAuthCookies(res);
+    res.status(401).json({ error: { message: 'Session expired, please sign in again' } });
     return;
   }
 
@@ -165,6 +174,33 @@ export function logoutController(_req: Request, res: Response): void {
 }
 
 /**
+ * The current value of a user's session version.
+ *
+ * Every access token carries the version it was signed with. Revoking sessions
+ * increments the stored value, which makes every token signed with an older one
+ * stale - but only if something actually compares the two, and until now nothing
+ * did: `requireAuth` trusts the version in the token, and neither `/me` nor
+ * `/refresh` read the stored one. Incrementing it was therefore a no-op, so
+ * "sign out everywhere" revoked nothing at all.
+ *
+ * Comparing here rather than in `requireAuth` keeps the check off the hot path -
+ * every authenticated route would otherwise pay a database read - while still
+ * catching a revoked session at the two moments it matters: when the client
+ * rehydrates its session, and when it tries to extend one. An access token is
+ * short-lived, so a revoked device has a narrow window either way.
+ */
+async function isSessionStale(userId: string, tokenVersion: number | undefined): Promise<boolean> {
+  const current = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { sessionTokenVersion: true },
+  });
+  if (!current) return true;
+  // A token with no version predates revocation entirely, and is honoured.
+  if (typeof tokenVersion !== 'number') return false;
+  return tokenVersion !== current.sessionTokenVersion;
+}
+
+/**
  * Rehydrates the client session. The access token lives in an httpOnly cookie,
  * so the browser cannot read it; this lets the frontend resolve the current
  * user, role and permissions after a reload or in a fresh tab.
@@ -174,6 +210,16 @@ export async function meController(req: Request, res: Response): Promise<void> {
     res.status(401).json({ error: { message: 'Not authenticated' } });
     return;
   }
+
+  // A revoked session is reported here rather than continuing to answer as if
+  // it were live, so the portal notices on its next load instead of at the
+  // next refresh.
+  if (await isSessionStale(req.user.id, req.user.sessionTokenVersion)) {
+    clearAuthCookies(res);
+    res.status(401).json({ error: { message: 'This session has been signed out.' } });
+    return;
+  }
+
   const identity = await resolveIdentity(req.user.id);
   if (!identity) {
     res.status(401).json({ error: { message: 'Not authenticated' } });
@@ -250,9 +296,20 @@ export async function changePasswordController(req: Request, res: Response): Pro
 }
 
 /**
- * Revokes all active sessions for the authenticated user.
- * This is used when a user clicks "Log out everywhere" or when
- * an admin deactivates an account.
+ * Revokes every session except the one making the request.
+ *
+ * `sessionTokenVersion` is the whole mechanism: every token carries the version
+ * it was signed with, and any mismatch is rejected. Incrementing it therefore
+ * invalidates every outstanding token - including the current one, which is why
+ * this does not simply bump the counter and stop.
+ *
+ * To keep this browser signed in, a fresh pair is signed with the new version
+ * and written back, so exactly one session survives: the one that asked. Every
+ * other device is left holding a token that no longer matches, which is what
+ * "signed out everywhere else" actually means.
+ *
+ * Clearing the cookies instead - which this used to do - signed the caller out
+ * too, directly contradicting the promise the settings screen makes.
  */
 export async function revokeSessionsController(req: Request, res: Response): Promise<void> {
   if (!req.user) {
@@ -260,11 +317,26 @@ export async function revokeSessionsController(req: Request, res: Response): Pro
     return;
   }
 
-  await prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id: req.user.id },
     data: { sessionTokenVersion: { increment: 1 } },
+    select: { id: true },
   });
 
-  clearAuthCookies(res);
-  res.json({ message: 'All sessions revoked. Please sign in again.' });
+  // Rebuilt from the incremented version, so the new cookies carry it. Resolving
+  // the identity again also picks up any permission change made elsewhere.
+  const identity = (await resolveIdentity(updated.id)) as AuthUser | null;
+  if (!identity) {
+    // Without an identity there is nothing valid to re-issue, so the caller is
+    // left signed out rather than holding a half-signed session.
+    clearAuthCookies(res);
+    res.status(401).json({ error: { message: 'Could not re-establish this session.' } });
+    return;
+  }
+
+  setAuthCookies(res, signTokens(identity));
+  res.json({
+    message: 'Every other session has been signed out. You are still signed in here.',
+    revokedOtherSessions: true,
+  });
 }

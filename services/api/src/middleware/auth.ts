@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { config } from '../config';
+import { prisma } from '../infrastructure/database';
 import {
   AppId,
   UserRole,
@@ -50,7 +51,7 @@ export function signTokens(user: AuthUser): Tokens {
   return { accessToken, refreshToken, userRole: user.role, appId: user.appId };
 }
 
-export function authMiddleware(req: Request, _res: Response, next: NextFunction): void {
+export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   const header = req.headers.authorization;
   let token = '';
 
@@ -75,26 +76,77 @@ export function authMiddleware(req: Request, _res: Response, next: NextFunction)
       return;
     }
 
-    // Check session token version for revocation.
     const sessionTokenVersion = decoded.sessionTokenVersion;
+    // A token with no version predates revocation and is honoured as-is.
     if (typeof sessionTokenVersion !== 'number') {
+      req.user = {
+        ...decoded,
+        role: canonicalRole,
+        appId: ROLE_APP[canonicalRole],
+      };
       next();
       return;
     }
 
-    // Verify the token's session version matches the user's current version.
-    // We don't have the user's current version here without a DB lookup,
-    // so we trust the version in the token and compare on refresh/me.
-    req.user = {
-      ...decoded,
-      role: canonicalRole,
-      appId: ROLE_APP[canonicalRole],
-      sessionTokenVersion,
-    };
+    // Revocation is enforced here rather than left to /me and /refresh.
+    //
+    // Those two catch a revoked session at the next reload or renewal, but an
+    // access token lives for minutes after the version moved, so a laptop that
+    // was signed out could keep making authenticated calls until its token
+    // expired. For "sign out everywhere" to mean anything on a device you no
+    // longer hold, the check has to be on the request path.
+    //
+    // The cost is one indexed read per authenticated request, which for a
+    // school-sized deployment is the right trade: correctness of revocation
+    // over a microsecond per call. A database error fails open - the request
+    // is allowed and the next /me or /refresh still enforces it - because an
+    // infrastructure blip should not sign the whole school out.
+    verifySessionVersion(decoded.id, sessionTokenVersion)
+      .then((stillValid: boolean) => {
+        if (!stillValid) {
+          res.status(401).json({ error: { message: 'This session has been signed out.' } });
+          return;
+        }
+        req.user = {
+          ...decoded,
+          role: canonicalRole,
+          appId: ROLE_APP[canonicalRole],
+          sessionTokenVersion,
+        };
+        next();
+      })
+      .catch(() => {
+        // Fail open on a lookup failure, so a database blip does not lock out
+        // every signed-in user at once. /me and /refresh enforce strictly.
+        req.user = {
+          ...decoded,
+          role: canonicalRole,
+          appId: ROLE_APP[canonicalRole],
+          sessionTokenVersion,
+        };
+        next();
+      });
+    return;
   } catch {
     // token invalid or expired - user remains unauthenticated
   }
   next();
+}
+
+/**
+ * Whether a token's session version still matches the user's current one.
+ *
+ * A mismatch means every session was revoked after this token was issued - by
+ * "sign out everywhere", a password change, or an account deactivation - so the
+ * token is stale even though it is still cryptographically sound.
+ */
+async function verifySessionVersion(userId: string, tokenVersion: number): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { sessionTokenVersion: true },
+  });
+  if (!user) return false;
+  return user.sessionTokenVersion === tokenVersion;
 }
 
 export function setAuthCookies(res: Response, tokens: Tokens): void {
