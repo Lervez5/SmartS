@@ -114,10 +114,21 @@ export function LoginForm({ appId, schoolName, forgotPasswordHref }: LoginFormPr
       // form only accepts the identity if it belongs to this portal. A valid
       // Teacher / Parent / DEAN / ACCOUNTANT / SUPER_ADMIN credential must not
       // enter the Student portal merely because the credentials are valid.
+      //
+      // An ineligible identity is refused *here*, in the portal it was typed
+      // into, and sent nowhere. The previous behaviour navigated to
+      // `APP_URLS[appId]` — the other portal's origin — which landed on its root
+      // page, found no session in that origin's own store, and fell through to
+      // that portal's sign-in form. The user was dropped on a login page they
+      // never asked for, with no explanation of where their account actually
+      // lives. Naming the portal is both honest and unambiguous.
       if (res.user.appId !== appId) {
-        const correctRole = res.user.appId as AppId;
-        const targetUrl = APP_URLS[correctRole] ?? ROLE_HOME[role] ?? '/';
-        window.location.href = targetUrl;
+        const targetPortal = APP_URLS[res.user.appId as AppId] ?? '';
+        setError(
+          targetPortal
+            ? `This account signs in to another portal. Use ${targetPortal} to sign in as ${res.user.role}.`
+            : `This account is not registered for the ${appId} portal.`
+        );
         return;
       }
 

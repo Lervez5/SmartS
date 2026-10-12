@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowRight, ShieldCheck } from 'lucide-react';
 import { Navbar } from '@schoolos/ui';
-import { useAuthStore, destinationForRole, appForRole } from '@schoolos/auth';
+import { useAuthStore, appForRole } from '@schoolos/auth';
+import { normalizeRole, ROLE_HOME, type UserRole } from '@schoolos/auth';
 
 interface BrandResponse {
   displayName?: string | null;
@@ -15,6 +16,21 @@ interface BrandResponse {
   coverImageUrl?: string | null;
   coverImageAltText?: string | null;
   academicSession?: string | null;
+}
+
+/**
+ * Where this portal sends its own users, as a path it actually serves.
+ *
+ * Deliberately relative. `destinationForRole` returns an absolute URL built for
+ * cross-portal sign-in, and using it here sent a user to a different origin the
+ * moment they clicked a button on a page in this one - which is how "Enter
+ * Dashboard" ended up on the admin portal. This portal's destination is a path
+ * in this portal, and only a role this portal serves gets one.
+ */
+function homePath(role: string | null | undefined): string {
+  const normalized = normalizeRole(role) as UserRole | null;
+  if (!normalized) return '/login';
+  return ROLE_HOME[normalized] ?? '/login';
 }
 
 export default function HomePage() {
@@ -49,17 +65,13 @@ export default function HomePage() {
   useEffect(() => {
     if (!isAuthenticated || !user) return;
     if (appForRole(user.role) !== 'admin') return;
-    const destination = destinationForRole(user.role);
-    if (destination) window.location.href = destination;
+    router.replace(homePath(user.role));
   }, [isAuthenticated, user]);
 
   const handleActionClick = () => {
-    if (isAuthenticated) {
-      const destination = destinationForRole(user?.role);
-      if (destination) {
-        window.location.href = destination;
-        return;
-      }
+    if (isAuthenticated && user && appForRole(user.role) === 'admin') {
+      router.push(homePath(user.role));
+      return;
     }
     router.push('/login');
   };
