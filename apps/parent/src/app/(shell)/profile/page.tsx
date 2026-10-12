@@ -2,7 +2,10 @@
 
 import { useAuth } from '@schoolos/auth';
 import {
+  AccountSecuritySettingsSection,
   DataTable,
+  PersonalSettingsSection,
+  ProfileSettingsSection,
   SectionHeader,
   StatusPill,
   roleLabel,
@@ -37,6 +40,16 @@ export default function ProfilePage() {
           rowKey={(row) => row.key}
         />
       </section>
+
+      {/* The same editable profile the Admin portal offers. All three sections
+          talk to role-neutral endpoints - PUT /api/users/me,
+          PUT /api/users/me/password, PUT /api/settings/personal - so nothing
+          here depends on admin rights. */}
+      <ProfileSettingsSection />
+
+      <PersonalSettingsSection />
+
+      <AccountSecuritySettingsSection />
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-foreground">What you can access</h2>
