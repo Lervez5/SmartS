@@ -24,6 +24,7 @@ import { asyncHandler } from '../../shared/asyncHandler';
 import { ApiError } from '../../shared/logger';
 import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
 import { assignedClassIds } from '../classes/scope';
+import { hasPermission } from '@schoolos/auth/permissions';
 
 export const router: Router = Router();
 
@@ -75,11 +76,16 @@ router.get(
     }
 
     /*
-     * A teacher sees only their assigned classes. Resolved from the assignments
-     * rather than the role, so an unrelated teacher is not offered registers they
-     * cannot open.
+     * A holder of `attendance.manage` sees every register in the school -
+     * academic administration is a school-wide job, and a Dean who is not
+     * themselves teaching would otherwise see an empty list. Super Admin holds
+     * it through ALL. Everyone else sees only the classes they are assigned to,
+     * resolved from the assignments rather than the role, so an unrelated
+     * teacher is not offered registers they cannot open.
      */
-    const mine = req.user!.role === 'SUPER_ADMIN' ? null : await assignedClassIds(req.user!.id);
+    const mine = hasPermission(req.user?.permissions, 'attendance.manage')
+      ? null
+      : await assignedClassIds(req.user!.id);
     if (mine && mine.length === 0) {
       res.json({ registers: [], total: 0, scope: { assignedOnly: true } });
       return;

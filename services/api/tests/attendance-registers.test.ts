@@ -225,4 +225,51 @@ describe('Attendance registers', () => {
     const res = await request(appInstance).get(`${API_BASE}/attendance/registers`);
     expect(res.status).toBe(401);
   });
+
+  /**
+   * Who sees the whole school's registers, and who sees their own.
+   *
+   * This list used to be scoped by `role === 'SUPER_ADMIN'`, which left a Dean
+   * looking at the classes they personally teach - usually none, since a Dean
+   * administers rather than teaches. Scope is now the `attendance.manage`
+   * permission, so it is the capability that decides and not the role title.
+   */
+  it('shows an academic administrator every register, and a teacher only their own', async () => {
+    const all = await adminAgent.get(
+      `${API_BASE}/attendance/registers?startDate=${today()}&endDate=${today()}`
+    );
+    expect(all.status).toBe(200);
+    expect(all.body.scope.assignedOnly).toBe(false);
+    expect(all.body.registers.length).toBeGreaterThan(0);
+    expect(all.body.registers.some((row: { classId: string }) => row.classId === classId)).toBe(true);
+
+    /*
+     * A Dean holds `attendance.manage` and so is not scoped. They are not
+     * assigned to any class in this test, so if the route still scoped by
+     * assignment their list would come back empty rather than covering the
+     * school.
+     */
+    const dean = makeAuthAgent();
+    await loginAs(dean, 'dean@school.example', 'supersecret');
+    const asDean = await dean.get(
+      `${API_BASE}/attendance/registers?startDate=${today()}&endDate=${today()}`
+    );
+    expect(asDean.status).toBe(200);
+    expect(asDean.body.scope.assignedOnly).toBe(false);
+    expect(asDean.body.registers.some((row: { classId: string }) => row.classId === classId)).toBe(true);
+
+    /*
+     * A teacher with no teaching assignment sees nothing, and is told that the
+     * emptiness is scope rather than an empty school - which is what stops a
+     * teacher concluding there is no attendance anywhere.
+     */
+    const teacher = makeAuthAgent();
+    await loginAs(teacher, 'teacher@school.example', 'supersecret');
+    const asTeacher = await teacher.get(
+      `${API_BASE}/attendance/registers?startDate=${today()}&endDate=${today()}`
+    );
+    expect(asTeacher.status).toBe(200);
+    expect(asTeacher.body.registers).toEqual([]);
+    expect(asTeacher.body.scope.assignedOnly).toBe(true);
+  });
 });

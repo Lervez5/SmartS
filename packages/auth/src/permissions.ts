@@ -107,6 +107,11 @@ export const PERMISSIONS = [
   'attendance.view',
   'attendance.mark',
   'attendance.correct',
+  // Sees every register in the school, not only the classes they are personally
+  // assigned to. Academic administration is a school-wide job, and without this
+  // a Dean's register list was scoped by the classes they happen to teach -
+  // which for a Dean is usually none at all.
+  'attendance.manage',
   'examinations.view',
   'examinations.manage',
   'grading.view',
@@ -208,6 +213,7 @@ const ACADEMIC_STAFF: Permission[] = [
   'attendance.view',
   'attendance.mark',
   'attendance.correct',
+  'attendance.manage',
   'examinations.view',
   'examinations.manage',
   'assessment.view',
