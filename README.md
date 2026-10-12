@@ -118,3 +118,25 @@ pnpm seed         # Seed the database with fixture data
   assigned permissions; users inherit permissions through role memberships.
 - **API-first** - all business logic and data access lives in `services/api`. Frontend
   apps consume the REST API under `/api/*`.
+
+### Portal roots do not deport you
+
+Each portal's `/` is a public landing page, and middleware keeps it public. A
+signed-in user whose role belongs to _that_ portal is sent straight to their
+dashboard; anyone else stays on the page. This is deliberate: typing
+`localhost:3000/` as an administrator used to bounce them to the admin portal,
+because the root page redirected on `destinationForRole(user.role)` alone. The
+rule on where a role may actually work is the middleware's job; the root page
+only fast-paths the people it is for. The "Enter Dashboard" button still goes
+wherever your role lives, by choice.
+
+### `NODE_OPTIONS=--no-deprecation` in the dev scripts
+
+Next.js's own compiled dev-server proxy (`next/dist/compiled/http-proxy`) calls
+`util._extend`, which Node reports as `DEP0060` on every portal start. It is not
+in this repository's code, and it disappears when Next upgrades. Rather than
+paint over it in application code, the four dev scripts suppress Node's
+deprecation notices.
+
+The trade-off is that this hides _all_ deprecation warnings in dev, not just that
+one. Remove the flag when you upgrade Next, and check what surfaces.

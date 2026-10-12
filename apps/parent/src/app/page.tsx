@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowRight, ShieldCheck } from 'lucide-react';
 import { Navbar } from '@schoolos/ui';
-import { useAuthStore, destinationForRole } from '@schoolos/auth';
+import { useAuthStore, destinationForRole, appForRole } from '@schoolos/auth';
 
 interface BrandResponse {
   displayName?: string | null;
@@ -39,9 +39,16 @@ export default function HomePage() {
     return () => controller.abort();
   }, []);
 
-  // Authenticated users are redirected to their dashboard.
+  // A signed-in user of *this* portal lands straight on their dashboard.
+  //
+  // Anyone else is left on the page. Sending them to their own portal instead
+  // is what made typing localhost:3000/ bounce an administrator into the admin
+  // portal: the root of a portal is a public landing page, and the gate on
+  // where a role may actually work is the middleware's job, not this page's.
+  // A user who wants their dashboard still has the button below.
   useEffect(() => {
     if (!isAuthenticated || !user) return;
+    if (appForRole(user.role) !== 'parent') return;
     const destination = destinationForRole(user.role);
     if (destination) window.location.href = destination;
   }, [isAuthenticated, user]);
