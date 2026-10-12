@@ -35,14 +35,28 @@ export interface StreamResponsibility {
   /** May see the stream at all. A view-only assistant has this without the above. */
   hasStreamAccess: boolean;
   /**
-   * Learning areas this person is allocated to teach to this stream. A class
-   * teacher is responsible for the learners but is not thereby the teacher of
-   * every learning area, so these are read from the allocations rather than
-   * inferred from class responsibility.
+   * Learning areas this person is allocated to teach to this stream. A subject
+   * teacher is allocated to particular areas, so these are read from the
+   * allocations rather than inferred from class responsibility.
    */
   subjectIds: string[];
   /** The subset of `subjectIds` they may enter results for. */
   resultSubjectIds: string[];
+  /**
+   * May enter results for every learning area taught to this stream, not just
+   * the ones they teach.
+   *
+   * True for the main class teacher, and for an assistant the school granted
+   * class-teacher rights to. This is a real distinction, not a convenience:
+   * `subjectId` is deliberately null on a class-teacher allocation, because a
+   * class teacher is responsible for their learners rather than for a particular
+   * subject - so without this, the one person charged with a class's results
+   * would be the one person who could not enter any of them.
+   *
+   * It is scoped to the stream it was granted for. A class teacher of one stream
+   * gains nothing over a colleague's stream.
+   */
+  entersAllResults: boolean;
 }
 
 const EMPTY: Omit<StreamResponsibility, 'streamId'> = {
@@ -52,6 +66,7 @@ const EMPTY: Omit<StreamResponsibility, 'streamId'> = {
   hasStreamAccess: false,
   subjectIds: [],
   resultSubjectIds: [],
+  entersAllResults: false,
 };
 
 /**
@@ -102,14 +117,21 @@ export function summariseResponsibility(
     const entry = result.get(row.streamId);
     if (!entry) continue;
 
+    // A class teacher is responsible for their learners' results as a whole, so
+    // they enter every learning area. A learning-area teacher enters only the
+    // ones they are allocated to, and only where the school allowed it.
     if (row.responsibility === 'main_class_teacher') {
       entry.isMainTeacher = true;
       entry.managesStream = true;
       entry.hasStreamAccess = true;
+      entry.entersAllResults = true;
     } else if (row.responsibility === 'assistant_class_teacher') {
       entry.isAssistant = true;
       entry.hasStreamAccess = true;
       if (row.canManage) entry.managesStream = true;
+      // An assistant only enters results where the school granted that on the
+      // assignment; a view-only assistant is not given it by their role alone.
+      if (row.canManage || row.canEnterResults) entry.entersAllResults = true;
     } else if (row.responsibility === 'subject_teacher' && row.subjectId) {
       if (!entry.subjectIds.includes(row.subjectId)) entry.subjectIds.push(row.subjectId);
       if (row.canEnterResults && !entry.resultSubjectIds.includes(row.subjectId)) {

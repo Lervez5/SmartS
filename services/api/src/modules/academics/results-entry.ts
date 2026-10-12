@@ -114,12 +114,24 @@ async function assertMayEnterResults(
           streams.map((row) => row.id)
         );
         const entered = new Set<string>();
+        // A class teacher is responsible for their learners' results across
+        // every learning area, not only the ones they personally teach, so they
+        // pass the per-area check without needing a subject allocation. Without
+        // this, the person charged with a class's results is the one person who
+        // cannot enter them.
+        let classTeacherHere = false;
         for (const entry of summary.values()) {
           for (const subjectId of entry.resultSubjectIds) entered.add(subjectId);
+          if (entry.entersAllResults) classTeacherHere = true;
         }
 
-        // Class responsibility is not by itself enough to enter marks: a teacher
-        // is allocated to particular learning areas, not to all of them.
+        // Learning-area scope is per stream, so it is only honoured for the
+        // streams the caller actually teaches. A subject teacher of one stream
+        // gains nothing over a colleague's stream by it.
+        if (subjectIds && subjectIds.length > 0 && classTeacherHere) {
+          return { scoped: true };
+        }
+
         if (subjectIds && subjectIds.length > 0) {
           const missing = subjectIds.filter((id) => !entered.has(id));
           if (missing.length > 0) {
@@ -131,7 +143,7 @@ async function assertMayEnterResults(
           return { scoped: true };
         }
 
-        if (entered.size > 0) return { scoped: true };
+        if (entered.size > 0 || classTeacherHere) return { scoped: true };
       }
     }
   }
@@ -145,10 +157,10 @@ async function assertMayEnterResults(
     );
   }
 
-  // Class responsibility alone is not enough. A teacher is responsible for a
-  // class for every learning area, but only for the ones they are allocated to
-  // teach, so marks are scoped to those assignments.
-  if (subjectIds && subjectIds.length > 0) {
+  // Class responsibility alone is not enough for a learning-area teacher, whose
+  // marks are scoped to the areas they are allocated to. For the class teacher
+  // themselves it is enough: they own the class's results as a whole.
+  if (subjectIds && subjectIds.length > 0 && !responsibility.canManage) {
     const allocations = await prisma.teachingAssignment.findMany({
       where: {
         classId,

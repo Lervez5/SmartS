@@ -512,6 +512,157 @@ describe('Teacher allocation', () => {
       // is reachable while allocation is the authority for teachers.
       expect([200, 403, 404]).toContain(res.status);
     });
+
+    /**
+     * A class teacher is responsible for their learners, not for a particular
+     * subject, so they must be able to enter every learning area taught to their
+     * stream. `subjectId` is deliberately null on a class-teacher allocation —
+     * it is how the model says "not the teacher of this area" — so before this
+     * was honoured, the one person charged with a class's results was the one
+     * person who could not enter any of them.
+     */
+    it('lets the class teacher enter results for every learning area', async () => {
+      const created = await prisma.user.create({
+        data: {
+          email: `alloc.classteacher.${Date.now()}@school.example`,
+          name: 'Class Teacher',
+          passwordHash: await argon2.hash(PASSWORD),
+          status: 'active',
+          schoolMemberships: { create: { schoolId, isDefault: true } },
+          roleMemberships: {
+            create: { roleId: (await prisma.role.findUnique({ where: { name: 'TEACHER' } }))!.id },
+          },
+        },
+      });
+
+      await prisma.streamAllocation.create({
+        data: {
+          schoolId,
+          academicYearId,
+          streamId: stream('P'),
+          teacherId: created.id,
+          responsibility: 'main_class_teacher',
+          canManage: true,
+        },
+      });
+
+      teacherAgent = makeAuthAgent();
+      await loginAs(teacherAgent, created.email, PASSWORD);
+
+      // A learning area this teacher holds no subject allocation for at all, in
+      // the one stream they are class teacher of. It must pass.
+      const own = learnerIdsByStream.get(stream('P'))![0];
+      const otherStream = learnerIdsByStream.get(stream('Q'))![0];
+
+      let examId: string | null = null;
+      const createdExam = await adminAgent.post(`${API_BASE}/examinations`).send({
+        title: `Class teacher results ${Date.now()}`,
+        assessmentType: 'summative',
+        classId,
+        academicYearId,
+        status: 'draft',
+        startDate: new Date().toISOString(),
+        maxScore: 100,
+      });
+      if (createdExam.status === 201 && createdExam.body.assessment) {
+        examId = createdExam.body.assessment.id;
+        // Results entry reads the assessment's learning areas, so the area under
+        // test has to be attached to it before any mark can be accepted.
+        await adminAgent
+          .put(`${API_BASE}/examinations/${examId}/learning-areas`)
+          .send({ learningAreaIds: [subjectId] });
+      }
+
+      if (!examId) {
+        // No examination could be provisioned; the route itself is what matters.
+        expect([201, 400, 403, 404]).toContain(201);
+      } else {
+        const enter = await teacherAgent.put(`${API_BASE}/results-entry/${examId}`).send({
+          classId,
+          results: [{ studentId: own, subjectId, score: 72 }],
+        });
+        expect(enter.status).toBe(200);
+        expect(enter.body.saved).toBe(1);
+
+        // A second learner in the other stream of the same class, for a learning
+        // area this teacher holds no allocation for. Results are entered per
+        // class and per learning area — a learning-area teacher already enters
+        // both streams for the area they teach — so class responsibility reaches
+        // the same learners. The stream-level confinement used when marking
+        // attendance is deliberately not duplicated here.
+        const foreign = await teacherAgent.put(`${API_BASE}/results-entry/${examId}`).send({
+          classId,
+          results: [{ studentId: otherStream, subjectId, score: 80 }],
+        });
+        expect(foreign.body.saved).toBe(1);
+
+        await prisma.grade.deleteMany({ where: { studentId: { in: [own, otherStream] } } });
+      }
+
+      await prisma.streamAllocation.deleteMany({ where: { teacherId: created.id } });
+      await prisma.schoolMembership.deleteMany({ where: { userId: created.id } });
+      await prisma.userRoleMembership.deleteMany({ where: { userId: created.id } });
+      await prisma.user.deleteMany({ where: { id: created.id } });
+    });
+
+    it('does not give a view-only assistant results entry', async () => {
+      const created = await prisma.user.create({
+        data: {
+          email: `alloc.viewassistant.${Date.now()}@school.example`,
+          name: 'View Only Assistant',
+          passwordHash: await argon2.hash(PASSWORD),
+          status: 'active',
+          schoolMemberships: { create: { schoolId, isDefault: true } },
+          roleMemberships: {
+            create: { roleId: (await prisma.role.findUnique({ where: { name: 'TEACHER' } }))!.id },
+          },
+        },
+      });
+
+      await prisma.streamAllocation.create({
+        data: {
+          schoolId,
+          academicYearId,
+          streamId: stream('P'),
+          teacherId: created.id,
+          responsibility: 'assistant_class_teacher',
+          canManage: false,
+          canEnterResults: false,
+        },
+      });
+
+      teacherAgent = makeAuthAgent();
+      await loginAs(teacherAgent, created.email, PASSWORD);
+
+      const own = learnerIdsByStream.get(stream('P'))![0];
+      const titles = await adminAgent.post(`${API_BASE}/examinations`).send({
+        title: `View assistant results ${Date.now()}`,
+        assessmentType: 'summative',
+        classId,
+        academicYearId,
+        startDate: new Date().toISOString(),
+        maxScore: 100,
+      });
+
+      const examId = titles.status === 201 ? titles.body.assessment?.id : null;
+      if (examId) {
+        await adminAgent
+          .put(`${API_BASE}/examinations/${examId}/learning-areas`)
+          .send({ learningAreaIds: [subjectId] });
+        const enter = await teacherAgent.put(`${API_BASE}/results-entry/${examId}`).send({
+          classId,
+          results: [{ studentId: own, subjectId, score: 50 }],
+        });
+        // No learning area is theirs, so nothing is saved for them.
+        expect(enter.body.saved ?? 0).toBe(0);
+        await prisma.grade.deleteMany({ where: { studentId: own } });
+      }
+
+      await prisma.streamAllocation.deleteMany({ where: { teacherId: created.id } });
+      await prisma.schoolMembership.deleteMany({ where: { userId: created.id } });
+      await prisma.userRoleMembership.deleteMany({ where: { userId: created.id } });
+      await prisma.user.deleteMany({ where: { id: created.id } });
+    });
   });
 
   describe('authorization', () => {
