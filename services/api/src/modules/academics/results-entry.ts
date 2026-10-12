@@ -284,6 +284,80 @@ router.get(
 );
 
 /* ------------------------------------------------------------------ *
+ * Grading context
+ * ------------------------------------------------------------------ */
+
+/**
+ * The grading configuration a grade level resolves against, and whether it can
+ * actually produce a result.
+ *
+ * A grade level is only gradable when the school has a CompetencyBand set and an
+ * active Racefield scale whose grade range covers it. Anything else is reported
+ * as a reason rather than worked around: silently falling back to no scale would
+ * produce a mark with no grade and no reason, which reads as "the learner did
+ * not score" rather than "this school has not configured grading for this grade".
+ *
+ * The bands and the scale are returned with the context so the screen can show
+ * the rule alongside the marks it produced, instead of hardcoding a copy of it.
+ */
+async function resolveGradingContext(
+  schoolId: string,
+  gradeLevel: string | null | undefined
+): Promise<{
+  gradeLevel: string | null;
+  competencyBands: Array<{ level: string; label: string; minPercent: number; maxPercent: number | null }>;
+  scale: {
+    id: string;
+    name: string;
+    version: number;
+    gradeMin: number;
+    gradeMax: number;
+    bands: Array<{ code: string; label: string; minScore: number; maxScore: number; points: number | null }>;
+  } | null;
+  gradable: boolean;
+  issue: string | null;
+}> {
+  const competencyBands = await prisma.competencyBand.findMany({
+    where: { schoolId },
+    select: { level: true, label: true, minPercent: true, maxPercent: true },
+    orderBy: { minPercent: 'desc' },
+  });
+
+  const scale = await resolveScaleForGradeLevel(schoolId, gradeLevel);
+
+  const issue = !gradeLevel
+    ? 'This class has no grade level, so no grading rule can be resolved for it.'
+    : competencyBands.length === 0
+      ? 'No CBC competency bands are configured for this school, so a competency level cannot be produced.'
+      : !scale
+        ? `No active Racefield grading scale covers grade ${gradeLevel}. Add one in the Admin Grading Systems module.`
+        : null;
+
+  return {
+    gradeLevel: gradeLevel ?? null,
+    competencyBands,
+    scale: scale
+      ? {
+          id: scale.id,
+          name: scale.name,
+          version: scale.version,
+          gradeMin: scale.gradeMin,
+          gradeMax: scale.gradeMax,
+          bands: scale.bands.map((band) => ({
+            code: band.code,
+            label: band.label,
+            minScore: band.minScore,
+            maxScore: band.maxScore,
+            points: band.points,
+          })),
+        }
+      : null,
+    gradable: issue === null,
+    issue,
+  };
+}
+
+/* ------------------------------------------------------------------ *
  * The results grid
  * ------------------------------------------------------------------ */
 
@@ -375,13 +449,37 @@ router.get(
             subjectId: true,
             value: true,
             competencyLevel: true,
-            racefieldBand: true,
+            competencyBandId: true,
+            racefieldScaleId: true,
+            racefieldBandId: true,
+            // Denormalised band fields are read back rather than recomputed: the
+            // band was resolved from the grading configuration in force when the
+            // mark was recorded, so it stays reproducible if the scale changes
+            // or is superseded by a new version.
+            racefieldBandCode: true,
+            racefieldPoints: true,
             gradedAt: true,
+            gradedBy: true,
+            racefieldBand: {
+              select: { id: true, label: true, code: true, points: true },
+            },
+            racefieldScale: {
+              select: { id: true, name: true, version: true, gradeMin: true, gradeMax: true },
+            },
+            competencyBand: { select: { id: true, label: true } },
           },
         })
       : [];
 
     const byCell = new Map(existing.map((row) => [`${row.studentId}:${row.subjectId}`, row]));
+
+    /*
+     * The grading configuration this class resolves against, reported rather
+     * than assumed. A missing or inactive scale is surfaced as a reason, so the
+     * screen says the grade cannot be produced instead of showing a raw mark
+     * that looks like a result.
+     */
+    const grading = await resolveGradingContext(schoolId, assessment.class?.gradeLevel ?? null);
 
     return void res.json({
       assessment: {
@@ -397,16 +495,27 @@ router.get(
       },
       learningAreas,
       locked: assessment.status === 'completed' || assessment.status === 'archived',
+      grading,
       rows: learners.map((learner) => ({
         learner,
         cells: learningAreas.map((area) => {
           const row = byCell.get(`${learner.id}:${area.id}`);
           return {
             subjectId: area.id,
+            // Four distinct things, deliberately kept apart: what the teacher
+            // typed, the maximum it is out of, the CBC level and the Racefield
+            // band with its points. Collapsing them into one "grade" is what
+            // makes a mark unreadable to a reviewer.
             score: row ? row.value : null,
+            maxScore: assessment.maxScore,
             competencyLevel: row?.competencyLevel ?? null,
-            racefieldBand: row?.racefieldBand ?? null,
+            competencyLabel: row?.competencyBand?.label ?? null,
+            racefieldBandCode: row?.racefieldBandCode ?? row?.racefieldBand?.code ?? null,
+            racefieldBandLabel: row?.racefieldBand?.label ?? null,
+            racefieldPoints: row?.racefieldPoints ?? null,
+            racefieldScaleName: row?.racefieldScale?.name ?? null,
             savedAt: row?.gradedAt ?? null,
+            gradedBy: row?.gradedBy ?? null,
           };
         }),
       })),
