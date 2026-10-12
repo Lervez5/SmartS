@@ -428,8 +428,7 @@ const TEACHER_NAV: NavSection[] = [
         permissions: ['grading.view', 'grading.manage'],
         icon: 'pen-line',
         order: 2,
-        implemented: false,
-        gap: 'GET /api/grading is a stub returning { state: "planned" }. Submission grading has no route.',
+        implemented: true,
       },
       {
         id: 'tea.learner-progress',
