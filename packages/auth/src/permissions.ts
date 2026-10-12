@@ -315,7 +315,10 @@ const TEACHER_GRANTS: Permission[] = [
   'assessment.create',
   'assessment.grade',
   'grading.view',
-  'grading.manage',
+  // Not `grading.manage`. A teacher reads the band rules they mark against, but
+  // the bands are the school's official grading configuration: changing them
+  // reshapes every result in the school, including ones already recorded. That
+  // is academic administration, held by DEAN and SUPER_ADMIN.
   'grades.view',
   'calendar.view',
   'calendar.manage',

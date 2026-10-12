@@ -521,7 +521,7 @@ describe('Teacher allocation', () => {
      * was honoured, the one person charged with a class's results was the one
      * person who could not enter any of them.
      */
-    it('lets the class teacher enter results for every learning area', async () => {
+    it('lets a class teacher enter every learning area, but only for their own stream', async () => {
       const created = await prisma.user.create({
         data: {
           email: `alloc.classteacher.${Date.now()}@school.example`,
@@ -584,17 +584,19 @@ describe('Teacher allocation', () => {
         expect(enter.status).toBe(200);
         expect(enter.body.saved).toBe(1);
 
-        // A second learner in the other stream of the same class, for a learning
-        // area this teacher holds no allocation for. Results are entered per
-        // class and per learning area — a learning-area teacher already enters
-        // both streams for the area they teach — so class responsibility reaches
-        // the same learners. The stream-level confinement used when marking
-        // attendance is deliberately not duplicated here.
+        /*
+         * The roster a teacher may mark is their own. A learner in a colleague's
+         * stream, in the same class, is refused — naming their id in the request
+         * must not be enough, which is why this is enforced on the server rather
+         * than only by what the roster happened to contain.
+         */
         const foreign = await teacherAgent.put(`${API_BASE}/results-entry/${examId}`).send({
           classId,
           results: [{ studentId: otherStream, subjectId, score: 80 }],
         });
-        expect(foreign.body.saved).toBe(1);
+        expect(foreign.status).toBe(403);
+        expect(foreign.body.saved).toBeUndefined();
+        expect(foreign.body.error.message).toContain('streams you are allocated to');
 
         await prisma.grade.deleteMany({ where: { studentId: { in: [own, otherStream] } } });
       }
@@ -662,6 +664,124 @@ describe('Teacher allocation', () => {
       await prisma.schoolMembership.deleteMany({ where: { userId: created.id } });
       await prisma.userRoleMembership.deleteMany({ where: { userId: created.id } });
       await prisma.user.deleteMany({ where: { id: created.id } });
+    });
+
+    /**
+     * A learning-area teacher is scoped to the areas they are allocated to teach,
+     * which is a different right from being responsible for a stream. Both can be
+     * held at once, and neither widens the other.
+     */
+    it('keeps a learning-area teacher to the areas they are allocated to', async () => {
+      const created = await prisma.user.create({
+        data: {
+          email: `alloc.areateacher.${Date.now()}@school.example`,
+          name: 'Area Teacher',
+          passwordHash: await argon2.hash(PASSWORD),
+          status: 'active',
+          schoolMemberships: { create: { schoolId, isDefault: true } },
+          roleMemberships: {
+            create: { roleId: (await prisma.role.findUnique({ where: { name: 'TEACHER' } }))!.id },
+          },
+        },
+      });
+
+      // Teaches one learning area into stream P, with entry allowed.
+      await prisma.streamAllocation.create({
+        data: {
+          schoolId,
+          academicYearId,
+          streamId: stream('P'),
+          teacherId: created.id,
+          responsibility: 'subject_teacher',
+          subjectId,
+          canEnterResults: true,
+        },
+      });
+
+      teacherAgent = makeAuthAgent();
+      await loginAs(teacherAgent, created.email, PASSWORD);
+
+      const own = learnerIdsByStream.get(stream('P'))![0];
+      const otherStream = learnerIdsByStream.get(stream('Q'))![0];
+
+      const created2 = await adminAgent.post(`${API_BASE}/examinations`).send({
+        title: `Area teacher results ${Date.now()}`,
+        assessmentType: 'summative',
+        classId,
+        academicYearId,
+        status: 'draft',
+        startDate: new Date().toISOString(),
+        maxScore: 100,
+      });
+      const examId = created2.status === 201 ? created2.body.assessment?.id : null;
+
+      if (examId) {
+        await adminAgent
+          .put(`${API_BASE}/examinations/${examId}/learning-areas`)
+          .send({ learningAreaIds: [subjectId] });
+
+        // Their own area, their own stream: allowed.
+        const allowed = await teacherAgent.put(`${API_BASE}/results-entry/${examId}`).send({
+          classId,
+          results: [{ studentId: own, subjectId, score: 64 }],
+        });
+        expect(allowed.body.saved).toBe(1);
+
+        // Their area, but a colleague's stream: refused.
+        const wrongStream = await teacherAgent.put(`${API_BASE}/results-entry/${examId}`).send({
+          classId,
+          results: [{ studentId: otherStream, subjectId, score: 70 }],
+        });
+        expect(wrongStream.status).toBe(403);
+
+        await prisma.grade.deleteMany({ where: { studentId: { in: [own, otherStream] } } });
+      }
+
+      await prisma.streamAllocation.deleteMany({ where: { teacherId: created.id } });
+      await prisma.schoolMembership.deleteMany({ where: { userId: created.id } });
+      await prisma.userRoleMembership.deleteMany({ where: { userId: created.id } });
+      await prisma.user.deleteMany({ where: { id: created.id } });
+    });
+
+    /**
+     * A DEAN holds academics.manage, so they reach the whole class - the
+     * school-wide administrative view, distinct from a teacher's stream.
+     */
+    it('lets a Dean enter results for any stream of the class', async () => {
+      const dean = makeAuthAgent();
+      await loginAs(dean, 'dean@school.example', PASSWORD);
+
+      const created3 = await dean.post(`${API_BASE}/examinations`).send({
+        title: `Dean results ${Date.now()}`,
+        assessmentType: 'summative',
+        classId,
+        academicYearId,
+        status: 'draft',
+        startDate: new Date().toISOString(),
+        maxScore: 100,
+      });
+      const examId = created3.status === 201 ? created3.body.assessment?.id : null;
+
+      if (examId) {
+        await adminAgent
+          .put(`${API_BASE}/examinations/${examId}/learning-areas`)
+          .send({ learningAreaIds: [subjectId] });
+
+        const pLearner = learnerIdsByStream.get(stream('P'))![0];
+        const qLearner = learnerIdsByStream.get(stream('Q'))![0];
+
+        const both = await dean.put(`${API_BASE}/results-entry/${examId}`).send({
+          classId,
+          results: [
+            { studentId: pLearner, subjectId, score: 80 },
+            { studentId: qLearner, subjectId, score: 55 },
+          ],
+        });
+        expect(both.status).toBe(200);
+        expect(both.body.saved).toBe(2);
+
+        await prisma.grade.deleteMany({ where: { studentId: { in: [pLearner, qLearner] } } });
+      }
     });
   });
 

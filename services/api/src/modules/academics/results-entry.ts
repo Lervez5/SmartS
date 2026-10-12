@@ -20,6 +20,7 @@
 
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../infrastructure/database';
 import { requirePermissions } from '../../middleware/rbac';
 import { asyncHandler } from '../../shared/asyncHandler';
@@ -33,7 +34,11 @@ import {
   resolveRacefieldForScore,
 } from '../grading/racefield';
 import { resolveClassResponsibility } from '../classes/scope';
-import { currentSessionId, loadAllocations, summariseResponsibility } from './allocation/scope';
+import {
+  currentSessionId,
+  resolveClassResultsScope,
+  type ClassResultsScope,
+} from './allocation/scope';
 
 export const router: Router = Router();
 
@@ -81,106 +86,52 @@ const saveSchema = z.object({
  * by stream yet. A teacher allocated to a learning area in one stream therefore
  * does not thereby gain that learning area in the class's other streams.
  */
+/**
+ * Resolves what this caller may do for a class's results, and refuses what they
+ * may not.
+ *
+ * Returns the scope rather than a boolean so the caller can narrow the roster
+ * to the streams the caller actually teaches — deciding entry and deciding who
+ * the roster covers are the same decision, and answering it twice is how the two
+ * drift apart.
+ */
 async function assertMayEnterResults(
-  user: { id: string; role: string },
+  user: { id: string; role: string; permissions?: readonly string[] },
   classId: string,
   subjectIds?: string[]
-): Promise<{ scoped: boolean }> {
-  if (user.role === 'SUPER_ADMIN') return { scoped: false };
-
-  const cls = await prisma.class.findUnique({
-    where: { id: classId },
-    select: { id: true, schoolId: true },
+): Promise<ClassResultsScope> {
+  const scope = await resolveClassResultsScope({
+    userId: user.id,
+    classId,
+    academicYearId: null,
+    granted: user.permissions,
   });
-  if (!cls) throw new ApiError(404, 'Class not found in this school');
 
-  const sessionId = await currentSessionId(cls.schoolId);
-  if (sessionId) {
-    const streams = await prisma.stream.findMany({
-      where: { classId },
-      select: { id: true },
-    });
-
-    if (streams.length > 0) {
-      const allocations = await loadAllocations(
-        streams.map((row) => row.id),
-        sessionId
-      );
-
-      if (allocations.length > 0) {
-        const summary = summariseResponsibility(
-          user.id,
-          allocations,
-          streams.map((row) => row.id)
-        );
-        const entered = new Set<string>();
-        // A class teacher is responsible for their learners' results across
-        // every learning area, not only the ones they personally teach, so they
-        // pass the per-area check without needing a subject allocation. Without
-        // this, the person charged with a class's results is the one person who
-        // cannot enter them.
-        let classTeacherHere = false;
-        for (const entry of summary.values()) {
-          for (const subjectId of entry.resultSubjectIds) entered.add(subjectId);
-          if (entry.entersAllResults) classTeacherHere = true;
-        }
-
-        // Learning-area scope is per stream, so it is only honoured for the
-        // streams the caller actually teaches. A subject teacher of one stream
-        // gains nothing over a colleague's stream by it.
-        if (subjectIds && subjectIds.length > 0 && classTeacherHere) {
-          return { scoped: true };
-        }
-
-        if (subjectIds && subjectIds.length > 0) {
-          const missing = subjectIds.filter((id) => !entered.has(id));
-          if (missing.length > 0) {
-            throw new ApiError(
-              403,
-              'You are not allocated to enter results for one or more of these learning areas in any stream of this class for this academic session.'
-            );
-          }
-          return { scoped: true };
-        }
-
-        if (entered.size > 0 || classTeacherHere) return { scoped: true };
-      }
-    }
-  }
-
-  const responsibility = await resolveClassResponsibility(user.id, classId);
-  if (!responsibility) throw new ApiError(404, 'Class not found in this school');
-  if (!responsibility.hasAccess) {
+  if (!scope.hasAccess) {
     throw new ApiError(
       403,
-      'You are not assigned to this class. Entering results requires a teaching allocation, not the TEACHER role.'
+      'You are not allocated to this class. Entering results requires a teaching allocation, not the TEACHER role.'
     );
   }
 
-  // Class responsibility alone is not enough for a learning-area teacher, whose
-  // marks are scoped to the areas they are allocated to. For the class teacher
-  // themselves it is enough: they own the class's results as a whole.
-  if (subjectIds && subjectIds.length > 0 && !responsibility.canManage) {
-    const allocations = await prisma.teachingAssignment.findMany({
-      where: {
-        classId,
-        teacherId: user.id,
-        subjectId: { in: subjectIds },
-        canEnterResults: true,
-      },
-      select: { subjectId: true },
-    });
-    const allocated = new Set(allocations.map((row) => row.subjectId));
-    const notAllocated = subjectIds.filter((id) => !allocated.has(id));
-    if (notAllocated.length > 0) {
+  // A learning-area teacher reaches only the areas they are allocated to teach;
+  // a class teacher or an academic administrator reaches all of them.
+  // A learning-area teacher reaches only the areas they are allocated to teach.
+  // A class teacher reaches all of them for their own stream - that is what
+  // "class teacher" means for results, and without it the one person charged
+  // with a class's marks could not enter any of them.
+  if (subjectIds && subjectIds.length > 0 && !scope.entersAllAreas) {
+    const missing = subjectIds.filter((id) => !scope.allowedSubjectIds.includes(id));
+    if (missing.length > 0) {
       throw new ApiError(
         403,
-        'You are not allocated to teach one or more of these learning areas in this class. Ask an administrator to record the teaching assignment.'
+        'You are not allocated to enter results for one or more of these learning areas in this ' +
+          'class. Ask an administrator to record the teaching assignment.'
       );
     }
   }
 
-  return { scoped: true };
+  return scope;
 }
 
 /* ------------------------------------------------------------------ *
@@ -367,7 +318,7 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     const query = gridSchema.parse(req.query);
     const { schoolId } = schoolScopeOf(req);
-    await assertMayEnterResults(req.user!, query.classId);
+    const scope = await assertMayEnterResults(req.user!, query.classId);
 
     const assessment = await prisma.examination.findFirst({
       where: { id: req.params.examinationId, class: { schoolId } },
@@ -400,10 +351,20 @@ router.get(
 
     // Roster: the class enrolment, narrowed to a stream when one is chosen. A
     // stream is a subdivision of the class, so it never widens the population.
+    //
+    // And narrowed to the streams the caller is actually allocated to, for a
+    // teacher: the roster is the decision about which learners they may mark,
+    // and it is made by the same rule that decides whether they may mark at all.
+    // A class teacher of one stream sees one stream's roster, not the class's.
     const enrolments = await prisma.enrollment.findMany({
       where: {
         classId: query.classId,
         ...(query.streamId ? { streamId: query.streamId } : {}),
+        ...(scope.allStreams
+          ? {}
+          : scope.streamIds.length > 0
+            ? { streamId: { in: scope.streamIds } }
+            : { streamId: '__no_stream_access__' }),
       },
       select: {
         studentId: true,
@@ -496,6 +457,11 @@ router.get(
       learningAreas,
       locked: assessment.status === 'completed' || assessment.status === 'archived',
       grading,
+      scope: {
+        /** Streams this caller may enter results for. Empty when all of them. */
+        streamIds: scope.allStreams ? [] : scope.streamIds,
+        allStreams: scope.allStreams,
+      },
       rows: learners.map((learner) => ({
         learner,
         cells: learningAreas.map((area) => {
@@ -535,12 +501,17 @@ router.get(
 
 router.put(
   '/:examinationId',
-  requirePermissions('grading.manage'),
+  // Entering marks, not configuring grading. `assessment.grade` is the permission
+  // for putting a learner in a band, and `grading.manage` is for the school's
+  // official grading configuration - conflating them would have let every
+  // teacher able to enter marks also reshape the rules those marks resolve
+  // against.
+  requirePermissions('assessment.grade'),
   asyncHandler(async (req: Request, res: Response) => {
     const payload = saveSchema.parse(req.body);
     const { schoolId } = schoolScopeOf(req);
     const requestedSubjectIds = [...new Set(payload.results.map((result) => result.subjectId))];
-    await assertMayEnterResults(req.user!, payload.classId, requestedSubjectIds);
+    const scope = await assertMayEnterResults(req.user!, payload.classId, requestedSubjectIds);
 
     const assessment = await prisma.examination.findFirst({
       where: { id: req.params.examinationId, class: { schoolId } },
@@ -574,9 +545,19 @@ router.put(
       );
     }
 
-    // Learners: only those enrolled in this class.
+    // Learners: only those enrolled in this class, and only those the caller is
+    // allocated to. The second condition is what stops a teacher from saving
+    // marks for a colleague's roster by naming their learner ids in the request.
+    const markableWhere: Prisma.EnrollmentWhereInput = {
+      classId: payload.classId,
+      ...(scope.allStreams
+        ? {}
+        : scope.streamIds.length > 0
+          ? { streamId: { in: scope.streamIds } }
+          : { streamId: '__no_stream_access__' }),
+    };
     const enrolments = await prisma.enrollment.findMany({
-      where: { classId: payload.classId },
+      where: markableWhere,
       select: { studentId: true },
     });
     const enrolled = new Set(
@@ -584,7 +565,13 @@ router.put(
     );
     const notEnrolled = payload.results.filter((r) => !enrolled.has(r.studentId));
     if (notEnrolled.length > 0) {
-      throw new ApiError(400, 'Some results were for learners not enrolled in this class.');
+      throw new ApiError(
+        403,
+        scope.allStreams
+          ? 'Some results were for learners not enrolled in this class.'
+          : 'Some results were for learners outside the streams you are allocated to. ' +
+              'A teacher only enters marks for their own roster.'
+      );
     }
 
     const learners = await prisma.user.findMany({
