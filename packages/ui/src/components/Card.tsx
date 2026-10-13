@@ -5,7 +5,12 @@ export type CardProps = React.HTMLAttributes<HTMLDivElement>;
 export function Card({ className, ...props }: CardProps) {
   return (
     <div
-      className={cn('rounded-lg border bg-card text-card-foreground shadow-sm', className)}
+      // The design system's elevation token rather than Tailwind's default, so a
+      // card's depth matches the tokens the rest of the surfaces use.
+      className={cn(
+        'rounded-lg border bg-card text-card-foreground shadow-[var(--shadow-sm)]',
+        className
+      )}
       {...props}
     />
   );

@@ -69,9 +69,14 @@ export function DashboardCard({
   );
 
   const shell = cn(
-    'block rounded-lg border bg-card p-5 text-card-foreground transition-colors',
+    'block rounded-lg border bg-card p-5 text-card-foreground',
+    // Elevation on top of the border, so a card sits on the page rather than
+    // being drawn on it, and a lift on hover for the ones you can enter.
+    'shadow-[var(--shadow-sm)]',
+    'transition-[box-shadow,border-color,transform] duration-150',
     href &&
-      'hover:border-primary/40 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+      'hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[var(--shadow-md)] ' +
+        'focus-visible:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
     className
   );
 
@@ -129,12 +134,25 @@ const STATUS_TONE: Record<StatusTone, string> = {
   danger: 'bg-destructive/10 text-destructive',
   brand: 'bg-primary/10 text-primary',
 };
+
+/** Hairline borders to match, so a pill and its surface agree. */
+const STATUS_BORDER: Record<StatusTone, string> = {
+  neutral: 'border-border/60',
+  info: 'border-sky-500/20',
+  success: 'border-emerald-500/20',
+  warning: 'border-amber-500/20',
+  danger: 'border-destructive/20',
+  brand: 'border-primary/20',
+};
 export function StatusPill({ label, tone = 'neutral', className }: StatusPillProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
+        // A matching hairline border ties the pill to the card it sits in, so it
+        // reads as part of the surface rather than a sticker on it.
+        'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold',
         STATUS_TONE[tone],
+        STATUS_BORDER[tone],
         className
       )}
     >
