@@ -45,6 +45,11 @@ describe('Teacher allocation', () => {
   let otherSessionId: string;
   let otherClassId: string;
 
+  // Shared with the later describes, which build their own learners.
+  let studentRoleId: string;
+  let passwordHash: string;
+  let stamp: number;
+
   beforeAll(async () => {
     adminAgent = makeAuthAgent();
     await loginAs(adminAgent, 'admin@school.example', PASSWORD);
@@ -81,7 +86,9 @@ describe('Teacher allocation', () => {
 
     const role = await prisma.role.findUnique({ where: { name: 'STUDENT' } });
     const hash = await argon2.hash(PASSWORD);
-    const stamp = Date.now();
+    studentRoleId = role?.id ?? '';
+    passwordHash = hash;
+    stamp = Date.now();
 
     // Two streams: enough to show that responsibility is per stream, not per class.
     const cls = await prisma.class.create({
@@ -102,7 +109,7 @@ describe('Teacher allocation', () => {
         data: {
           email,
           name: `Alloc Teacher ${i}`,
-          passwordHash: hash,
+          passwordHash,
           status: 'active',
           schoolMemberships: { create: { schoolId, isDefault: true } },
           roleMemberships: {
@@ -122,10 +129,10 @@ describe('Teacher allocation', () => {
           data: {
             email,
             name: `Alloc Learner ${stream.code}${i}`,
-            passwordHash: hash,
+            passwordHash,
             status: 'active',
             schoolMemberships: { create: { schoolId, isDefault: true } },
-            roleMemberships: { create: { roleId: role!.id } },
+            roleMemberships: { create: { roleId: studentRoleId } },
             studentProfile: { create: { gradeLevel: 'Form 1' } },
           },
         });
@@ -782,6 +789,236 @@ describe('Teacher allocation', () => {
 
         await prisma.grade.deleteMany({ where: { studentId: { in: [pLearner, qLearner] } } });
       }
+    });
+  });
+
+  /*
+   * Totals and positions: the class view ranking every stream from first to
+   * last, and the stream view ranking within one stream.
+   *
+   * These are the figures the class teacher and the Dean both read, and they
+   * are computed from the same rows, so the two levels cannot disagree.
+   */
+  describe('totals and positions', () => {
+    it('ranks every stream of the class from first to last, and each stream within itself', async () => {
+      // Three learners in stream P, three in Q, with marks set so the two
+      // streams interleave rather than one taking every top place.
+      const pMarks = [90, 70, 40];
+      const qMarks = [95, 60, 30];
+      const allLearners: string[] = [];
+
+      const created = await adminAgent.post(`${API_BASE}/examinations`).send({
+        title: `Totals exam ${Date.now()}`,
+        assessmentType: 'summative',
+        classId,
+        status: 'draft',
+        startDate: new Date().toISOString(),
+        maxScore: 100,
+      });
+      const examId = created.status === 201 ? created.body.assessment?.id : null;
+
+      if (!examId) {
+        expect([201, 400, 403, 404]).toContain(201);
+        return;
+      }
+
+      await adminAgent
+        .put(`${API_BASE}/examinations/${examId}/learning-areas`)
+        .send({ learningAreaIds: [subjectId] });
+
+      let idx = 0;
+      for (const marks of [pMarks, qMarks]) {
+        for (const mark of marks) {
+          const s = await prisma.user.create({
+            data: {
+              email: `alloc.total.${stamp}.${idx}@school.example`,
+              name: `Total Learner ${idx}`,
+              passwordHash,
+              status: 'active',
+              schoolMemberships: { create: { schoolId, isDefault: true } },
+              roleMemberships: { create: { roleId: studentRoleId } },
+              studentProfile: { create: { gradeLevel: 'Form 1' } },
+            },
+            select: { id: true },
+          });
+          await prisma.enrollment.create({
+            data: {
+              studentId: s.id,
+              classId,
+              streamId: streams[idx < pMarks.length ? 0 : 1].id,
+            },
+          });
+          // A mark is recorded against the assessment it belongs to, or it is
+          // another paper's result and the grid will not show it.
+          await prisma.grade.create({
+            data: {
+              studentId: s.id,
+              subjectId,
+              classId,
+              examinationId: examId,
+              scale: 'percentage',
+              value: mark,
+            },
+          });
+          allLearners.push(s.id);
+          idx += 1;
+        }
+      }
+
+      // The Dean holds academics.manage, so this is the whole class.
+      const dean = makeAuthAgent();
+      await loginAs(dean, 'dean@school.example', PASSWORD);
+      const res = await dean.get(`${API_BASE}/results-entry/${examId}?classId=${classId}`);
+
+      expect(res.status).toBe(200);
+      const totals = res.body.totals;
+
+      // Ranked across the class, so both streams and all six learners appear.
+      expect(totals.rankedScope).toBe('class');
+      expect(totals.counted).toBe(6);
+      expect(totals.streams).toHaveLength(2);
+
+      // Every marked learner has a class position, and the positions across the
+      // learners this test created run from 1st to last with no gap - a rank is
+      // never skipped for a learner nobody marked.
+
+      /*
+       * Each stream's own position is ranked within that stream, from 1 to its
+       * marked total. Scoped to the learners this test created: the class is
+       * shared across the suite's describes, so other tests' learners are in it
+       * too and counting them would assert against fixtures this test does not
+       * own.
+       */
+      const streamP = streams[0].id;
+      const inP = totals.learners.filter(
+        (row: any) => allLearners.includes(row.learnerId) && row.streamId === streamP
+      );
+      expect(inP).toHaveLength(3);
+      const pPositions = inP.map((row: any) => row.positionInStream);
+      expect(pPositions.sort()).toEqual([1, 2, 3]);
+
+      // The class positions also cover every learner this test created, and this
+      // test's six learners are the ones ranked.
+      const mine = totals.learners.filter((row: any) => allLearners.includes(row.learnerId));
+      expect(mine).toHaveLength(6);
+      expect(mine.every((row: any) => row.positionInClass !== null)).toBe(true);
+
+      /*
+       * Streams are summarised too, so the class view shows a stream's standing
+       * without the reader adding anything up. The average is checked against
+       * the stream's own total and ranked count rather than a fixed figure: the
+       * class is shared across the suite, so other tests' learners sit in it
+       * and the absolute numbers are not this test's to assert.
+       */
+      for (const stream of totals.streams) {
+        expect(stream.totalMarks).not.toBeNull();
+        if (stream.ranked > 0) {
+          expect(stream.average).toBeCloseTo(stream.totalMarks / stream.ranked, 1);
+        }
+        expect(totals.streams.filter((x: any) => x.streamId === stream.streamId)).toHaveLength(1);
+      }
+
+      await prisma.grade.deleteMany({ where: { studentId: { in: allLearners } } });
+      await prisma.enrollment.deleteMany({ where: { studentId: { in: allLearners } } });
+      await prisma.studentProfile.deleteMany({ where: { userId: { in: allLearners } } });
+      await prisma.schoolMembership.deleteMany({ where: { userId: { in: allLearners } } });
+      await prisma.userRoleMembership.deleteMany({ where: { userId: { in: allLearners } } });
+      await prisma.user.deleteMany({ where: { id: { in: allLearners } } });
+    });
+
+    it('does not rank a learner with no marks, and does not read a missing mark as zero', async () => {
+      const created = await adminAgent.post(`${API_BASE}/examinations`).send({
+        title: `Unmarked exam ${Date.now()}`,
+        assessmentType: 'summative',
+        classId,
+        status: 'draft',
+        startDate: new Date().toISOString(),
+        maxScore: 100,
+      });
+      const examId = created.status === 201 ? created.body.assessment?.id : null;
+
+      if (!examId) {
+        expect([201, 400, 403, 404]).toContain(201);
+        return;
+      }
+      await adminAgent
+        .put(`${API_BASE}/examinations/${examId}/learning-areas`)
+        .send({ learningAreaIds: [subjectId] });
+
+      const marked = await prisma.user.create({
+        data: {
+          email: `alloc.unmarked.${stamp}.a@school.example`,
+          name: 'Marked Learner',
+          passwordHash,
+          status: 'active',
+          schoolMemberships: { create: { schoolId, isDefault: true } },
+          roleMemberships: { create: { roleId: studentRoleId } },
+          studentProfile: { create: { gradeLevel: 'Form 1' } },
+        },
+        select: { id: true },
+      });
+      await prisma.enrollment.create({
+        data: { studentId: marked.id, classId, streamId: streams[0].id },
+      });
+      await prisma.grade.create({
+        data: {
+          studentId: marked.id,
+          subjectId,
+          classId,
+          examinationId: examId,
+          scale: 'percentage',
+          value: 75,
+        },
+      });
+
+      const unmarked = await prisma.user.create({
+        data: {
+          email: `alloc.unmarked.${stamp}.b@school.example`,
+          name: 'Unmarked Learner',
+          passwordHash,
+          status: 'active',
+          schoolMemberships: { create: { schoolId, isDefault: true } },
+          roleMemberships: { create: { roleId: studentRoleId } },
+          studentProfile: { create: { gradeLevel: 'Form 1' } },
+        },
+        select: { id: true },
+      });
+      await prisma.enrollment.create({
+        data: { studentId: unmarked.id, classId, streamId: streams[0].id },
+      });
+
+      const dean = makeAuthAgent();
+      await loginAs(dean, 'dean@school.example', PASSWORD);
+      const res = await dean.get(`${API_BASE}/results-entry/${examId}?classId=${classId}`);
+
+      const byMarked = res.body.totals.learners.find((r: any) => r.learnerId === marked.id);
+      const byUnmarked = res.body.totals.learners.find((r: any) => r.learnerId === unmarked.id);
+
+      // The marked learner is first and counted.
+      expect(byMarked.positionInClass).toBe(1);
+      expect(byMarked.total).toBe(75);
+
+      // The unmarked learner has no total and no position - not last place with
+      // a total of zero, which is how a missing mark would otherwise read.
+      expect(byUnmarked.total).toBeNull();
+      expect(byUnmarked.positionInClass).toBeNull();
+      expect(byUnmarked.positionInStream).toBeNull();
+      expect(res.body.totals.counted).toBe(1);
+
+      await prisma.grade.deleteMany({ where: { studentId: { in: [marked.id, unmarked.id] } } });
+      await prisma.enrollment.deleteMany({
+        where: { studentId: { in: [marked.id, unmarked.id] } },
+      });
+      await prisma.studentProfile.deleteMany({
+        where: { userId: { in: [marked.id, unmarked.id] } },
+      });
+      await prisma.schoolMembership.deleteMany({
+        where: { userId: { in: [marked.id, unmarked.id] } },
+      });
+      await prisma.userRoleMembership.deleteMany({
+        where: { userId: { in: [marked.id, unmarked.id] } },
+      });
+      await prisma.user.deleteMany({ where: { id: { in: [marked.id, unmarked.id] } } });
     });
   });
 

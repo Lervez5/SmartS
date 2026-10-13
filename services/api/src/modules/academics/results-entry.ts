@@ -256,14 +256,25 @@ async function resolveGradingContext(
   gradeLevel: string | null | undefined
 ): Promise<{
   gradeLevel: string | null;
-  competencyBands: Array<{ level: string; label: string; minPercent: number; maxPercent: number | null }>;
+  competencyBands: Array<{
+    level: string;
+    label: string;
+    minPercent: number;
+    maxPercent: number | null;
+  }>;
   scale: {
     id: string;
     name: string;
     version: number;
     gradeMin: number;
     gradeMax: number;
-    bands: Array<{ code: string; label: string; minScore: number; maxScore: number; points: number | null }>;
+    bands: Array<{
+      code: string;
+      label: string;
+      minScore: number;
+      maxScore: number;
+      points: number | null;
+    }>;
   } | null;
   gradable: boolean;
   issue: string | null;
@@ -491,9 +502,160 @@ router.get(
         cells: learners.length * learningAreas.length,
         recorded: existing.length,
       },
+      totals: buildTotals(learners, learningAreas, byCell, assessment.maxScore, scope.allStreams),
     });
   })
 );
+
+/* ------------------------------------------------------------------ *
+ * Totals and positions
+ * ------------------------------------------------------------------ */
+
+interface RosterLearner {
+  id: string;
+  name: string | null;
+  stream: { id: string; name: string; code: string } | null;
+}
+
+/**
+ * Per-learner totals and positions, for a stream and for the whole class.
+ *
+ * Both levels are produced from the same rows rather than one being read across
+ * on top of the other, so a learner's stream position and class position can
+ * never disagree: the class position is the stream positions ranked among
+ * themselves.
+ *
+ * Two rules govern the numbers:
+ *
+ *   - A missing mark is not a zero. Only marks that were actually recorded are
+ *     summed, so an unmarked learner is shown as incomplete rather than as a
+ *     learner who scored nothing - the same distinction the entry grid makes.
+ *   - Positions are competition-ranked: learners on the same total share a
+ *     position and the next is skipped, so two learners on 180 are both 1st and
+ *     the next is 3rd. Ranking by average rather than total would order by a
+ *     different arithmetic for no gain, since every learner sits the same areas.
+ */
+function buildTotals(
+  learners: RosterLearner[],
+  areas: Array<{ id: string; name: string }>,
+  byCell: Map<
+    string,
+    { value: number; racefieldPoints: number | null; competencyLevel: string | null }
+  >,
+  maxScore: number | null,
+  allStreams: boolean
+) {
+  const rows = learners.map((learner) => {
+    let total = 0;
+    let points = 0;
+    let recorded = 0;
+    let pointsRecorded = 0;
+    let bestPoints: number | null = null;
+
+    for (const area of areas) {
+      const cell = byCell.get(`${learner.id}:${area.id}`);
+      if (!cell || cell.value === null || cell.value === undefined) continue;
+      total += cell.value;
+      recorded += 1;
+      if (cell.racefieldPoints !== null && cell.racefieldPoints !== undefined) {
+        points += cell.racefieldPoints;
+        pointsRecorded += 1;
+      }
+      if (
+        cell.racefieldPoints !== null &&
+        cell.racefieldPoints !== undefined &&
+        (bestPoints === null || cell.racefieldPoints > bestPoints)
+      ) {
+        bestPoints = cell.racefieldPoints;
+      }
+    }
+
+    const complete = recorded === areas.length && areas.length > 0;
+
+    return {
+      learnerId: learner.id,
+      name: learner.name ?? 'Unnamed learner',
+      streamId: learner.stream?.id ?? null,
+      streamName: learner.stream?.name ?? null,
+      streamCode: learner.stream?.code ?? null,
+      total: recorded > 0 ? Math.round(total * 100) / 100 : null,
+      outOf: maxScore !== null && areas.length > 0 ? maxScore * areas.length : null,
+      average:
+        recorded > 0 && maxScore ? Math.round((total / (maxScore * areas.length)) * 100) : null,
+      points: pointsRecorded > 0 ? Math.round(points * 100) / 100 : null,
+      bestBandPoints: bestPoints,
+      recorded,
+      cells: areas.length,
+      complete,
+    };
+  });
+
+  // Ranked among learners with at least one mark, so an unmarked learner is not
+  // placed last as though they had scored zero.
+  const ranked = rows.filter((row) => row.total !== null);
+
+  const withPositions = [...rows].map((row) => {
+    if (row.total === null) {
+      return { ...row, positionInStream: null, positionInClass: null };
+    }
+    const inStream = row.streamId
+      ? ranked.filter((peer) => peer.streamId === row.streamId)
+      : ranked;
+    const streamAhead = inStream.filter((peer) => (peer.total ?? 0) > (row.total ?? 0)).length;
+    const classAhead = ranked.filter((peer) => (peer.total ?? 0) > (row.total ?? 0)).length;
+    return {
+      ...row,
+      positionInStream: inStream.length > 0 ? streamAhead + 1 : null,
+      positionInClass: ranked.length > 0 ? classAhead + 1 : null,
+    };
+  });
+
+  // Per-stream totals, so the class view can show a stream's standing without
+  // the reader having to re-count.
+  const streamIds = [
+    ...new Set(rows.map((row) => row.streamId).filter((id): id is string => Boolean(id))),
+  ];
+  const streams = streamIds
+    .map((streamId) => {
+      const members = withPositions.filter((row) => row.streamId === streamId);
+      const totals = members
+        .map((row) => row.total)
+        .filter((total): total is number => total !== null);
+      return {
+        streamId,
+        streamName: members[0]?.streamName ?? streamId,
+        streamCode: members[0]?.streamCode ?? null,
+        learners: members.length,
+        ranked: totals.length,
+        totalMarks: totals.length
+          ? Math.round(totals.reduce((sum, value) => sum + value, 0) * 100) / 100
+          : null,
+        average: totals.length
+          ? Math.round((totals.reduce((sum, value) => sum + value, 0) / totals.length) * 100) / 100
+          : null,
+      };
+    })
+    .sort((a, b) => (b.average ?? 0) - (a.average ?? 0));
+
+  const unplaced = withPositions.filter((row) => row.streamId === null);
+
+  return {
+    // A stream is a subdivision of a class, so a learner placed in no stream is
+    // still ranked in the class rather than dropped from it.
+    learners: withPositions,
+    streams,
+    unplaced: unplaced.length > 0 ? unplaced : undefined,
+    counted: ranked.length,
+    totalLearners: learners.length,
+    /*
+     * Which learners the class positions were computed across, so the label on
+     * screen says "1 of 6" for a teacher who sees their own streams rather than
+     * "1 of 12" for the whole class. A position computed across a partial roster
+     * and labelled as the class position would be wrong in a way nobody can see.
+     */
+    rankedScope: allStreams ? 'class' : 'streams-you-can-see',
+  };
+}
 
 /* ------------------------------------------------------------------ *
  * Saving

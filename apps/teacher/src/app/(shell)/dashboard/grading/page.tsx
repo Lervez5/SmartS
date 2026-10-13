@@ -113,6 +113,45 @@ interface GridResponse {
     cells: number;
     recorded: number;
   };
+  /**
+   * Per-learner totals and positions, computed on the server.
+   *
+   * Both levels are produced from the same rows, so a learner's stream and
+   * class positions cannot disagree. `rankedScope` says which learners the
+   * class position was computed across - a stream-scoped teacher's roster is
+   * only their own streams, and labelling that as the whole class would be a
+   * number nobody can check.
+   */
+  totals: {
+    learners: Array<{
+      learnerId: string;
+      name: string;
+      total: number | null;
+      outOf: number | null;
+      average: number | null;
+      points: number | null;
+      recorded: number;
+      cells: number;
+      complete: boolean;
+      streamId: string | null;
+      streamName: string | null;
+      streamCode: string | null;
+      positionInStream: number | null;
+      positionInClass: number | null;
+    }>;
+    streams: Array<{
+      streamId: string;
+      streamName: string;
+      streamCode: string | null;
+      learners: number;
+      ranked: number;
+      totalMarks: number | null;
+      average: number | null;
+    }>;
+    counted: number;
+    totalLearners: number;
+    rankedScope: 'class' | 'streams-you-can-see';
+  };
 }
 
 interface ContextResponse {
@@ -149,7 +188,27 @@ interface RosterRow {
   name: string;
   streamLabel: string | null;
   recorded: number;
+  /** Sum of the marks actually entered, or null when none were. */
+  total: number | null;
+  /** Total out of, across the areas this assessment covers. */
+  outOf: number | null;
+  /** True when every area has a mark, so the total is comparable. */
+  complete: boolean;
+  /** Position within the learner's own stream. */
+  positionInStream: number | null;
+  /** Position across the streams the caller is scoped to. */
+  positionInClass: number | null;
   cells: Record<string, GridCell>;
+}
+
+/** 1 -> 1st, 2 -> 2nd, so a position reads the way a school says it. */
+function ordinal(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—';
+  const suffix =
+    ['th', 'st', 'nd', 'rd'][((value % 100) - 20) % 10] ??
+    ['th', 'st', 'nd', 'rd'][value % 100] ??
+    'th';
+  return `${value}${suffix}`;
 }
 
 export default function TeacherGradingPage() {
@@ -231,13 +290,22 @@ export default function TeacherGradingPage() {
   const locked = grid.data?.locked ?? false;
   const maxScore = grid.data?.assessment.maxScore ?? null;
   const grading = grid.data?.grading ?? null;
+  const totals = grid.data?.totals ?? null;
 
   const rows: RosterRow[] = React.useMemo(() => {
     if (!grid.data) return [];
+    // Totals and positions are keyed by learner id, so the roster and the
+    // ranking stay on the same set of learners even when the teacher's streams
+    // are only some of the class's.
+    const totalsById = new Map(
+      (grid.data.totals?.learners ?? []).map((row) => [row.learnerId, row])
+    );
+
     return grid.data.rows.map((row) => {
       const cells: Record<string, GridCell> = {};
       for (const cell of row.cells) cells[cell.subjectId] = cell;
       const recorded = row.cells.filter((cell) => cell.score !== null).length;
+      const totals = totalsById.get(row.learner.id);
       return {
         learnerId: row.learner.id,
         name: row.learner.name ?? 'Unnamed learner',
@@ -245,6 +313,11 @@ export default function TeacherGradingPage() {
           ? `${row.learner.stream.name} (${row.learner.stream.code})`
           : null,
         recorded,
+        total: totals?.total ?? null,
+        outOf: totals?.outOf ?? null,
+        complete: totals?.complete ?? false,
+        positionInStream: totals?.positionInStream ?? null,
+        positionInClass: totals?.positionInClass ?? null,
         cells,
       };
     });
@@ -408,6 +481,57 @@ export default function TeacherGradingPage() {
           </span>
         ),
         sortValue: (row) => row.recorded,
+      },
+      /*
+       * Total and position, both computed on the server. The total sums the
+       * marks that were actually entered - a missing mark is not a zero - and
+       * the position is competition-ranked, so learners on the same total share
+       * a place. The two levels are kept apart: position in the stream, and
+       * position across the streams the caller is scoped to, labelled with what
+       * that scope actually is rather than presented as the whole class.
+       */
+      {
+        id: 'total',
+        header: 'Total',
+        align: 'right',
+        cell: (row) => {
+          if (row.total === null) {
+            return (
+              <span className="text-sm text-muted-foreground">
+                {row.recorded === 0 ? 'not entered' : '—'}
+              </span>
+            );
+          }
+          if (!row.complete) {
+            return (
+              <span className="text-sm text-amber-600 dark:text-amber-400">
+                {row.total}
+                <span className="text-xs"> partial</span>
+              </span>
+            );
+          }
+          return <span className="text-sm font-medium text-foreground">{row.total}</span>;
+        },
+        sortValue: (row) => row.total ?? -1,
+      },
+      {
+        id: 'position',
+        header: 'Position',
+        align: 'right',
+        cell: (row) => {
+          if (row.positionInClass === null) {
+            return <span className="text-sm text-muted-foreground">—</span>;
+          }
+          return (
+            <div className="text-sm text-foreground">
+              <p>{ordinal(row.positionInClass)}</p>
+              <p className="text-xs text-muted-foreground">
+                in stream {ordinal(row.positionInStream)}
+              </p>
+            </div>
+          );
+        },
+        sortValue: (row) => row.positionInClass ?? 999,
       },
     ];
 
@@ -634,6 +758,18 @@ export default function TeacherGradingPage() {
                   {grading.scale.bands.map((b) => b.code).join(', ')}
                 </p>
               ) : null}
+              {totals && totals.streams.length > 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  {/* Positions are labelled with the scope they were ranked
+                      across, so a teacher who sees only their streams is not
+                      told a position that counts learners they cannot see. */}
+                  Positions ranked across {totals.streams.length} stream
+                  {totals.streams.length === 1 ? '' : 's'} ·{' '}
+                  {totals.rankedScope === 'class'
+                    ? `${totals.counted} of ${totals.totalLearners} learners marked`
+                    : `${totals.counted} marked of the learners you can see`}
+                </p>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -697,6 +833,53 @@ export default function TeacherGradingPage() {
               />
             }
           />
+
+          {/*
+            Per-stream standing, so the class view shows how each stream did
+            without the reader having to add anything up. Averages are over the
+            learners with marks, not over the whole roster, so a stream with an
+            unmarked learner is not averaged down for it.
+          */}
+          {totals && totals.streams.length > 1 ? (
+            <div className="rounded-lg border bg-card p-4">
+              <h3 className="text-sm font-semibold text-foreground">Stream results</h3>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                      <th className="py-2 pr-2 font-medium">Stream</th>
+                      <th className="py-2 pr-2 text-right font-medium">Learners</th>
+                      <th className="py-2 pr-2 text-right font-medium">Marked</th>
+                      <th className="py-2 pr-2 text-right font-medium">Total</th>
+                      <th className="py-2 pr-2 text-right font-medium">Average</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {totals.streams.map((stream) => (
+                      <tr key={stream.streamId} className="border-b last:border-0">
+                        <td className="py-2 pr-2 text-foreground">
+                          {stream.streamName}
+                          {stream.streamCode ? ` (${stream.streamCode})` : ''}
+                        </td>
+                        <td className="py-2 pr-2 text-right text-muted-foreground">
+                          {stream.learners}
+                        </td>
+                        <td className="py-2 pr-2 text-right text-muted-foreground">
+                          {stream.ranked}
+                        </td>
+                        <td className="py-2 pr-2 text-right text-foreground">
+                          {stream.totalMarks ?? '—'}
+                        </td>
+                        <td className="py-2 pr-2 text-right font-medium text-foreground">
+                          {stream.average ?? '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
         </>
       ) : null}
     </div>
