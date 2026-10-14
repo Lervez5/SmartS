@@ -14,6 +14,7 @@ import {
   Field,
   FloatingFormModal,
   LoadingState,
+  Modal,
   SectionHeader,
   Select,
   StatusPill,
@@ -172,6 +173,9 @@ export default function LearningAreasPage() {
   // Groups collapse as a set, so Expand All and Collapse All have something
   // real to act on rather than being decorative.
   const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
+  // Per-grade detail panel: clicking a grade pill opens what is and is not
+  // created for it, which is the question the form is really asking.
+  const [gradeDetails, setGradeDetails] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => setDebounced(search.trim()), 250);
@@ -804,9 +808,19 @@ export default function LearningAreasPage() {
                   <div className="flex flex-wrap gap-2">
                     {gradeOptions.map((grade) => {
                       const checked = draft.gradeLevels.includes(grade);
+                      const createdForGrade = customAreas.filter(
+                        (area) =>
+                          area.gradeScope === 'selected' &&
+                          area.applicableGradeLevels.includes(grade)
+                      ).length;
                       return (
-                        <label
+                        <button
                           key={grade}
+                          type="button"
+                          aria-pressed={checked}
+                          onClick={() =>
+                            setGradeDetails(grade)
+                          }
                           className={
                             checked
                               ? 'flex cursor-pointer items-center gap-2 rounded-full border border-primary bg-primary/10 px-3 py-1.5 text-sm font-medium text-foreground'
@@ -816,18 +830,20 @@ export default function LearningAreasPage() {
                           <input
                             type="checkbox"
                             checked={checked}
-                            onChange={() =>
+                            onChange={(e) => {
+                              e.stopPropagation();
                               setDraft({
                                 ...draft,
                                 gradeLevels: checked
                                   ? draft.gradeLevels.filter((g) => g !== grade)
                                   : [...draft.gradeLevels, grade],
-                              })
-                            }
+                              });
+                            }}
                             className="h-3.5 w-3.5"
+                            aria-label={`Select grade ${grade}`}
                           />
                           {grade}
-                        </label>
+                        </button>
                       );
                     })}
                   </div>
@@ -916,6 +932,138 @@ export default function LearningAreasPage() {
           </div>
         ) : null}
       </FloatingFormModal>
+
+      {/* ---------------------------------------------------------------- *
+       * Per-grade detail panel
+       * ---------------------------------------------------------------- */}
+      <GradeDetailsModal
+        grade={gradeDetails}
+        gradeOptions={gradeOptions}
+        customAreas={customAreas}
+        canManage={canManage}
+        onClose={() => setGradeDetails(null)}
+        onAddArea={(grade) => {
+          setGradeDetails(null);
+          setDraft({ ...emptyDraft(), gradeScope: 'selected', gradeLevels: [grade] });
+        }}
+      />
     </div>
+  );
+}
+
+/**
+ * Per-grade detail panel. Clicking a grade pill opens what is and is not
+ * created for it - the question the form is really asking, surfaced at the
+ * moment of choosing rather than buried in the table.
+ */
+function GradeDetailsModal({
+  grade,
+  gradeOptions,
+  customAreas,
+  canManage,
+  onClose,
+  onAddArea,
+}: {
+  grade: string | null;
+  gradeOptions: string[];
+  customAreas: LearningArea[];
+  canManage: boolean;
+  onClose: () => void;
+  onAddArea: (grade: string) => void;
+}) {
+  if (!grade) return null;
+
+  const createdForGrade = customAreas.filter(
+    (area) => area.gradeScope === 'selected' && area.applicableGradeLevels.includes(grade)
+  );
+  const allGrades = customAreas.filter((area) => area.appliesToAllGrades);
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={`Grade ${grade}`}
+      description="Learning areas created for this grade, and what is not yet."
+      size="lg"
+    >
+      <div className="space-y-4">
+        <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">Grade {grade}</p>
+            <p className="text-xs text-muted-foreground">
+              {createdForGrade.length} area
+              {createdForGrade.length === 1 ? '' : 's'} · {allGrades.length} apply to all grades
+            </p>
+          </div>
+          {canManage ? (
+            <Button
+              size="sm"
+              onClick={() => onAddArea(grade)}
+            >
+              New area for this grade
+            </Button>
+          ) : null}
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">Created</p>
+          {createdForGrade.length > 0 ? (
+            <ul className="divide-y divide-border rounded-md border">
+              {createdForGrade.map((area) => (
+                <li key={area.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                  <span className="min-w-0">
+                    <span className="block truncate text-foreground">{area.name}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {area.code ? `Code ${area.code}` : 'No code'} · {area.status}
+                    </span>
+                  </span>
+                  <StatusPill
+                    label={STATUS_LABEL[area.status]}
+                    tone={STATUS_TONE[area.status]}
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+              No learning areas are scoped to this grade yet.
+            </p>
+          )}
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
+            Applies to all grades
+          </p>
+          {allGrades.length > 0 ? (
+            <ul className="divide-y divide-border rounded-md border">
+              {allGrades.map((area) => (
+                <li key={area.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                  <span className="min-w-0">
+                    <span className="block truncate text-foreground">{area.name}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {area.code ? `Code ${area.code}` : 'No code'}
+                    </span>
+                  </span>
+                  <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                    All grades
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+              No learning areas apply to all grades.
+            </p>
+          )}
+        </div>
+
+        <div className="flex justify-end">
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
