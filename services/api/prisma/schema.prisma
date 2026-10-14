@@ -219,26 +219,21 @@ model User {
   createdAt            DateTime   @default(now())
   updatedAt            DateTime   @updatedAt
 
-  // Session revocation: increment to invalidate all existing tokens.
   sessionTokenVersion Int @default(0)
 
-  // Role-based access (a user may hold multiple roles)
   roleMemberships   UserRoleMembership[]
   schoolMemberships SchoolMembership[]
   personalSettings  UserPersonalSettings?
 
-  // People profiles (one-to-one per role type)
   studentProfile StudentProfile?
   staffProfile   StaffProfile?
   parentProfile  ParentProfile?
 
-  // Auth / sessions
   auditLogs     AuditLog[]
   exitsRecorded LearnerExit[]  @relation("ExitRecordedBy")
   exitsRestored LearnerExit[]  @relation("ExitRestoredBy")
   notifications Notification[]
 
-  // Back-references for relations from other models
   teacherClasses            Class[]               @relation("TeacherClasses")
   classAssistants           ClassAssistant[]      @relation("ClassAssistants")
   teachingAssignments       TeachingAssignment[]  @relation("TeachingAssignments")
@@ -368,9 +363,7 @@ enum EnrollmentEntryStatus {
   failed
 }
 
-/// One onboarding run. Not restricted to one category of person: the role is
-/// carried per row, so learners, guardians and staff can arrive together. The
-/// batch is the audit unit - what was attempted, by whom, and how it turned out.
+/// One onboarding run. The batch is the audit unit.
 model EnrollmentBatch {
   id String @id @default(auto()) @map("_id") @db.ObjectId
 
@@ -380,13 +373,10 @@ model EnrollmentBatch {
 
   status EnrollmentBatchStatus @default(draft)
 
-  /// Where the rows came from, kept for the operator's own recollection.
-  /// Provenance only — the rows themselves are the record.
+  /// Where the rows came from.
   source String?
   notes  String?
 
-  // Counts are stored rather than derived: a batch is read far more often than
-  // its rows, and these are what the history screen shows at a glance.
   totalRows      Int @default(0)
   enrolledCount  Int @default(0)
   duplicateCount Int @default(0)
@@ -405,9 +395,7 @@ model EnrollmentBatch {
   @@index([schoolId, createdAt])
 }
 
-/// One person in an onboarding run, plus the role-specific attributes that
-/// category needs, so one import covers learners, staff and guardians. Outcomes
-/// are written per row, so a partial import is readable row by row.
+/// One person in an onboarding run, with role-specific attributes per row.
 model EnrollmentBatchEntry {
   id String @id @default(auto()) @map("_id") @db.ObjectId
 
@@ -432,7 +420,6 @@ model EnrollmentBatchEntry {
   lastName  String?
   phone     String?
 
-  // Learner attributes
   gradeLevel      String?
   dateOfBirth     DateTime?
   gender          Gender?
@@ -446,14 +433,12 @@ model EnrollmentBatchEntry {
   /// that is what an operator has when pasting a roster.
   parentEmail     String?
 
-  // Staff attributes
   employeeId String?
   position   String?
   department String?
   hireDate   DateTime?
 
-  /// The account the row produced, so a person onboarded by a batch can be
-  /// traced to the run that created them.
+  /// The account this row produced.
   userId String? @db.ObjectId
   /// Why the row could not be onboarded, or why it was skipped.
   error  String?
@@ -658,9 +643,7 @@ enum LearningAreaStatus {
   archived
 }
 
-/// `all` is an explicit choice, not the absence of one. Keeping the two apart
-/// An explicit choice, not the absence of one - which is what stops an empty
-/// grade list reading as both "taught everywhere" and "not configured yet".
+  /// `all` is an explicit choice, not the absence of one - which is what stops an empty grade list reading as both "taught everywhere" and "not configured yet".
 enum GradeScope {
   all
   selected
@@ -812,14 +795,8 @@ model ExaminationSubject {
 }
 
 /// The authoritative teaching allocation: which teacher is responsible for
-/// which learning area in which stream.
-///
-/// Each stream carries its own team - one main class teacher, any number of
-/// assistants, and any number of learning-area teachers - so a class with five
-/// streams has five teams, not one. Attendance, Results Entry and the Teacher
-/// portal all resolve responsibility from this record, so they cannot disagree
-/// about who is answerable for a stream. A teacher with no allocation is still a
-/// staff member.
+/// which learning area in which stream. Each stream carries its own team, so
+/// they cannot disagree about who is answerable.
 model StreamAllocation {
   id String @id @default(auto()) @map("_id") @db.ObjectId
 
@@ -919,13 +896,9 @@ model Class {
   /// Lifecycle state. Archived classes are read-only for new learners and streams.
   status ClassStatus @default(active)
 
-  /// The class's primary or home learning area.
-  ///
-  /// A class offers several learning areas and each is taught by an assigned
-  /// teacher, which TeachingAssignment records. This is the single area a class
-  /// is named or timetabled against, so a shortcut rather than the allocation
-  /// model. Two schools can both teach Mathematics: the subject is scoped to a
-  /// school and unique within it.
+  /// The class's primary or home learning area. A class offers several learning
+  /// areas, each taught by an assigned teacher (see TeachingAssignment). This is the
+  /// single area a class is named/timetabled against.
   subject   Subject? @relation("SubjectClasses", fields: [subjectId], references: [id])
   subjectId String?  @db.ObjectId
 
@@ -933,8 +906,6 @@ model Class {
   gradeLevel          String?
   teacher             User?                @relation("TeacherClasses", fields: [teacherId], references: [id])
   teacherId           String?              @db.ObjectId
-  /// responsible for the same class as the main teacher, and which of them may
-  /// manage it is recorded per assignment.
   assistants          ClassAssistant[]
   courseId            String?              @db.ObjectId
   course              Course?              @relation(fields: [courseId], references: [id])
@@ -1082,12 +1053,8 @@ model ExamAttempt {
 }
 
 /// A record that a learner has left the school.
-///
-/// Kept on StudentProfile rather than as a separate entity so the learner keeps
-/// one identity: their attendance, grades, attempts, documents, invoices and
-/// parent links stay attached to the same record the Alumni Office reads.
-/// A restore never deletes a row, it stamps restoredAt, so the archive and its
-/// reversal both remain auditable.
+/// Kept on StudentProfile so the learner keeps one identity. Restore stamps
+/// restoredAt rather than deleting, so both are auditable.
 model LearnerExit {
   id        String            @id @default(auto()) @map("_id") @db.ObjectId
   student   StudentProfile    @relation(fields: [studentId], references: [id])
@@ -1113,13 +1080,10 @@ model LearnerExit {
   recordedById String?  @db.ObjectId
   recordedAt   DateTime @default(now())
 
-  /// Set when the learner is re-enrolled. An exit with no restoredAt is the
-  /// learner's current state, which is what the Alumni Office lists.
-  ///
-  /// Note: the field must be written explicitly as null on create rather than
-  /// omitted. MongoDB's `$eq: null` matches an explicit null but not a missing
-  /// key, so an omitted field would make the unresolved-exit filter - and
-  /// therefore the whole Alumni list - come back empty.
+  /// Set when the learner is re-enrolled. Must be written explicitly as null on
+  /// create, not omitted: MongoDB's `$eq: null` matches an explicit null but
+  /// not a missing key, so an omitted field would make the unresolved-exit
+  /// filter return empty.
   restoredAt   DateTime?
   restoredBy   User?     @relation("ExitRestoredBy", fields: [restoredById], references: [id])
   restoredById String?   @db.ObjectId
@@ -1131,13 +1095,8 @@ model LearnerExit {
   @@index([restoredAt])
 }
 
-/// Where one CBC competency level begins and ends, as a share of the
-/// assessment's maximum score.
-///
-/// Configured per school rather than hardcoded, because the curriculum sets the
-/// levels but not the cut-offs a school chooses between them. Ordered by
-/// `minPercent`; the lowest band is open-ended downwards and the highest
-/// open-ended upwards.
+/// Bounds of a CBC competency level, as a share of the assessment's max score.
+/// Configured per school; ordered by `minPercent`.
 model CompetencyBand {
   id          String          @id @default(auto()) @map("_id") @db.ObjectId
   school      School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
@@ -1150,7 +1109,6 @@ model CompetencyBand {
   minPercent  Float
   /// Inclusive upper bound. Null on the highest band, which runs to 100.
   maxPercent  Float?
-  // / Short note shown where a band is explained, e.g. on a report.
   description String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
@@ -1161,18 +1119,9 @@ model CompetencyBand {
   @@index([schoolId])
 }
 
-/// The school's authoritative grading standard, tied to a grade/level
-/// range so the correct scale is resolved automatically from the learner's
-/// actual grade rather than chosen by hand.
-///
-/// Each scale carries its own ordered bands. The engine resolves which scale
-/// applies from the learner's grade level, then resolves the band from the
-/// normalised score.
-///
-/// Versioning: a school may hold multiple versions of a scale for the same
-/// grade range. Only one may be active at a time. Historical grades retain
-/// their `racefieldScaleId` reference so a band is always reproducible from
-/// the version that was in effect when the mark was recorded.
+/// The school's grading standard, resolved from the learner's grade level.
+/// Versioned per grade range; only one active at a time. Historical grades
+/// retain their scale reference for reproducibility.
 model RacefieldScale {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
   school        School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
@@ -1223,22 +1172,18 @@ model RacefieldBand {
   @@index([scaleId, minScore])
 }
 
-/// A subdivision of a class.
-///
-/// A stream never replaces the class: attendance, timetabling and assessment all
-/// stay anchored to the class, and the stream is how a class is split into
-/// teaching groups within it. It therefore carries no teacher of its own -
-/// responsibility belongs to the class's main teacher and assistants, and a
-/// stream-level assignment would compete with that rather than extend it.
+/// A subdivision of a class. Attendance, timetabling and assessment stay
+/// anchored to the class; the stream is how a class splits into teaching groups.
+/// It carries no teacher of its own — responsibility lives with the class's
+/// team, not on the stream.
 model Stream {
   id    String @id @default(auto()) @map("_id") @db.ObjectId
   class Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
 
-  /// Unique within the class, since two streams in one class cannot share a code.
+  /// Unique within the class.
   classId  String       @db.ObjectId
   name     String
   code     String
-  /// Optional ordering within the class, where a school numbers its streams.
   capacity Int?
   status   StreamStatus @default(active)
 
@@ -1274,7 +1219,6 @@ model ClassAssistant {
   assistant   User   @relation("ClassAssistants", fields: [assistantId], references: [id])
   assistantId String @db.ObjectId
 
-  /// Whether this assistant may manage the class, or may only view it.
   canManage Boolean @default(true)
 
   createdAt DateTime @default(now())
@@ -1443,7 +1387,7 @@ model FinanceAccount {
   id           String               @id @default(auto()) @map("_id") @db.ObjectId
   code         String               @unique
   name         String
-  type         String // asset | liability | income | expense | equity
+  type        String // asset | liability | income | expense | equity
   currency     String               @default("KES")
   createdAt    DateTime             @default(now())
   transactions FinanceTransaction[]
@@ -1455,7 +1399,7 @@ model FinanceTransaction {
   account     FinanceAccount           @relation(fields: [accountId], references: [id])
   type        FinanceTransactionType
   status      FinanceTransactionStatus @default(draft)
-  amountCents Int // stored in KSH minor units (cents)
+  amountCents Int
   currency    String                   @default("KES")
   description String?
   reference   String?
@@ -1475,9 +1419,9 @@ model Invoice {
   studentId   String?   @db.ObjectId
   student     User?     @relation("StudentInvoices", fields: [studentId], references: [id])
   number      String    @unique
-  amountCents Int // KSH minor units
+  amountCents Int
   currency    String    @default("KES")
-  status      String    @default("pending") // pending | paid | void
+  status      String    @default("pending")
   issuedAt    DateTime  @default(now())
   dueDate     DateTime
   paidAt      DateTime?
@@ -1496,7 +1440,7 @@ model Receipt {
   number        String              @unique
   amountCents   Int // KSH minor units
   currency      String              @default("KES")
-  method        String // cash | mpesa | bank_transfer | card
+  method        String
   paidBy        String?             @db.ObjectId
   paidByName    String?
   receivedAt    DateTime            @default(now())
@@ -1534,7 +1478,7 @@ model PayrollRun {
   periodStart DateTime
   periodEnd   DateTime
   status      PayrollStatus @default(pending)
-  totalCents  Int // KSH minor units
+  totalCents  Int
   currency    String        @default("KES")
   processedAt DateTime?
   createdAt   DateTime      @default(now())
@@ -1547,7 +1491,7 @@ model Payslip {
   payrollRunId    String        @db.ObjectId
   payrollRun      PayrollRun    @relation(fields: [payrollRunId], references: [id])
   staffId         String        @db.ObjectId
-  grossCents      Int // KSH minor units
+  grossCents      Int
   deductionsCents Int
   netCents        Int
   currency        String        @default("KES")
@@ -1568,7 +1512,7 @@ model TransportRoute {
   startPoint  String
   endPoint    String
   stops       String[]
-  fareCents   Int? // KSH minor units
+  fareCents   Int?
   currency    String                @default("KES")
   createdAt   DateTime              @default(now())
   assignments TransportAssignment[]
@@ -1624,7 +1568,7 @@ model Asset {
   tag                String?   @unique
   name               String
   category           String?
-  purchasePriceCents Int? // KSH minor units
+  purchasePriceCents Int?
   currency           String    @default("KES")
   purchaseDate       DateTime?
   status             String    @default("in_use") // in_use | in_repair | retired
@@ -1709,17 +1653,12 @@ model SystemSetting {
 
 model School {
   id                 String  @id @default(auto()) @map("_id") @db.ObjectId
-  /// Official legal / registered name of the institution.
   name               String
-  /// Human-facing name used across portals, reports and communications.
   displayName        String?
-  /// Registration or institutional identification number.
   registrationNumber String?
-  /// Short code used by staff, invoices and admissions.
   schoolCode         String? @unique
   schoolType         String?
   schoolLevel        String?
-  /// Curriculum or education system in use (for example CBC).
   curriculum         String?
   yearEstablished    Int?
   motto              String?
@@ -1727,7 +1666,6 @@ model School {
   mission            String?
   description        String?
 
-  // Primary official contact
   phone           String?
   email           String?
   altPhone        String?
@@ -1738,7 +1676,6 @@ model School {
   financeEmail    String?
   financePhone    String?
 
-  // Physical location
   country         String?
   county          String?
   subCounty       String?
@@ -1749,7 +1686,6 @@ model School {
   latitude        Float?
   longitude       Float?
 
-  // Leadership
   principalName  String?
   principalEmail String?
   principalPhone String?
@@ -1805,8 +1741,7 @@ model SchoolMembership {
   @@index([schoolId])
 }
 
-/// School profile: identity, contact, location, leadership, institutional copy.
-/// Optional fields stay optional; the domain does not require them.
+/// School profile settings: identity, contact, location, leadership.
 model SchoolGeneralSettings {
   id       String @id @default(auto()) @map("_id") @db.ObjectId
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
@@ -1888,8 +1823,7 @@ model SchoolBrandingSettings {
   updatedAt DateTime @updatedAt
 }
 
-/// Configures academic behaviour. Operational data (classes, students,
-/// subjects, examinations, timetables) stays owned by the Academics modules.
+/// Configures academic behaviour. Operational data stays owned by Academics.
 model SchoolAcademicSettings {
   id       String @id @default(auto()) @map("_id") @db.ObjectId
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
@@ -2104,25 +2038,17 @@ enum SmsCampaignPurpose {
 /// the request; only a delivery report sets `delivered`. `blocked` means it could
 /// not be handed off at all - no gateway, or no recipient.
 enum SmsCampaignStatus {
-  /// Built and awaiting confirmation. Nothing has been sent.
   draft
-  /// Confirmed and handed to the provider. No outcome known yet.
   submitted
-  /// The provider acknowledged the request. Still not a delivery.
   accepted_by_provider
-  /// The provider reports the handset received it.
   delivered
-  /// The provider rejected the request outright.
   rejected
-  /// The provider accepted it and then reported a failure per recipient.
   failed
-  /// Cannot be sent: no provider configured, or SMS disabled for the school.
   blocked
-  /// Withdrawn before submission.
   cancelled
 }
 
-/// `skipped` is a decision made before any provider call (no number, opted out);
+/// `skipped` is before any provider call (no number, opted out);
 /// `failed` means the provider was asked and refused.
 enum SmsRecipientStatus {
   pending
@@ -2135,12 +2061,8 @@ enum SmsRecipientStatus {
 }
 
 /// A messaging run: one body, sent once, to a set of guardians.
-///
-/// The recipient set is resolved and stored server-side rather than accepted
-/// from the client, so the rows below are what the school actually committed to
-/// — a count the browser sent is never trusted. Each recipient is a
-/// `ParentProfile`, never a bare phone number, because a guardian who cannot be
-/// identified cannot be deduplicated or suppressed.
+/// Recipients are resolved server-side and stored per ParentProfile, never
+/// from a client-supplied count.
 model SmsCampaign {
   id       String @id @default(auto()) @map("_id") @db.ObjectId
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
@@ -2327,12 +2249,8 @@ enum NotificationStatus {
 }
 
 /// One message to one guardian about one enrollment.
-///
-/// Keyed by an idempotency key derived from the enrollment, the guardian and the
-/// channel, so a retried enrollment, a re-fired event, a worker retry or a
-/// double-clicked confirm all resolve to the same row instead of producing a
-/// second message. `attemptCount` and the timestamps are the operational record:
-/// how many times this was tried, when, and what the provider last said.
+/// Keyed by an idempotency key derived from the enrollment, guardian and
+/// channel, so retries resolve to the same row.
 model EnrollmentNotification {
   id       String @id @default(auto()) @map("_id") @db.ObjectId
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)

@@ -18,7 +18,6 @@
  *      workspace can report the truth instead of a green tick.
  */
 
-
 /** Which gateways this client can actually speak. */
 export type SmsProviderName = 'africastalking' | 'termii';
 

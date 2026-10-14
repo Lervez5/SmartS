@@ -893,9 +893,11 @@ describe('SMS Centre module', () => {
     it('normalises a delivery report by outcome, and never guesses', async () => {
       const { normaliseDeliveryReport } = await import('../src/modules/sms/gateway');
 
-      expect(
-        normaliseDeliveryReport('africastalking', { id: 'm1', status: 'Success' })
-      ).toEqual({ providerMessageId: 'm1', status: 'delivered', failureReason: null });
+      expect(normaliseDeliveryReport('africastalking', { id: 'm1', status: 'Success' })).toEqual({
+        providerMessageId: 'm1',
+        status: 'delivered',
+        failureReason: null,
+      });
 
       expect(
         normaliseDeliveryReport('africastalking', {
@@ -918,9 +920,7 @@ describe('SMS Centre module', () => {
     it('parses a gateway balance string without mangling the amount', async () => {
       // The gateway returns display text, so the figure has to be read out of it
       // rather than coerced: Number('KSh 4,500.00') is NaN.
-      const { parseReportedBalance } = (await import(
-        '../src/modules/sms/service'
-      )) as unknown as {
+      const { parseReportedBalance } = (await import('../src/modules/sms/service')) as unknown as {
         parseReportedBalance: (raw: string) => { value: number; currency: string | null } | null;
       };
 

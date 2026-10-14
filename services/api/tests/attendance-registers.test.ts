@@ -241,7 +241,9 @@ describe('Attendance registers', () => {
     expect(all.status).toBe(200);
     expect(all.body.scope.assignedOnly).toBe(false);
     expect(all.body.registers.length).toBeGreaterThan(0);
-    expect(all.body.registers.some((row: { classId: string }) => row.classId === classId)).toBe(true);
+    expect(all.body.registers.some((row: { classId: string }) => row.classId === classId)).toBe(
+      true
+    );
 
     /*
      * A Dean holds `attendance.manage` and so is not scoped. They are not
@@ -256,7 +258,9 @@ describe('Attendance registers', () => {
     );
     expect(asDean.status).toBe(200);
     expect(asDean.body.scope.assignedOnly).toBe(false);
-    expect(asDean.body.registers.some((row: { classId: string }) => row.classId === classId)).toBe(true);
+    expect(asDean.body.registers.some((row: { classId: string }) => row.classId === classId)).toBe(
+      true
+    );
 
     /*
      * A teacher with no teaching assignment sees nothing, and is told that the

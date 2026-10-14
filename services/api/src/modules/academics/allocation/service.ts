@@ -246,7 +246,7 @@ async function requireTeacherOfSchool(teacherId: string, schoolId: string) {
       schoolMemberships: { some: { schoolId } },
       roleMemberships: { some: { role: { name: 'TEACHER' } } },
     },
-    select: teacherSelect,
+    select: { ...teacherSelect, staffProfile: { select: { status: true } } },
   });
   if (!teacher) {
     throw new ApiError(
@@ -254,6 +254,26 @@ async function requireTeacherOfSchool(teacherId: string, schoolId: string) {
       'That person is not a teacher of this school. A teaching allocation cannot create an account; provision one through the invitations workflow first.'
     );
   }
+
+  /*
+   * Holding the TEACHER role is eligibility to teach, not availability to
+   * teach *now*. The staff record is what says whether the person can
+   * actually hold an active class: a terminated or archived account is gone,
+   * and one on leave is only conditionally able. Assigning any of them would
+   * leave a class with a named teacher who cannot take it.
+   *
+   * A teacher with no staff record at all is allowed: the role is the
+   * eligibility the platform enforces elsewhere, and refusing them here
+   * would block a teacher whose staff record has not been created yet.
+   */
+  const staffStatus = teacher.staffProfile?.status;
+  if (staffStatus && staffStatus !== 'active' && staffStatus !== 'on_leave') {
+    throw new ApiError(
+      409,
+      `${teacher.name ?? teacher.email} is ${staffStatus.replace(/_/g, ' ')}, so they cannot be given an active teaching assignment. Restore the staff record first.`
+    );
+  }
+
   return teacher;
 }
 

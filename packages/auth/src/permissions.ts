@@ -140,11 +140,11 @@ export const PERMISSIONS = [
   // in-app and announcement messaging, and holding it must not by itself let a
   // role send bulk SMS, read another guardian's financial position, or change
   // automation rules. Each capability below is granted explicitly.
-  'sms.view',       // open the workspace and read campaign history
-  'sms.send',       // compose and send a bulk campaign to guardians
-  'sms.reminders',  // resolve and send balance reminders from the Finance domain
-  'sms.manage',     // configure automation rules and manage opt-outs
-  'sms.credits',    // inspect credit status and the provider configuration
+  'sms.view', // open the workspace and read campaign history
+  'sms.send', // compose and send a bulk campaign to guardians
+  'sms.reminders', // resolve and send balance reminders from the Finance domain
+  'sms.manage', // configure automation rules and manage opt-outs
+  'sms.credits', // inspect credit status and the provider configuration
   'announcements.view',
   'announcements.manage',
   'calendar.view',
