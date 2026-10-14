@@ -24,6 +24,7 @@ import {
   type DataTableColumn,
   type StatusTone,
 } from '@schoolos/ui';
+import { GuardianSelect, type GuardianOption } from './GuardianSelect';
 
 /**
  * Enrollment Hub - the school's front door for people.
@@ -546,8 +547,20 @@ export default function EnrollmentHubPage() {
   const parentOptions = React.useMemo(
     () =>
       (parents.data?.parents ?? []).map((parent: any) => ({
-        value: (parent.userId ?? parent.id) as string,
-        label: (parent.name ?? parent.email ?? 'Guardian') as string,
+        id: parent.id,
+        userId: parent.userId ?? parent.id,
+        name: parent.name ?? null,
+        firstName: parent.firstName ?? null,
+        lastName: parent.lastName ?? null,
+        email: parent.email ?? '',
+        phone: parent.phone ?? null,
+        avatar: parent.avatar ?? null,
+        accountStatus: parent.accountStatus ?? 'active',
+        isStaff: Boolean(parent.isStaff),
+        staff: parent.staff ?? null,
+        roles: Array.isArray(parent.roles) ? parent.roles : [],
+        childCount: parent.childCount ?? 0,
+        children: Array.isArray(parent.children) ? parent.children : [],
       })),
     [parents.data]
   );
@@ -1779,11 +1792,14 @@ export default function EnrollmentHubPage() {
             label="Grade / class applied for"
             hint="The placement is decided when the learner is accepted."
           >
-            <TextInput
-              value={newGradeLevel}
-              onChange={(e) => setNewGradeLevel(e.target.value)}
-              placeholder="e.g. PP2"
-            />
+            <Select value={newGradeLevel} onChange={(e) => setNewGradeLevel(e.target.value)}>
+              <option value="">Choose a class or grade…</option>
+              {classOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="Date of birth">
             <TextInput
@@ -1797,14 +1813,12 @@ export default function EnrollmentHubPage() {
             hint="Linked to the learner when they are placed. Optional."
             className="sm:col-span-2"
           >
-            <Select value={newParentUserId} onChange={(e) => setNewParentUserId(e.target.value)}>
-              <option value="">No guardian yet</option>
-              {parentOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
+            <GuardianSelect
+              value={newParentUserId}
+              onChange={setNewParentUserId}
+              options={parentOptions}
+              emptyLabel="No guardian yet"
+            />
           </Field>
         </div>
       </FloatingFormModal>
@@ -1899,17 +1913,12 @@ export default function EnrollmentHubPage() {
                 </Select>
               </Field>
               <Field label="Parent / guardian" hint="Optional. Links the learner to a guardian.">
-                <Select
+                <GuardianSelect
                   value={enrollParentUserId}
-                  onChange={(e) => setEnrollParentUserId(e.target.value)}
-                >
-                  <option value="">No guardian</option>
-                  {parentOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
+                  onChange={setEnrollParentUserId}
+                  options={parentOptions}
+                  emptyLabel="No guardian"
+                />
               </Field>
             </div>
 

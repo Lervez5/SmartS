@@ -14,6 +14,7 @@ import { Router, type Request, type Response } from 'express';
 import { prisma } from '../../infrastructure/database';
 import { requirePermissions } from '../../middleware/rbac';
 import { requireSchoolScope, schoolScopeOf } from '../settings/scope';
+import { currentSessionId } from '../academics/allocation/scope';
 import { z } from 'zod';
 import { asyncHandler } from '../../shared/asyncHandler';
 import { ApiError } from '../../shared/logger';
@@ -128,8 +129,65 @@ router.get(
   '/teacher/my-cohorts',
   requireClassView,
   asyncHandler(async (req: Request, res: Response) => {
+    const { schoolId } = schoolScopeOf(req);
+    const userId = req.user!.id;
+
+    // Get academic session for allocation checks
+    const sessionId = await currentSessionId(schoolId);
+
+    // Find classes where user is main class teacher via:
+    // 1. Direct Class.teacherId (legacy)
+    // 2. Class-level StreamAllocation (main_class_teacher, streamId: null)
+    // 3. Stream-level StreamAllocation (main_class_teacher) for classes with streams
+    const classIds = new Set<string>();
+
+    // 1. Legacy class teacher
+    const legacyClasses = await prisma.class.findMany({
+      where: { schoolId, teacherId: userId },
+      select: { id: true },
+    });
+    legacyClasses.forEach((c) => classIds.add(c.id));
+
+    if (sessionId) {
+      // 2. Class-level StreamAllocation (no streams, class-level main teacher)
+      const classLevelAllocs = await prisma.streamAllocation.findMany({
+        where: {
+          schoolId,
+          academicYearId: sessionId,
+          teacherId: userId,
+          responsibility: 'main_class_teacher',
+          status: 'active',
+          streamId: null,
+          classId: { not: null },
+        },
+        select: { classId: true },
+      });
+      classLevelAllocs.forEach((a) => a.classId && classIds.add(a.classId));
+
+      // 3. Stream-level StreamAllocation for classes with streams
+      const streamAllocs = await prisma.streamAllocation.findMany({
+        where: {
+          schoolId,
+          academicYearId: sessionId,
+          teacherId: userId,
+          responsibility: 'main_class_teacher',
+          status: 'active',
+          streamId: { not: null },
+        },
+        select: { stream: { select: { classId: true } } },
+      });
+      streamAllocs.forEach((a) => {
+        if (a.stream) classIds.add(a.stream.classId);
+      });
+    }
+
+    if (classIds.size === 0) {
+      res.json({ classes: [] });
+      return;
+    }
+
     const classes = await prisma.class.findMany({
-      where: { schoolId: schoolScopeOf(req).schoolId, teacherId: req.user!.id },
+      where: { schoolId, id: { in: [...classIds] } },
       include: classInclude,
       orderBy: { createdAt: 'desc' },
     });

@@ -36,6 +36,13 @@ const allocationInclude = {
       class: { select: { id: true, name: true, gradeLevel: true } },
     },
   },
+  class: {
+    select: {
+      id: true,
+      name: true,
+      gradeLevel: true,
+    },
+  },
 } as const;
 
 export interface ListOptions {
@@ -57,6 +64,7 @@ export async function listAllocations(schoolId: string, options: ListOptions) {
     schoolId,
     ...(options.academicYearId ? { academicYearId: options.academicYearId } : {}),
     ...(options.streamId ? { streamId: options.streamId } : {}),
+    ...(options.classId && !options.streamId ? { classId: options.classId } : {}),
     ...(options.teacherId ? { teacherId: options.teacherId } : {}),
     ...(options.subjectId ? { subjectId: options.subjectId } : {}),
     ...(options.responsibility ? { responsibility: options.responsibility } : {}),
@@ -76,7 +84,7 @@ export async function listAllocations(schoolId: string, options: ListOptions) {
     // Classes are reached through the stream, which is what carries the school
     // scope, so the class filter narrows the stream's parent rather than
     // bypassing the stream entirely.
-    ...(options.classId ? { stream: { classId: options.classId } } : {}),
+    ...(options.classId && options.streamId ? { stream: { classId: options.classId } } : {}),
     ...(options.search
       ? {
           OR: [
@@ -88,6 +96,9 @@ export async function listAllocations(schoolId: string, options: ListOptions) {
               stream: {
                 class: { name: { contains: options.search, mode: 'insensitive' as const } },
               },
+            },
+            {
+              class: { name: { contains: options.search, mode: 'insensitive' as const } },
             },
           ],
         }
@@ -129,7 +140,12 @@ function present(row: {
     name: string;
     code: string;
     class: { id: string; name: string; gradeLevel: string | null };
-  };
+  } | null;
+  class: {
+    id: string;
+    name: string;
+    gradeLevel: string | null;
+  } | null;
 }) {
   return {
     id: row.id,
@@ -144,12 +160,21 @@ function present(row: {
     teacher: row.teacher,
     subject: row.subject,
     academicSession: row.academicYear,
-    stream: {
-      id: row.stream.id,
-      name: row.stream.name,
-      code: row.stream.code,
-      class: row.stream.class,
-    },
+    stream: row.stream
+      ? {
+          id: row.stream.id,
+          name: row.stream.name,
+          code: row.stream.code,
+          class: row.stream.class,
+        }
+      : null,
+    class: row.class
+      ? {
+          id: row.class.id,
+          name: row.class.name,
+          gradeLevel: row.class.gradeLevel,
+        }
+      : null,
   };
 }
 
@@ -187,11 +212,14 @@ export async function streamTeams(schoolId: string, academicYearId: string, clas
     orderBy: [{ responsibility: 'asc' }, { teacher: { name: 'asc' } }],
   });
 
-  const byStream = new Map<string, typeof allocations>();
-  for (const row of allocations) {
-    const list = byStream.get(row.streamId) ?? [];
+  // Filter to stream-level allocations only (class-level have streamId: null)
+  const streamAllocations = allocations.filter((r) => r.streamId !== null);
+
+  const byStream = new Map<string, typeof streamAllocations>();
+  for (const row of streamAllocations) {
+    const list = byStream.get(row.streamId!) ?? [];
     list.push(row);
-    byStream.set(row.streamId, list);
+    byStream.set(row.streamId!, list);
   }
 
   return classes.map((cls) => ({
@@ -232,8 +260,10 @@ export async function teacherWorkload(schoolId: string, teacherId: string) {
   return {
     teacher,
     assignments: rows.map(present),
-    streamCount: new Set(rows.map((r) => r.streamId)).size,
-    classCount: new Set(rows.map((r) => r.stream.class.id)).size,
+    streamCount: new Set(rows.filter((r) => r.streamId).map((r) => r.streamId!)).size,
+    classCount: new Set(
+      rows.map((r) => r.stream?.class.id ?? r.class?.id).filter((id): id is string => Boolean(id))
+    ).size,
     subjectCount: new Set(rows.filter((r) => r.subjectId).map((r) => r.subjectId)).size,
   };
 }
@@ -280,7 +310,8 @@ async function requireTeacherOfSchool(teacherId: string, schoolId: string) {
 export interface CreateInput {
   schoolId: string;
   academicYearId: string;
-  streamId: string;
+  streamId?: string;
+  classId?: string;
   teacherId: string;
   responsibility: 'main_class_teacher' | 'assistant_class_teacher' | 'subject_teacher';
   subjectId?: string;
@@ -294,11 +325,36 @@ export async function createAllocation(input: CreateInput, actorId: string | nul
 
   await requireSessionOfSchool(input.academicYearId, schoolId);
 
-  const stream = await prisma.stream.findFirst({
-    where: { id: input.streamId, class: { schoolId } },
-    select: { id: true, name: true, code: true, class: { select: { name: true } } },
-  });
-  if (!stream) throw new ApiError(404, 'Stream not found in this school');
+  // Determine scope: class-level (no stream) or stream-level
+  let stream = null;
+  let targetClass = null;
+  let scopeName = '';
+
+  if (input.streamId) {
+    // Stream-level allocation
+    stream = await prisma.stream.findFirst({
+      where: { id: input.streamId, class: { schoolId } },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        class: { select: { id: true, name: true, gradeLevel: true } },
+      },
+    });
+    if (!stream) throw new ApiError(404, 'Stream not found in this school');
+    targetClass = stream.class;
+    scopeName = `${stream.class.name} ${stream.name} (${stream.code})`;
+  } else if (input.classId) {
+    // Class-level allocation (no streams or explicit class-level)
+    targetClass = await prisma.class.findFirst({
+      where: { id: input.classId, schoolId },
+      select: { id: true, name: true, gradeLevel: true },
+    });
+    if (!targetClass) throw new ApiError(404, 'Class not found in this school');
+    scopeName = targetClass.name;
+  } else {
+    throw new ApiError(400, 'Either streamId or classId must be provided');
+  }
 
   const teacher = await requireTeacherOfSchool(input.teacherId, schoolId);
 
@@ -311,50 +367,91 @@ export async function createAllocation(input: CreateInput, actorId: string | nul
   }
 
   /*
-   * One main class teacher per stream per session. Checked here so the caller
-   * gets a message that names the conflict, and relied upon at the database too
-   * via a partial unique index, because two simultaneous requests would both
-   * pass this check and only one could win.
+   * Uniqueness validation:
+   * - For stream-level: one main class teacher per stream per session
+   * - For class-level: one main class teacher per class per session (only when class has no streams, or explicit class-level)
    */
   if (input.responsibility === 'main_class_teacher') {
-    const existing = await prisma.streamAllocation.findFirst({
-      where: {
-        streamId: input.streamId,
-        academicYearId: input.academicYearId,
-        responsibility: 'main_class_teacher',
-        status: 'active',
-      },
-      include: { teacher: { select: teacherSelect } },
-    });
-    if (existing) {
-      throw new ApiError(
-        409,
-        `${stream.class.name} ${stream.name} already has an active main class teacher for this session: ${existing.teacher.name ?? existing.teacher.email}. End that allocation before appointing another.`
-      );
+    if (input.streamId) {
+      // Stream-level uniqueness
+      const existing = await prisma.streamAllocation.findFirst({
+        where: {
+          streamId: input.streamId,
+          academicYearId: input.academicYearId,
+          responsibility: 'main_class_teacher',
+          status: 'active',
+        },
+        include: { teacher: { select: teacherSelect } },
+      });
+      if (existing) {
+        throw new ApiError(
+          409,
+          `${scopeName} already has an active main class teacher for this session: ${existing.teacher.name ?? existing.teacher.email}. End that allocation before appointing another.`
+        );
+      }
+    } else if (input.classId) {
+      // Class-level uniqueness: check if class has no streams, or if this is an explicit class-level allocation
+      // If class has streams, a class-level main teacher is only allowed if no stream-level main teachers exist?
+      // Per requirements: class-level applies when class has no streams. If streams exist, they should have their own.
+      // So we enforce: if class has streams, we don't allow class-level main_class_teacher (would conflict with stream-level ones)
+      const streams = await prisma.stream.findMany({
+        where: { classId: input.classId, status: 'active' },
+        select: { id: true },
+      });
+      if (streams.length > 0) {
+        throw new ApiError(
+          409,
+          `This class has streams. Assign main class teachers to individual streams instead of at the class level.`
+        );
+      }
+      // Check for existing class-level main teacher
+      const existing = await prisma.streamAllocation.findFirst({
+        where: {
+          classId: input.classId,
+          academicYearId: input.academicYearId,
+          responsibility: 'main_class_teacher',
+          status: 'active',
+          streamId: null,
+        },
+        include: { teacher: { select: teacherSelect } },
+      });
+      if (existing) {
+        throw new ApiError(
+          409,
+          `${scopeName} already has an active class-level main class teacher for this session: ${existing.teacher.name ?? existing.teacher.email}. End that allocation before appointing another.`
+        );
+      }
     }
   }
 
   // The same person cannot hold the same responsibility twice in one place.
+  const duplicateWhere: any = {
+    academicYearId: input.academicYearId,
+    teacherId: input.teacherId,
+    responsibility: input.responsibility,
+    subjectId: input.subjectId ?? null,
+    status: 'active',
+  };
+  if (input.streamId) {
+    duplicateWhere.streamId = input.streamId;
+  } else {
+    duplicateWhere.classId = input.classId;
+    duplicateWhere.streamId = null;
+  }
   const duplicate = await prisma.streamAllocation.findFirst({
-    where: {
-      streamId: input.streamId,
-      academicYearId: input.academicYearId,
-      teacherId: input.teacherId,
-      responsibility: input.responsibility,
-      subjectId: input.subjectId ?? null,
-      status: 'active',
-    },
+    where: duplicateWhere,
     select: { id: true },
   });
   if (duplicate) {
-    throw new ApiError(409, 'That teacher already holds this allocation for this stream.');
+    throw new ApiError(409, 'That teacher already holds this allocation for this class/stream.');
   }
 
   const row = await prisma.streamAllocation.create({
     data: {
       schoolId,
       academicYearId: input.academicYearId,
-      streamId: input.streamId,
+      streamId: input.streamId ?? null,
+      classId: input.classId ?? null,
       teacherId: input.teacherId,
       responsibility: input.responsibility,
       subjectId: input.responsibility === 'subject_teacher' ? input.subjectId : null,
@@ -368,7 +465,7 @@ export async function createAllocation(input: CreateInput, actorId: string | nul
 
   const detail = [
     `Allocated ${teacher.name ?? teacher.email} as ${input.responsibility.replace(/_/g, ' ')}`,
-    `for ${stream.class.name} ${stream.name} (${stream.code})`,
+    `for ${scopeName}`,
     input.subjectId ? `learning area ${row.subject?.name ?? input.subjectId}` : null,
     `session ${row.academicYear.label ?? row.academicYear.name}`,
   ]
@@ -406,21 +503,41 @@ export async function updateAllocation(
 
   // Reactivating an ended main-teacher row would collide with whoever holds it now.
   if (input.status === 'active' && existing.responsibility === 'main_class_teacher') {
-    const holder = await prisma.streamAllocation.findFirst({
-      where: {
-        streamId: existing.streamId,
-        academicYearId: existing.academicYearId,
-        responsibility: 'main_class_teacher',
-        status: 'active',
-        id: { not: existing.id },
-      },
-      include: { teacher: { select: teacherSelect } },
-    });
-    if (holder) {
-      throw new ApiError(
-        409,
-        `${existing.stream.class.name} ${existing.stream.name} already has an active main class teacher for this session: ${holder.teacher.name ?? holder.teacher.email}.`
-      );
+    if (existing.streamId) {
+      const holder = await prisma.streamAllocation.findFirst({
+        where: {
+          streamId: existing.streamId,
+          academicYearId: existing.academicYearId,
+          responsibility: 'main_class_teacher',
+          status: 'active',
+          id: { not: existing.id },
+        },
+        include: { teacher: { select: teacherSelect } },
+      });
+      if (holder) {
+        throw new ApiError(
+          409,
+          `${existing.stream?.class.name ?? existing.class?.name} ${existing.stream?.name ?? '(class-level)'} already has an active main class teacher for this session: ${holder.teacher.name ?? holder.teacher.email}.`
+        );
+      }
+    } else if (existing.classId) {
+      const holder = await prisma.streamAllocation.findFirst({
+        where: {
+          classId: existing.classId,
+          academicYearId: existing.academicYearId,
+          responsibility: 'main_class_teacher',
+          status: 'active',
+          streamId: null,
+          id: { not: existing.id },
+        },
+        include: { teacher: { select: teacherSelect } },
+      });
+      if (holder) {
+        throw new ApiError(
+          409,
+          `${existing.class?.name ?? '(class)'} already has an active class-level main class teacher for this session: ${holder.teacher.name ?? holder.teacher.email}.`
+        );
+      }
     }
   }
 
@@ -429,7 +546,7 @@ export async function updateAllocation(
     data: {
       ...(input.canManage !== undefined
         ? {
-            // The main teacher manages the stream whether or not this is set, so
+            // The main teacher manages the stream/class whether or not this is set, so
             // the flag is only recorded for an assistant.
             canManage: existing.responsibility === 'main_class_teacher' ? true : input.canManage,
           }
@@ -442,23 +559,20 @@ export async function updateAllocation(
     include: allocationInclude,
   });
 
+  const scopeName = existing.stream
+    ? `${existing.stream.class.name} ${existing.stream.name} (${existing.stream.code})`
+    : existing.class
+      ? existing.class.name
+      : 'unknown';
+
   await recordAuditLog(
     actorId,
     'teaching.allocation.updated',
-    `Updated ${existing.teacher.name ?? existing.teacher.email} (${existing.responsibility.replace(/_/g, ' ')}) on ${existing.stream.class.name} ${existing.stream.name}: ${JSON.stringify(input)}`
+    `Updated ${existing.teacher.name ?? existing.teacher.email} (${existing.responsibility.replace(/_/g, ' ')}) on ${scopeName}: ${JSON.stringify(input)}`
   );
 
   return present(row);
 }
-
-/**
- * Ends an allocation.
- *
- * The row is kept and dated rather than deleted, so the answer to "who was
- * responsible for this stream on 3 March" survives a reassignment. Deleting it
- * would also silently remove a teacher's access without any record of the
- * change, which is exactly what an audit trail exists to prevent.
- */
 export async function endAllocation(
   schoolId: string,
   id: string,
@@ -482,10 +596,16 @@ export async function endAllocation(
     include: allocationInclude,
   });
 
+  const scopeName = existing.stream
+    ? `${existing.stream.class.name} ${existing.stream.name} (${existing.stream.code})`
+    : existing.class
+      ? existing.class.name
+      : 'unknown';
+
   await recordAuditLog(
     actorId,
     'teaching.allocation.ended',
-    `Ended ${existing.teacher.name ?? existing.teacher.email} (${existing.responsibility.replace(/_/g, ' ')}) on ${existing.stream.class.name} ${existing.stream.name}, effective ${when.toISOString()}`
+    `Ended ${existing.teacher.name ?? existing.teacher.email} (${existing.responsibility.replace(/_/g, ' ')}) on ${scopeName}, effective ${when.toISOString()}`
   );
 
   return present(row);

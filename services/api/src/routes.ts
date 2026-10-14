@@ -41,6 +41,7 @@ import { router as coursesRouter } from './modules/courses';
 import { router as cohortsRouter } from './modules/cohorts';
 import { router as calendarRouter } from './modules/calendar';
 import { router as reportingRouter } from './modules/reporting';
+import { router as learnerPlacementRouter } from './modules/learner-placement';
 import { router as auditLogsRouter } from './modules/audit-logs';
 import { router as rolesRouter } from './modules/roles';
 import { router as settingsRouter } from './modules/settings';
@@ -107,5 +108,7 @@ router.use('/academic-sessions', academicSessionsRouter);
 router.use('/streams', streamsRouter);
 router.use('/results-entry', resultsEntryRouter);
 router.use('/teacher-allocation', teacherAllocationRouter);
+
+router.use('/placement', learnerPlacementRouter);
 
 router.use('/reports', reportsRouter);

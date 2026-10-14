@@ -106,6 +106,8 @@ const userSelect = {
   phone: true,
   avatar: true,
   status: true,
+  staffProfile: { select: { id: true, position: true, department: true, status: true } },
+  roleMemberships: { select: { role: { select: { name: true, description: true } } } },
 } as const;
 
 const childInclude = {
@@ -131,6 +133,13 @@ function present(profile: {
     phone: string | null;
     avatar: string | null;
     status: string;
+    staffProfile: {
+      id: string;
+      position: string | null;
+      department: string | null;
+      status: string;
+    } | null;
+    roleMemberships: Array<{ role: { name: string; description: string | null } }>;
   };
   children: Array<{
     id: string;
@@ -158,6 +167,24 @@ function present(profile: {
     avatar: profile.user.avatar,
     accountStatus: profile.user.status,
     createdAt: profile.createdAt,
+    /*
+     * A guardian account is frequently the same human as a member of staff or
+     * an administrator. Surfacing that here is what lets the admissions screen
+     * badge a "Dean" guardian without a second request for role data - and
+     * without the UI hand-rolling a guess from the name.
+     */
+    isStaff: profile.user.staffProfile !== null,
+    staff: profile.user.staffProfile
+      ? {
+          position: profile.user.staffProfile.position,
+          department: profile.user.staffProfile.department,
+          status: profile.user.staffProfile.status,
+        }
+      : null,
+    roles: profile.user.roleMemberships
+      .map((membership) => membership.role.name)
+      .sort((a, b) => a.localeCompare(b)),
+    childCount: profile.children.length,
     children: profile.children
       .map((link) => ({
         linkId: link.id,

@@ -28,6 +28,9 @@ export const listQuerySchema = z.object({
  * learning area. A subject allocation is meaningless without one, so the subject
  * is required there. Encoding it in the schema means the two cases cannot be sent
  * in a form that would produce a nonsensical record.
+ *
+ * For class-level allocations (when a class has no streams): classId is required, streamId is omitted.
+ * For stream-level allocations: streamId is required, classId is optional (validated via stream).
  */
 const base = {
   teacherId: z.string().min(1),
@@ -41,10 +44,27 @@ export const createAllocationSchema = z
   .object({
     ...base,
     academicYearId: z.string().min(1),
-    streamId: z.string().min(1),
+    streamId: z.string().min(1).optional(),
+    classId: z.string().min(1).optional(),
     subjectId: z.string().min(1).optional(),
   })
   .superRefine((value, ctx) => {
+    // Class-level vs stream-level validation
+    const hasStream = Boolean(value.streamId);
+    const hasClass = Boolean(value.classId);
+
+    if (!hasStream && !hasClass) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['streamId'],
+        message: 'Either a stream or a class must be specified.',
+      });
+    }
+
+    if (hasStream && hasClass) {
+      // Both provided - valid for explicit stream-level with class context
+    }
+
     if (value.responsibility === 'subject_teacher' && !value.subjectId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -57,7 +77,7 @@ export const createAllocationSchema = z
         code: z.ZodIssueCode.custom,
         path: ['subjectId'],
         message:
-          'A class or assistant class teacher is responsible for the whole stream, so no learning area applies.',
+          'A class or assistant class teacher is responsible for the whole stream or class, so no learning area applies.',
       });
     }
   });

@@ -86,7 +86,7 @@ export async function loadAllocations(streamIds: string[], academicYearIds: stri
   const sessions = Array.isArray(academicYearIds) ? academicYearIds : [academicYearIds];
   if (sessions.length === 0) return [];
 
-  return prisma.streamAllocation.findMany({
+  const rows = await prisma.streamAllocation.findMany({
     where: {
       streamId: { in: streamIds },
       academicYearId: sessions.length === 1 ? sessions[0] : { in: sessions },
@@ -101,6 +101,15 @@ export async function loadAllocations(streamIds: string[], academicYearIds: stri
       canEnterResults: true,
     },
   });
+  // Filter to only stream-level allocations (streamId not null)
+  return rows.filter((r) => r.streamId !== null) as Array<{
+    streamId: string;
+    teacherId: string;
+    responsibility: string;
+    subjectId: string | null;
+    canManage: boolean;
+    canEnterResults: boolean;
+  }>;
 }
 
 /** Resolves one person's responsibility across many streams at once. */
@@ -247,8 +256,6 @@ export async function resolveClassResultsScope(input: {
     allowedSubjectIds: [],
     hasAccess: false,
   };
-  if (streams.length === 0) return empty;
-
   // Academic administration spans the class; responsibility for a stream does
   // not widen to the class it sits in.
   if (hasPermission(input.granted, 'academics.manage')) {

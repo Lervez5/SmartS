@@ -1450,6 +1450,14 @@ const ADMIN_NAV: NavSection[] = [
         order: 3,
       },
       {
+        id: 'adm.placements',
+        label: 'Learner Placements',
+        href: '/admin/academics/placements',
+        permissions: ['placements.view'],
+        icon: 'users-round',
+        order: 4,
+      },
+      {
         id: 'adm.grades',
         label: 'Grades',
         href: '/admin/academics/grades',

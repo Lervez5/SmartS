@@ -49,12 +49,12 @@ export function ParentResultsView() {
     if (!user?.id) return;
     setLoadingChildren(true);
     setChildrenError(null);
-    fetch('/api/parent/children', { credentials: 'include' })
+    fetch('/api/dashboard/parent', { credentials: 'include' })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json() as Promise<{ children: Array<{ id: string }> }>;
+        return res.json() as Promise<{ children?: Array<{ id: string }> }>;
       })
-      .then((body) => setChildIds(body.children.map((c) => c.id)))
+      .then((body) => setChildIds((body.children ?? []).map((c) => c.id)))
       .catch((err) => setChildrenError(err.message))
       .finally(() => setLoadingChildren(false));
   }, [user?.id]);
@@ -153,7 +153,7 @@ export function ParentResultsView() {
     return (
       <ErrorState
         title="Could not load children"
-        message={`GET /api/parent/children failed: ${childrenError}`}
+        message={`Failed to load children: ${childrenError}`}
       />
     );
   }

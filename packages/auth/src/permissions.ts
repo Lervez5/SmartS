@@ -43,6 +43,7 @@ export const PERMISSION_DOMAINS = [
   'payroll',
   'expenses',
   'settings',
+  'placements',
 ] as const;
 
 export type PermissionDomain = (typeof PERMISSION_DOMAINS)[number];
@@ -87,6 +88,10 @@ export const PERMISSIONS = [
    */
   'teaching.view',
   'teaching.manage',
+
+  // Learner Placement: stream reorganization and learner-to-stream assignment
+  'placements.view',
+  'placements.manage',
 
   // CBC curriculum: learning areas, strands, sub-strands, outcomes, coverage
   'learningAreas.view',
@@ -210,6 +215,8 @@ const ACADEMIC_STAFF: Permission[] = [
   'timetable.manage',
   'teaching.view',
   'teaching.manage',
+  'placements.view',
+  'placements.manage',
   'attendance.view',
   'attendance.mark',
   'attendance.correct',

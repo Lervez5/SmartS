@@ -507,6 +507,8 @@ router.get(
         responsibility: true,
         canEnterResults: true,
         canManage: true,
+        streamId: true,
+        classId: true,
         subject: {
           include: areaInclude,
         },
@@ -518,6 +520,9 @@ router.get(
             class: { select: { id: true, name: true, gradeLevel: true } },
           },
         },
+        class: {
+          select: { id: true, name: true, gradeLevel: true },
+        },
         academicYear: { select: { id: true, name: true } },
       },
       orderBy: { effectiveFrom: 'asc' },
@@ -527,12 +532,17 @@ router.get(
     // is one area the teacher is responsible for, shown against each stream it
     // runs in. Counting the area once would hide two thirds of the work, and
     // surfacing three separate "areas" would misreport what they teach.
+    // For class-level allocations (streamId === null), we use classId instead of stream.id.
     const seen = new Set<string>();
     const teaching: Array<Record<string, unknown>> = [];
 
     for (const allocation of allocations) {
       if (!allocation.subject) continue;
-      const key = `${allocation.subject.id}:${allocation.stream.class.id}:${allocation.stream.id}`;
+      // Skip class-level allocations that aren't subject_teacher (they are class-teacher, not subject-specific)
+      if (!allocation.streamId && allocation.responsibility !== 'subject_teacher') continue;
+      const classId = allocation.stream?.class.id ?? allocation.class?.id;
+      const streamId = allocation.streamId ?? 'class-level';
+      const key = `${allocation.subject.id}:${classId}:${streamId}`;
       if (seen.has(key)) continue;
       seen.add(key);
 
@@ -541,12 +551,21 @@ router.get(
         responsibility: allocation.responsibility,
         canEnterResults: allocation.canEnterResults,
         canManage: allocation.canManage,
-        stream: {
-          id: allocation.stream.id,
-          name: allocation.stream.name,
-          code: allocation.stream.code,
-          class: allocation.stream.class,
-        },
+        stream: allocation.stream
+          ? {
+              id: allocation.stream.id,
+              name: allocation.stream.name,
+              code: allocation.stream.code,
+              class: allocation.stream.class,
+            }
+          : allocation.class
+            ? {
+                id: allocation.class.id,
+                name: allocation.class.name,
+                code: 'CLASS',
+                class: allocation.class,
+              }
+            : null,
         academicYear: allocation.academicYear,
       });
     }
@@ -554,7 +573,7 @@ router.get(
     res.json({
       teaching,
       areaCount: new Set(allocations.filter((a) => a.subject).map((a) => a.subject!.id)).size,
-      streamCount: new Set(allocations.map((a) => a.stream.id)).size,
+      streamCount: new Set(allocations.filter((a) => a.streamId).map((a) => a.stream!.id)).size,
     });
   })
 );

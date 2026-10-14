@@ -61,6 +61,12 @@ interface StreamRef {
   class: { id: string; name: string; gradeLevel: string | null };
 }
 
+interface ClassRef {
+  id: string;
+  name: string;
+  gradeLevel: string | null;
+}
+
 interface Allocation {
   id: string;
   responsibility: Responsibility;
@@ -72,7 +78,8 @@ interface Allocation {
   teacher: Person;
   subject: SubjectRef | null;
   academicSession: { id: string; name: string; label: string | null; status: string };
-  stream: StreamRef;
+  stream: StreamRef | null;
+  class: ClassRef | null;
 }
 
 interface Options {
@@ -201,6 +208,10 @@ export default function AdminTeacherAllocationPage() {
   const rows = React.useMemo(() => list.data?.allocations ?? [], [list.data]);
 
   const classes = options.data?.classes ?? [];
+  const selectedClass = React.useMemo(
+    () => classes.find((c) => c.id === formClassId) ?? null,
+    [classes, formClassId]
+  );
   const streamsInFormClass = React.useMemo(
     () => classes.find((c) => c.id === formClassId)?.streams ?? [],
     [classes, formClassId]
@@ -223,7 +234,7 @@ export default function AdminTeacherAllocationPage() {
     const gaps: string[] = [];
     for (const row of rows) {
       if (row.responsibility !== 'main_class_teacher') continue;
-      seen.add(row.stream.id);
+      if (row.stream) seen.add(row.stream.id);
     }
     for (const cls of classes) {
       for (const stream of cls.streams) {
@@ -247,7 +258,10 @@ export default function AdminTeacherAllocationPage() {
       notify.error(body?.error?.message ?? `Could not end the allocation (HTTP ${res.status}).`);
       return;
     }
-    notify.success(`Ended ${personName(row.teacher)} on ${row.stream.code}`, {
+    const scopeName = row.stream
+      ? `${row.stream.class.name} ${row.stream.code}`
+      : (row.class?.name ?? 'unknown');
+    notify.success(`Ended ${personName(row.teacher)} on ${scopeName}`, {
       description: 'The allocation is kept as history, so past responsibility stays answerable.',
     });
     list.refetch();
@@ -261,8 +275,15 @@ export default function AdminTeacherAllocationPage() {
       setFormError('Choose an academic session first.');
       return;
     }
-    if (!formStreamId) {
+    // For class-level allocations (no streams), we use classId instead of streamId
+    const selectedClass = classes.find((c) => c.id === formClassId);
+    const hasStreams = selectedClass && selectedClass.streams.length > 0;
+    if (hasStreams && !formStreamId) {
       setFormError('Choose the stream this allocation covers.');
+      return;
+    }
+    if (!hasStreams && !formClassId) {
+      setFormError('Choose a class for this allocation.');
       return;
     }
     if (!formTeacherId) {
@@ -276,18 +297,26 @@ export default function AdminTeacherAllocationPage() {
 
     setSaving(true);
     try {
+      const selectedClass = classes.find((c) => c.id === formClassId);
+      const hasStreams = selectedClass && selectedClass.streams.length > 0;
+      const payload: Record<string, unknown> = {
+        academicYearId: sessionId,
+        teacherId: formTeacherId,
+        responsibility: formResponsibility,
+        subjectId: formResponsibility === 'subject_teacher' ? formSubjectId : undefined,
+        canManage: formResponsibility === 'assistant_class_teacher' ? formCanManage : undefined,
+      };
+      if (hasStreams) {
+        payload.streamId = formStreamId;
+      } else {
+        payload.classId = formClassId;
+      }
+
       const res = await fetch('/api/teacher-allocation', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          academicYearId: sessionId,
-          streamId: formStreamId,
-          teacherId: formTeacherId,
-          responsibility: formResponsibility,
-          subjectId: formResponsibility === 'subject_teacher' ? formSubjectId : undefined,
-          canManage: formResponsibility === 'assistant_class_teacher' ? formCanManage : undefined,
-        }),
+        body: JSON.stringify(payload),
       });
       const body = (await res.json().catch(() => null)) as {
         error?: { message?: string };
@@ -357,17 +386,30 @@ export default function AdminTeacherAllocationPage() {
       header: 'Stream / Class',
       cell: (row) => (
         <div className="min-w-0">
-          <p className="truncate text-sm text-foreground">
-            {row.stream.class.name} · {row.stream.code}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">
-            {row.stream.class.gradeLevel ?? 'Grade not set'} ·{' '}
-            {row.academicSession.label ?? row.academicSession.name}
-          </p>
+          {row.stream ? (
+            <>
+              <p className="truncate text-sm text-foreground">
+                {row.stream.class.name} · {row.stream.code}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {row.stream.class.gradeLevel ?? 'Grade not set'} ·{' '}
+                {row.academicSession.label ?? row.academicSession.name}
+              </p>
+            </>
+          ) : row.class ? (
+            <>
+              <p className="truncate text-sm text-foreground">{row.class.name} (class-level)</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {row.class.gradeLevel ?? 'Grade not set'} ·{' '}
+                {row.academicSession.label ?? row.academicSession.name}
+              </p>
+            </>
+          ) : null}
         </div>
       ),
       hideBelow: 'sm',
-      sortValue: (row) => `${row.stream.class.name} ${row.stream.code}`,
+      sortValue: (row) =>
+        row.stream ? `${row.stream.class.name} ${row.stream.code}` : (row.class?.name ?? ''),
     },
     {
       id: 'learning-area',
@@ -470,21 +512,34 @@ export default function AdminTeacherAllocationPage() {
             </select>
           </Field>
 
-          <Field label="Stream" required hint="Each stream carries its own teaching team">
-            <select
-              value={formStreamId}
-              onChange={(event) => setFormStreamId(event.target.value)}
-              disabled={!formClassId}
-              className={selectClass}
-            >
-              <option value="">{formClassId ? 'Choose a stream…' : 'Choose a class first'}</option>
-              {streamsInFormClass.map((stream) => (
-                <option key={stream.id} value={stream.id}>
-                  {stream.code} - {stream.name}
+          {streamsInFormClass.length > 0 ? (
+            <Field label="Stream" required hint="Each stream carries its own teaching team">
+              <select
+                value={formStreamId}
+                onChange={(event) => setFormStreamId(event.target.value)}
+                disabled={!formClassId}
+                className={selectClass}
+              >
+                <option value="">
+                  {formClassId ? 'Choose a stream…' : 'Choose a class first'}
                 </option>
-              ))}
-            </select>
-          </Field>
+                {streamsInFormClass.map((stream) => (
+                  <option key={stream.id} value={stream.id}>
+                    {stream.code} - {stream.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : formClassId ? (
+            <Field
+              label="Class"
+              hint="This class has no streams. The allocation will apply to the whole class."
+            >
+              <div className="h-10 w-full rounded-md border border-input bg-muted px-2.5 text-sm font-medium">
+                {selectedClass?.name ?? ''}
+              </div>
+            </Field>
+          ) : null}
 
           <Field label="Teacher" required>
             <select
@@ -581,7 +636,7 @@ export default function AdminTeacherAllocationPage() {
             />
             <DashboardCard
               title="Streams covered"
-              value={new Set(rows.map((r) => r.stream.id)).size}
+              value={new Set(rows.filter((r) => r.stream).map((r) => r.stream!.id)).size}
               icon="split"
               description="Streams with at least one allocation"
             />
@@ -691,7 +746,11 @@ export default function AdminTeacherAllocationPage() {
                   items={[
                     {
                       id: 'end',
-                      label: `End ${personName(row.teacher)}'s allocation on ${row.stream.code}`,
+                      label: row.stream
+                        ? `End ${personName(row.teacher)}'s allocation on ${row.stream.code}`
+                        : row.class
+                          ? `End ${personName(row.teacher)}'s class-level allocation on ${row.class.name}`
+                          : `End ${personName(row.teacher)}'s allocation`,
                       icon: 'x',
                       tone: 'danger',
                       onClick: () => endAllocation(row),

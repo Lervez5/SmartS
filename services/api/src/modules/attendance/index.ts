@@ -193,28 +193,51 @@ router.post('/mark', requireMark, async (req, res, next) => {
     }
 
     if (streamScope === null && req.user!.role !== 'SUPER_ADMIN') {
-      const responsibility = await resolveClassResponsibility(req.user!.id, cls.id);
-      if (!responsibility) {
-        res.status(404).json({ error: { message: 'Class not found' } });
-        return;
-      }
-      if (!responsibility.hasAccess) {
-        res.status(403).json({
-          error: {
-            message:
-              'You are not assigned to this class. Marking attendance requires a teaching allocation, not the TEACHER role.',
+      // First check for class-level StreamAllocation (main_class_teacher with streamId: null)
+      const sessionId = await currentSessionId(cls.schoolId);
+      if (sessionId) {
+        const classLevelAlloc = await prisma.streamAllocation.findFirst({
+          where: {
+            schoolId: cls.schoolId,
+            academicYearId: sessionId,
+            teacherId: req.user!.id,
+            classId: cls.id,
+            streamId: null,
+            responsibility: 'main_class_teacher',
+            status: 'active',
           },
+          select: { canManage: true },
         });
-        return;
+        if (classLevelAlloc) {
+          streamScope = new Set(); // empty set means class-level (all streams/enrollments)
+        }
       }
-      if (!responsibility.canManage) {
-        res.status(403).json({
-          error: {
-            message:
-              'You are an assistant class teacher on this class with view-only rights, so you cannot record attendance for it.',
-          },
-        });
-        return;
+
+      // Fall back to legacy class teacher/assistant
+      if (streamScope === null) {
+        const responsibility = await resolveClassResponsibility(req.user!.id, cls.id);
+        if (!responsibility) {
+          res.status(404).json({ error: { message: 'Class not found' } });
+          return;
+        }
+        if (!responsibility.hasAccess) {
+          res.status(403).json({
+            error: {
+              message:
+                'You are not assigned to this class. Marking attendance requires a teaching allocation, not the TEACHER role.',
+            },
+          });
+          return;
+        }
+        if (!responsibility.canManage) {
+          res.status(403).json({
+            error: {
+              message:
+                'You are an assistant class teacher on this class with view-only rights, so you cannot record attendance for it.',
+            },
+          });
+          return;
+        }
       }
     }
 
