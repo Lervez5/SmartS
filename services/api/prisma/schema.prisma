@@ -742,6 +742,60 @@ model TeachingAssignment {
   @@index([subjectId])
 }
 
+/**
+ * Canonical grade level catalogue for a school.
+ *
+ * A grade level is the educational stage a school teaches (e.g. "Pre Primary 1",
+ * "Grade 1", "Crèche"). This is the master list the school configures; each
+ * Class references a gradeLevel as a free-text label for backward
+ * compatibility, while new integrations resolve through this catalogue.
+ *
+ * Curriculum-defined grades are seeded from the canonical curriculum and are
+ * read-only; school-defined grades are editable by the school.
+ */
+model GradeLevel {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  school    School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId  String           @db.ObjectId
+
+  /// The school's own designation code — unique per school. e.g. "PP1", "G1".
+  designationCode String
+
+  /// Human-readable name, e.g. "Pre Primary 1", "Grade 1".
+  name      String
+
+  /// Numeric ordering value; negative values sort before zero.
+  /// -2 = Pre Primary 1, -1 = Pre Primary 2, 0 = Crèche, 1 = Grade 1, etc.
+  academicLevel Int
+
+  /// Human-facing description, e.g. "Curriculum Grade - Grade 1".
+  description String?
+
+  /// active | inactive — controls whether new classes can be created at this level.
+  status    GradeLevelStatus @default(active)
+
+  /// custom | curriculum — curriculum-defined grades cannot be deleted or edited.
+  origin    GradeLevelOrigin @default(custom)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([academicLevel])
+  @@unique([schoolId, designationCode])
+  @@unique([schoolId, name])
+}
+
+enum GradeLevelStatus {
+  active
+  inactive
+}
+
+enum GradeLevelOrigin {
+  custom
+  curriculum
+}
+
 model Class {
   id String @id @default(auto()) @map("_id") @db.ObjectId
 
@@ -1493,6 +1547,7 @@ model School {
   academicYears           AcademicYear[]
   classes                 Class[]
   subjects                Subject[]
+  gradeLevels             GradeLevel[]
   streamAllocations       StreamAllocation[]
   enrollmentBatches       EnrollmentBatch[]
   courses                 Course[]

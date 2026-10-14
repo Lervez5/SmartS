@@ -73,9 +73,7 @@ router.post(
 
     // Validate that requested stream IDs belong to this class
     const streamIds = input.streamIds;
-    const validStreamIds = view.streams
-      .filter((s) => streamIds.includes(s.id))
-      .map((s) => s.id);
+    const validStreamIds = view.streams.filter((s) => streamIds.includes(s.id)).map((s) => s.id);
 
     if (validStreamIds.length !== streamIds.length) {
       throw new ApiError(400, 'One or more specified streams do not belong to this class');
@@ -94,9 +92,7 @@ router.post(
 
     const previewStreams = validStreamIds.map((streamId) => {
       const stream = streamMap.get(streamId)!;
-      const learnersInStream = view.learners.filter(
-        (l) => assignments[l.userId] === streamId
-      );
+      const learnersInStream = view.learners.filter((l) => assignments[l.userId] === streamId);
       return {
         id: stream.id,
         name: stream.name,
@@ -112,20 +108,17 @@ router.post(
       };
     });
 
-    const unassignedLearners = view.learners.filter(
-      (l) => assignments[l.userId] === null
-    );
+    const unassignedLearners = view.learners.filter((l) => assignments[l.userId] === null);
 
     // Check for capacity violations across all streams
     const capacityViolations = previewStreams
       .filter((s) => s.capacityExceeded)
-      .map((s) => `Stream ${s.code} would have ${s.proposedCount} learners, exceeding its capacity of ${s.capacity}`);
+      .map(
+        (s) =>
+          `Stream ${s.code} would have ${s.proposedCount} learners, exceeding its capacity of ${s.capacity}`
+      );
 
-    const teacherWarnings = await checkTeacherAllocationWarnings(
-      schoolId,
-      classId,
-      academicYearId
-    );
+    const teacherWarnings = await checkTeacherAllocationWarnings(schoolId, classId, academicYearId);
 
     res.json({
       class: view.class,
@@ -194,11 +187,17 @@ router.post(
       throw new ApiError(400, 'classId mismatch between URL and body');
     }
 
-    const stream = await createStream(schoolId, classId, payload.academicYearId, {
-      name: payload.name,
-      code: payload.code,
-      capacity: payload.capacity,
-    }, actorId ?? undefined);
+    const stream = await createStream(
+      schoolId,
+      classId,
+      payload.academicYearId,
+      {
+        name: payload.name,
+        code: payload.code,
+        capacity: payload.capacity,
+      },
+      actorId ?? undefined
+    );
 
     res.status(201).json({ stream });
   })
@@ -278,7 +277,13 @@ router.post(
 
     const existing = await prisma.stream.findFirst({
       where: { id: streamId, class: { schoolId } },
-      select: { id: true, status: true, classId: true, class: { select: { name: true } }, _count: { select: { enrollments: true } } },
+      select: {
+        id: true,
+        status: true,
+        classId: true,
+        class: { select: { name: true } },
+        _count: { select: { enrollments: true } },
+      },
     });
     if (!existing) {
       throw new ApiError(404, 'Stream not found in this school');
@@ -380,7 +385,9 @@ router.get(
     const teacherWarnings: string[] = [];
     if (view.teacherAllocations.length > 0) {
       const hasStreamAllocations = view.teacherAllocations.some((a) => a.stream !== null);
-      const hasClassLevelAllocation = view.teacherAllocations.some((a) => a.class !== null && a.stream === null);
+      const hasClassLevelAllocation = view.teacherAllocations.some(
+        (a) => a.class !== null && a.stream === null
+      );
 
       if (hasClassLevelAllocation && !hasStreamAllocations) {
         teacherWarnings.push(

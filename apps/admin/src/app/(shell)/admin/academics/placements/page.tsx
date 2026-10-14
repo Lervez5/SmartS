@@ -1,8 +1,8 @@
-'use client'
+'use client';
 
-import * as React from 'react'
-import { useApi } from '@schoolos/hooks'
-import { useAuth } from '@schoolos/auth'
+import * as React from 'react';
+import { useApi } from '@schoolos/hooks';
+import { useAuth } from '@schoolos/auth';
 import {
   Button,
   Card,
@@ -15,242 +15,256 @@ import {
   Select,
   TextInput,
   notify,
-} from '@schoolos/ui'
+} from '@schoolos/ui';
 
 interface AcademicSession {
-  id: string
-  name: string
-  label: string | null
-  status: string
+  id: string;
+  name: string;
+  label: string | null;
+  status: string;
 }
 
 interface StreamOption {
-  id: string
-  name: string
-  code: string
-  capacity: number | null
-  learnerCount: number
-  status?: string
+  id: string;
+  name: string;
+  code: string;
+  capacity: number | null;
+  learnerCount: number;
+  status?: string;
 }
 
 interface LearnerPlacement {
-  id: string
-  userId: string
-  name: string | null
-  firstName: string | null
-  lastName: string | null
-  email: string
-  avatar: string | null
-  streamId: string | null
-  streamCode: string | null
-  streamName: string | null
-  enrollmentDate: string
+  id: string;
+  userId: string;
+  name: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+  avatar: string | null;
+  streamId: string | null;
+  streamCode: string | null;
+  streamName: string | null;
+  enrollmentDate: string;
 }
 
 interface ClassPlacementView {
-  class: { id: string; name: string; gradeLevel: string | null }
-  academicYear: { id: string; name: string; label: string | null }
-  streams: StreamOption[]
-  learners: LearnerPlacement[]
-  learnerCounts: { total: number; unassigned: number }
+  class: { id: string; name: string; gradeLevel: string | null };
+  academicYear: { id: string; name: string; label: string | null };
+  streams: StreamOption[];
+  learners: LearnerPlacement[];
+  learnerCounts: { total: number; unassigned: number };
   teacherAllocations: Array<{
-    teacher: { id: string; name: string | null; email: string }
-    responsibility: string
-    stream: { id: string; name: string; code: string } | null
-  }>
+    teacher: { id: string; name: string | null; email: string };
+    responsibility: string;
+    stream: { id: string; name: string; code: string } | null;
+  }>;
 }
 
 interface PlacementPreview {
-  class: { id: string; name: string; gradeLevel: string | null }
-  academicYear: { id: string; name: string; label: string | null }
-  streams: StreamOption[]
-  unassigned: LearnerPlacement[]
-  unassignedCount: number
-  totalLearners: number
-  strategy: string
-  seed: number | null
-  capacityViolations: string[]
-  teacherAllocationWarnings: string[]
+  class: { id: string; name: string; gradeLevel: string | null };
+  academicYear: { id: string; name: string; label: string | null };
+  streams: StreamOption[];
+  unassigned: LearnerPlacement[];
+  unassignedCount: number;
+  totalLearners: number;
+  strategy: string;
+  seed: number | null;
+  capacityViolations: string[];
+  teacherAllocationWarnings: string[];
   summary: {
-    totalStreams: number
-    totalLearners: number
-    assignedLearners: number
-    unassignedLearners: number
-  }
+    totalStreams: number;
+    totalLearners: number;
+    assignedLearners: number;
+    unassignedLearners: number;
+  };
 }
 
 export default function PlacementsPage() {
-  const { can } = useAuth()
-  const canManage = can('placements.manage')
+  const { can } = useAuth();
+  const canManage = can('placements.manage');
 
-  const [academicYearId, setAcademicYearId] = React.useState('')
-  const [classId, setClassId] = React.useState('')
+  const [academicYearId, setAcademicYearId] = React.useState('');
+  const [classId, setClassId] = React.useState('');
+  const [gradeLevelFilter, setGradeLevelFilter] = React.useState('');
 
-  const [showCreateStream, setShowCreateStream] = React.useState(false)
-  const [showConfirmDialog, setShowConfirmDialog] = React.useState(false)
+  const [showCreateStream, setShowCreateStream] = React.useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
 
-  const [preview, setPreview] = React.useState<PlacementPreview | null>(null)
-  const [assignments, setAssignments] = React.useState<Record<string, string | null>>({})
+  const [preview, setPreview] = React.useState<PlacementPreview | null>(null);
+  const [assignments, setAssignments] = React.useState<Record<string, string | null>>({});
 
-  const [streamName, setStreamName] = React.useState('')
-  const [streamCode, setStreamCode] = React.useState('')
-  const [streamCapacity, setStreamCapacity] = React.useState('')
+  const [streamName, setStreamName] = React.useState('');
+  const [streamCode, setStreamCode] = React.useState('');
+  const [streamCapacity, setStreamCapacity] = React.useState('');
 
-  const sessions = useApi<{ sessions: AcademicSession[] }>('/api/academics/years')
-  const classes = useApi<{ classes: { id: string; name: string; gradeLevel: string | null; academicYearId: string | null; status: string }[] }>('/api/classes')
+  const sessions = useApi<{ sessions: AcademicSession[] }>('/api/academics/years');
+  const classes = useApi<{
+    classes: {
+      id: string;
+      name: string;
+      gradeLevel: string | null;
+      academicYearId: string | null;
+      status: string;
+    }[];
+  }>(academicYearId ? `/api/classes?academicYearId=${academicYearId}` : '/api/classes');
 
   const activeClasses = React.useMemo(
-    () => classes.data?.classes.filter(c => c.status === 'active') ?? [],
+    () => classes.data?.classes.filter((c) => c.status === 'active') ?? [],
     [classes.data]
-  )
+  );
 
   const filteredClasses = React.useMemo(() => {
-    if (!academicYearId) return []
-    return activeClasses.filter(c => c.academicYearId === academicYearId)
-  }, [academicYearId, activeClasses])
+    return activeClasses.filter((c) => c.academicYearId === academicYearId);
+  }, [academicYearId, activeClasses]);
+
+  const gradeLevels = React.useMemo(() => {
+    const levels = new Set(
+      filteredClasses.map((c) => c.gradeLevel).filter((g): g is string => Boolean(g))
+    );
+    return Array.from(levels).sort();
+  }, [filteredClasses]);
+
+  const gradeFilteredClasses = React.useMemo(() => {
+    if (!gradeLevelFilter) return filteredClasses;
+    return filteredClasses.filter((c) => c.gradeLevel === gradeLevelFilter);
+  }, [filteredClasses, gradeLevelFilter]);
 
   const viewData = useApi<ClassPlacementView>(
     academicYearId && classId ? `/api/placement/${classId}/${academicYearId}` : null
-  )
-  const view = viewData.data
+  );
+  const view = viewData.data;
 
   const handleRandomDistribution = async () => {
-    if (!academicYearId || !classId || !preview) return
+    if (!academicYearId || !classId || !preview) return;
 
-    const streamIds = preview.streams.map(s => s.id)
+    const streamIds = preview.streams.map((s) => s.id);
 
-    const response = await fetch(
-      `/api/placement/${classId}/${academicYearId}/preview`,
-      {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          streamIds,
-          method: 'random',
-          seed: Math.floor(Math.random() * 100000),
-        }),
-      }
-    )
+    const response = await fetch(`/api/placement/${classId}/${academicYearId}/preview`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        streamIds,
+        method: 'random',
+        seed: Math.floor(Math.random() * 100000),
+      }),
+    });
 
-    const data = await response.json()
-    setPreview(data)
-  }
+    const data = await response.json();
+    setPreview(data);
+  };
 
   const handleBalancedDistribution = async () => {
-    if (!academicYearId || !classId || !preview) return
+    if (!academicYearId || !classId || !preview) return;
 
-    const streamIds = preview.streams.map(s => s.id)
+    const streamIds = preview.streams.map((s) => s.id);
 
-    const response = await fetch(
-      `/api/placement/${classId}/${academicYearId}/preview`,
-      {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          streamIds,
-          method: 'balanced',
-        }),
-      }
-    )
+    const response = await fetch(`/api/placement/${classId}/${academicYearId}/preview`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        streamIds,
+        method: 'balanced',
+      }),
+    });
 
-    const data = await response.json()
-    setPreview(data)
-  }
+    const data = await response.json();
+    setPreview(data);
+  };
 
   const handleCreateStream = async () => {
-    if (!academicYearId || !classId) return
+    if (!academicYearId || !classId) return;
 
-    const response = await fetch(
-      `/api/placement/classes/${classId}/streams`,
-      {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          classId,
-          academicYearId,
-          name: streamName,
-          code: streamCode,
-          capacity: streamCapacity ? parseInt(streamCapacity) : undefined,
-        }),
-      }
-    )
+    const response = await fetch(`/api/placement/classes/${classId}/streams`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        classId,
+        academicYearId,
+        name: streamName,
+        code: streamCode,
+        capacity: streamCapacity ? parseInt(streamCapacity) : undefined,
+      }),
+    });
 
     if (response.ok) {
-      const data = await response.json()
-      setStreamName('')
-      setStreamCode('')
-      setStreamCapacity('')
-      setShowCreateStream(false)
+      const data = await response.json();
+      setStreamName('');
+      setStreamCode('');
+      setStreamCapacity('');
+      setShowCreateStream(false);
 
       if (preview) {
-        const allStreamIds = [...preview.streams.map(s => s.id), data.stream.id]
-        const refreshResponse = await fetch(
-          `/api/placement/${classId}/${academicYearId}/preview`,
-          {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              streamIds: allStreamIds,
-              method: 'balanced',
-            }),
-          }
-        )
-        const refreshData = await refreshResponse.json()
-        setPreview(refreshData)
+        const allStreamIds = [...preview.streams.map((s) => s.id), data.stream.id];
+        const refreshResponse = await fetch(`/api/placement/${classId}/${academicYearId}/preview`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            streamIds: allStreamIds,
+            method: 'balanced',
+          }),
+        });
+        const refreshData = await refreshResponse.json();
+        setPreview(refreshData);
       }
     } else {
-      notify.error('Failed to create stream')
+      notify.error('Failed to create stream');
     }
-  }
+  };
 
   const handleApply = async () => {
-    if (!academicYearId || !classId || !preview) return
+    if (!academicYearId || !classId || !preview) return;
 
-    const response = await fetch(
-      `/api/placement/${classId}/${academicYearId}/apply`,
-      {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          assignments,
-          strategy: 'manual',
-          reason: 'Manual reorganization via placement UI',
-        }),
-      }
-    )
+    const response = await fetch(`/api/placement/${classId}/${academicYearId}/apply`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        assignments,
+        strategy: 'manual',
+        reason: 'Manual reorganization via placement UI',
+      }),
+    });
 
     if (response.ok) {
-      const data = await response.json()
-      notify.success(`${data.placed} learner${data.placed !== 1 ? 's' : ''} placed successfully`)
-      setShowConfirmDialog(false)
-      setPreview(null)
+      const data = await response.json();
+      notify.success(`${data.placed} learner${data.placed !== 1 ? 's' : ''} placed successfully`);
+      setShowConfirmDialog(false);
+      setPreview(null);
     } else {
-      const error = await response.json().catch(() => null)
-      notify.error(error?.error?.message ?? 'Failed to apply placement')
+      const error = await response.json().catch(() => null);
+      notify.error(error?.error?.message ?? 'Failed to apply placement');
     }
-  }
+  };
 
   const activeStreams = React.useMemo(() => {
-    if (!view) return []
-    return [...view.streams.filter(s => (s.status ?? 'active') === 'active')].sort((a, b) => a.code.localeCompare(b.code))
-  }, [view])
+    if (!view) return [];
+    return [...view.streams.filter((s) => (s.status ?? 'active') === 'active')].sort((a, b) =>
+      a.code.localeCompare(b.code)
+    );
+  }, [view]);
 
   const allStreamOptions = React.useMemo(() => {
-    if (!view) return []
+    if (!view) return [];
     return [
-      { id: '', name: 'Unassigned', code: '—', capacity: null as number | null, learnerCount: 0, status: 'active' },
+      {
+        id: '',
+        name: 'Unassigned',
+        code: '—',
+        capacity: null as number | null,
+        learnerCount: 0,
+        status: 'active',
+      },
       ...activeStreams,
-    ]
-  }, [view, activeStreams])
+    ];
+  }, [view, activeStreams]);
 
   const displayName = (l: LearnerPlacement): string => {
-    return l.name ?? [l.firstName, l.lastName].filter(Boolean).join(' ') ?? l.email
-  }
+    return l.name ?? [l.firstName, l.lastName].filter(Boolean).join(' ') ?? l.email;
+  };
 
   if (!canManage) {
     return (
@@ -261,11 +275,11 @@ export default function PlacementsPage() {
           message="Placing learners requires placements.manage permission. Your role does not hold it, and the API refuses the request independently of this screen."
         />
       </div>
-    )
+    );
   }
 
   if (!academicYearId || !classId) {
-    const activeSessions = sessions.data?.sessions.filter(s => s.status === 'active') ?? []
+    const activeSessions = sessions.data?.sessions.filter((s) => s.status === 'active') ?? [];
 
     return (
       <div className="space-y-6">
@@ -275,14 +289,15 @@ export default function PlacementsPage() {
           assignment without affecting their permanent identity or historical records.
         </p>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <Field label="Academic Session">
               <Select
                 value={academicYearId}
                 onChange={(e) => {
-                  setAcademicYearId(e.target.value)
-                  setClassId('')
+                  setAcademicYearId(e.target.value);
+                  setGradeLevelFilter('');
+                  setClassId('');
                 }}
               >
                 <option value="">Select session…</option>
@@ -295,6 +310,27 @@ export default function PlacementsPage() {
             </Field>
           </div>
 
+          {academicYearId && gradeLevels.length > 0 && (
+            <div>
+              <Field label="Grade Level">
+                <Select
+                  value={gradeLevelFilter}
+                  onChange={(e) => {
+                    setGradeLevelFilter(e.target.value);
+                    setClassId('');
+                  }}
+                >
+                  <option value="">All grades</option>
+                  {gradeLevels.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+          )}
+
           <div>
             <Field label="Class">
               <Select
@@ -303,7 +339,7 @@ export default function PlacementsPage() {
                 disabled={!academicYearId}
               >
                 <option value="">Select class…</option>
-                {filteredClasses.map((c) => (
+                {gradeFilteredClasses.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                     {c.gradeLevel ? ` (${c.gradeLevel})` : ''}
@@ -314,7 +350,7 @@ export default function PlacementsPage() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (!view && !preview) {
@@ -323,45 +359,45 @@ export default function PlacementsPage() {
         <SectionHeader title="Learner Placements" />
         <LoadingState label="Loading placement view…" />
       </div>
-    )
+    );
   }
 
-  const unassignedLearners = view?.learners.filter(l => !l.streamId) ?? []
+  const unassignedLearners = view?.learners.filter((l) => !l.streamId) ?? [];
 
   const currentAssignments = React.useMemo(() => {
-    if (!view) return {}
-    const result: Record<string, string | null> = {}
-    view.learners.forEach(l => {
-      result[l.userId] = l.streamId
-    })
-    return result
-  }, [view])
+    if (!view) return {};
+    const result: Record<string, string | null> = {};
+    view.learners.forEach((l) => {
+      result[l.userId] = l.streamId;
+    });
+    return result;
+  }, [view]);
 
   const handleLearnerChange = (learnerId: string, newStreamId: string | null) => {
-    setAssignments(prev => ({
+    setAssignments((prev) => ({
       ...prev,
       [learnerId]: newStreamId,
-    }))
-  }
+    }));
+  };
 
   const hasChanges = React.useMemo(() => {
-    if (!view || !preview) return false
+    if (!view || !preview) return false;
     return Object.entries(assignments).some(([id, streamId]) => {
-      const current = currentAssignments[id]
-      return current !== streamId
-    })
-  }, [view, preview, assignments, currentAssignments])
+      const current = currentAssignments[id];
+      return current !== streamId;
+    });
+  }, [view, preview, assignments, currentAssignments]);
 
-  const totalLearners = view?.learnerCounts.total ?? 0
-  const className = view?.class?.name ?? '...'
-  const sessionName = view?.academicYear?.name ?? '...'
+  const totalLearners = view?.learnerCounts.total ?? 0;
+  const className = view?.class?.name ?? '...';
+  const sessionName = view?.academicYear?.name ?? '...';
 
   const streamLearners = React.useMemo(() => {
-    if (!view) return []
+    if (!view) return [];
     return view.learners
-      .filter(l => !l.streamId)
-      .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
-  }, [view])
+      .filter((l) => !l.streamId)
+      .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+  }, [view]);
 
   return (
     <div className="space-y-6">
@@ -397,7 +433,7 @@ export default function PlacementsPage() {
           variant="outline"
           size="sm"
           onClick={handleRandomDistribution}
-          disabled={!canManage || (preview !== null)}
+          disabled={!canManage || preview !== null}
         >
           Generate Preview
         </Button>
@@ -405,7 +441,7 @@ export default function PlacementsPage() {
           variant="outline"
           size="sm"
           onClick={handleBalancedDistribution}
-          disabled={!canManage || (preview !== null)}
+          disabled={!canManage || preview !== null}
         >
           Balanced Distribution
         </Button>
@@ -413,21 +449,17 @@ export default function PlacementsPage() {
           variant="default"
           size="sm"
           onClick={() => {
-            const streamIds = allStreamOptions.filter(s => s.id).map(s => s.id)
-            const totalUnassigned = view?.learnerCounts.unassigned ?? 0
+            const streamIds = allStreamOptions.filter((s) => s.id).map((s) => s.id);
+            const totalUnassigned = view?.learnerCounts.unassigned ?? 0;
             if (view && streamIds.length > 0 && totalUnassigned > 0) {
-              handleBalancedDistribution()
+              handleBalancedDistribution();
             }
           }}
           disabled={!canManage || !view}
         >
           Distribute Learners
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowCreateStream(true)}
-        >
+        <Button variant="ghost" size="sm" onClick={() => setShowCreateStream(true)}>
           Create Stream
         </Button>
       </div>
@@ -435,10 +467,11 @@ export default function PlacementsPage() {
       <div className="grid grid-cols-1 gap-4">
         {allStreamOptions.map((stream) => {
           const streamLearners = view?.learners
-            .filter((learner): learner is LearnerPlacement => 
-              learner.streamId === stream.id || (stream.id === '' && !learner.streamId)
+            .filter(
+              (learner): learner is LearnerPlacement =>
+                learner.streamId === stream.id || (stream.id === '' && !learner.streamId)
             )
-            .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
+            .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
 
           return (
             <Card key={stream.id} className={stream.id === '' ? 'border-dashed' : ''}>
@@ -464,9 +497,13 @@ export default function PlacementsPage() {
                 <div className="space-y-2">
                   {streamLearners && streamLearners.length > 0 ? (
                     streamLearners.map((learner) => {
-                      const currentValue = assignments[learner.userId] ?? currentAssignments[learner.userId]
+                      const currentValue =
+                        assignments[learner.userId] ?? currentAssignments[learner.userId];
                       return (
-                        <div key={learner.userId} className="flex items-center gap-3 rounded-md border p-2">
+                        <div
+                          key={learner.userId}
+                          className="flex items-center gap-3 rounded-md border p-2"
+                        >
                           <div className="flex-1">
                             <p className="text-sm font-medium text-foreground">
                               {displayName(learner)}
@@ -475,7 +512,9 @@ export default function PlacementsPage() {
                           </div>
                           <Select
                             value={currentValue ?? ''}
-                            onChange={(e) => handleLearnerChange(learner.userId, e.target.value || null)}
+                            onChange={(e) =>
+                              handleLearnerChange(learner.userId, e.target.value || null)
+                            }
                             className="w-36 text-xs"
                           >
                             <option value="">—</option>
@@ -486,7 +525,7 @@ export default function PlacementsPage() {
                             ))}
                           </Select>
                         </div>
-                      )
+                      );
                     })
                   ) : (
                     <p className="text-xs text-muted-foreground">No learners assigned</p>
@@ -494,21 +533,16 @@ export default function PlacementsPage() {
                 </div>
               </div>
             </Card>
-          )
+          );
         })}
       </div>
 
       {hasChanges && (
         <div className="flex gap-2 justify-end">
-          <Button
-            variant="ghost"
-            onClick={() => setAssignments(currentAssignments)}
-          >
+          <Button variant="ghost" onClick={() => setAssignments(currentAssignments)}>
             Reset Changes
           </Button>
-          <Button onClick={() => setShowConfirmDialog(true)}>
-            Confirm Changes
-          </Button>
+          <Button onClick={() => setShowConfirmDialog(true)}>Confirm Changes</Button>
         </div>
       )}
 
@@ -520,13 +554,13 @@ export default function PlacementsPage() {
         <div className="space-y-4 max-h-60 overflow-y-auto">
           {Object.entries(assignments)
             .filter(([id, streamId]) => {
-              const current = currentAssignments[id]
-              return current !== streamId
+              const current = currentAssignments[id];
+              return current !== streamId;
             })
             .map(([learnerId, newStreamId]) => {
-              const learner = view?.learners.find(l => l.userId === learnerId)
-              const newStream = allStreamOptions.find(s => s.id === newStreamId)
-              const oldStream = activeStreams.find(s => s.id === learner?.streamId)
+              const learner = view?.learners.find((l) => l.userId === learnerId);
+              const newStream = allStreamOptions.find((s) => s.id === newStreamId);
+              const oldStream = activeStreams.find((s) => s.id === learner?.streamId);
               return (
                 <div key={learnerId} className="flex justify-between text-sm">
                   <span>{displayName(learner!)}</span>
@@ -534,7 +568,7 @@ export default function PlacementsPage() {
                     {oldStream?.code ?? 'unassigned'} → {newStream?.code ?? 'unassigned'}
                   </span>
                 </div>
-              )
+              );
             })}
         </div>
 
@@ -584,5 +618,5 @@ export default function PlacementsPage() {
         </div>
       </Modal>
     </div>
-  )
+  );
 }

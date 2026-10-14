@@ -122,6 +122,7 @@ export const PERMISSIONS = [
   'grading.view',
   'grading.manage',
   'grades.view',
+  'grades.manage',
 
   // Finance
   'finance.view',
@@ -203,6 +204,8 @@ const ACADEMIC_STAFF: Permission[] = [
   'academics.manage',
   'learningAreas.view',
   'learningAreas.manage',
+  'grades.view',
+  'grades.manage',
   'curriculum.view',
   'curriculum.manage',
   'progress.view',

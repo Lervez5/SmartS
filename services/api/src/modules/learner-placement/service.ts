@@ -164,10 +164,7 @@ export async function getClassPlacementView(
       schoolId,
       academicYearId,
       status: 'active',
-      OR: [
-        { stream: { classId } },
-        { classId },
-      ],
+      OR: [{ stream: { classId } }, { classId }],
     },
     select: {
       teacher: { select: { id: true, name: true, email: true } },
@@ -177,11 +174,7 @@ export async function getClassPlacementView(
       stream: { select: { id: true, name: true, code: true } },
       class: { select: { id: true, name: true, gradeLevel: true } },
     },
-    orderBy: [
-      { stream: { code: 'asc' } },
-      { class: { name: 'asc' } },
-      { responsibility: 'asc' },
-    ],
+    orderBy: [{ stream: { code: 'asc' } }, { class: { name: 'asc' } }, { responsibility: 'asc' }],
   });
 
   const academicYear = await prisma.academicYear.findFirst({
@@ -222,9 +215,7 @@ export async function getClassPlacementView(
     teacherAllocations: allocations.map((a) => ({
       teacher: a.teacher,
       responsibility: a.responsibility,
-      stream: a.stream
-        ? { id: a.stream.id, name: a.stream.name, code: a.stream.code }
-        : null,
+      stream: a.stream ? { id: a.stream.id, name: a.stream.name, code: a.stream.code } : null,
       class: a.class
         ? { id: a.class.id, name: a.class.name, gradeLevel: a.class.gradeLevel }
         : null,
@@ -298,7 +289,7 @@ function distributeRandom(
   let state = seed ?? Date.now();
   const random = () => {
     state = (state << 13) ^ (state >> 19) ^ (state << 5);
-    return Math.abs(state) % 10000 / 10000;
+    return (Math.abs(state) % 10000) / 10000;
   };
 
   // Shuffle unassigned and distribute round-robin
@@ -405,9 +396,7 @@ export async function applyPlacementPlan(
 
   // Validate all stream IDs belong to this class
   const allLearnerIds = Object.keys(assignments);
-  const streamIds = new Set(
-    Object.values(assignments).filter((s): s is string => s !== null)
-  );
+  const streamIds = new Set(Object.values(assignments).filter((s): s is string => s !== null));
 
   if (streamIds.size > 0) {
     const validStreams = await prisma.stream.findMany({
@@ -458,10 +447,7 @@ export async function applyPlacementPlan(
     const validLearnerIds = new Set(validLearners.map((e) => e.studentId));
     for (const learnerId of allLearnerIds) {
       if (!validLearnerIds.has(learnerId)) {
-        throw new ApiError(
-          400,
-          `Learner ${learnerId} is not enrolled in this class`
-        );
+        throw new ApiError(400, `Learner ${learnerId} is not enrolled in this class`);
       }
     }
   }
@@ -766,7 +752,9 @@ export async function getPlacementHistory(
   const where: Prisma.PlacementHistoryWhereInput = {
     class: { schoolId },
     ...(filters.classId ? { classId: filters.classId } : {}),
-    ...(filters.streamId ? { OR: [{ previousStreamId: filters.streamId }, { newStreamId: filters.streamId }] } : {}),
+    ...(filters.streamId
+      ? { OR: [{ previousStreamId: filters.streamId }, { newStreamId: filters.streamId }] }
+      : {}),
     ...(filters.learnerId ? { learnerId: filters.learnerId } : {}),
     ...(filters.academicYearId ? { academicYearId: filters.academicYearId } : {}),
   };

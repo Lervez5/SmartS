@@ -37,6 +37,7 @@ import { resolveClassResponsibility } from '../classes/scope';
 import {
   currentSessionId,
   resolveClassResultsScope,
+  resolveClassResultsScopesForSchool,
   type ClassResultsScope,
 } from './allocation/scope';
 
@@ -144,8 +145,10 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     const query = contextSchema.parse(req.query);
     const { schoolId } = schoolScopeOf(req);
+    const user = req.user!;
 
-    const [years, assessments, classes] = await Promise.all([
+    // Load school's academic years, all assessments, and all classes with streams.
+    const [years, allAssessments, allClasses] = await Promise.all([
       prisma.academicYear.findMany({
         where: { schoolId },
         include: {
@@ -156,12 +159,8 @@ router.get(
         },
         orderBy: { startDate: 'desc' },
       }),
-      // Only assessments applicable to the chosen academic context.
       prisma.examination.findMany({
         where: {
-          ...(query.academicYearId ? { academicYearId: query.academicYearId } : {}),
-          ...(query.termId ? { termId: query.termId } : {}),
-          ...(query.gradeLevel ? { class: { gradeLevel: query.gradeLevel } } : {}),
           class: { schoolId },
           status: { not: 'archived' },
         },
@@ -173,31 +172,119 @@ router.get(
           maxScore: true,
           classId: true,
           class: { select: { id: true, name: true, gradeLevel: true } },
+          academicYear: { select: { id: true, name: true, label: true } },
+          term: { select: { id: true, name: true, termNumber: true } },
           learningAreas: { select: { subject: { select: { id: true, name: true, code: true } } } },
         },
         orderBy: { startDate: 'desc' },
       }),
       prisma.class.findMany({
-        where: {
-          schoolId,
-          ...(query.gradeLevel ? { gradeLevel: query.gradeLevel } : {}),
-        },
+        where: { schoolId },
         select: {
           id: true,
           name: true,
           gradeLevel: true,
-          // Streams are subdivisions of the class, listed with it so the
-          // relationship is visible rather than implied.
-          streams: {
-            where: { status: 'active' },
-            select: { id: true, name: true, code: true },
-            orderBy: { code: 'asc' },
-          },
+          streams: { select: { id: true, name: true, code: true } },
+          teacherId: true,
+          academicYearId: true,
         },
         orderBy: { name: 'asc' },
       }),
     ]);
 
+    // Compute the caller's results scope for every class in the school.
+    const scopesByClass = await resolveClassResultsScopesForSchool(
+      user.id,
+      schoolId,
+      user.permissions
+    );
+
+    // Determine which classes the caller may enter results for.
+    const canSeeAllClasses = scopesByClass === null;
+    const allowedClassIds = canSeeAllClasses
+      ? null
+      : new Set(
+          [...scopesByClass.entries()]
+            .filter(([, scope]) => scope.hasAccess)
+            .map(([classId]) => classId)
+        );
+
+    // Filter assessments to those the caller may enter results for.
+    const assessments = allAssessments.filter((assessment) => {
+      // Apply query filters (session/term/grade) if provided.
+      if (
+        query.academicYearId &&
+        assessment.academicYear?.id &&
+        assessment.academicYear?.id !== query.academicYearId
+      )
+        return false;
+      if (query.termId && assessment.term?.id && assessment.term?.id !== query.termId) return false;
+      if (query.gradeLevel && assessment.class?.gradeLevel !== query.gradeLevel) return false;
+
+      // Scope by caller's allocations: only assessments for classes they can access.
+      if (!canSeeAllClasses) {
+        if (!assessment.classId || !allowedClassIds!.has(assessment.classId)) return false;
+      }
+
+      return true;
+    });
+
+    // Pre-compute data needed for entry progress: enrollments and existing marks.
+    const classIdsForEnrollments = canSeeAllClasses
+      ? allClasses.map((c) => c.id)
+      : [...allowedClassIds!];
+
+    const [enrollments, existingMarks] = await Promise.all([
+      // Enrollments for classes the caller can access.
+      prisma.enrollment.findMany({
+        where: {
+          classId: { in: classIdsForEnrollments },
+          academicYearId: { not: null },
+        },
+        select: { classId: true, studentId: true, streamId: true },
+      }),
+      // Existing marks for the caller's accessible assessments.
+      prisma.grade.findMany({
+        where: {
+          examinationId: { in: assessments.map((a) => a.id) },
+        },
+        select: { examinationId: true, studentId: true, subjectId: true },
+      }),
+    ]);
+
+    // Group enrollments by classId for quick lookup.
+    const enrollmentsByClass = new Map<string, Array<{ studentId: string; streamId: string }>>();
+    for (const row of enrollments) {
+      if (row.studentId === null || row.streamId === null) {
+        // Skip enrollments with missing student or stream assignment
+        continue;
+      }
+      const list = enrollmentsByClass.get(row.classId) ?? [];
+      list.push({ studentId: row.studentId, streamId: row.streamId });
+      enrollmentsByClass.set(row.classId, list);
+    }
+
+    // Group existing marks by (examinationId, studentId, subjectId).
+    const marksByExam = new Map<string, Map<string, Set<string>>>();
+    for (const mark of existingMarks) {
+      if (mark.studentId === null || mark.subjectId === null || mark.examinationId === null) {
+        // Skip invalid marks
+        continue;
+      }
+      let byStudent = marksByExam.get(mark.examinationId);
+      if (!byStudent) {
+        byStudent = new Map();
+        marksByExam.set(mark.examinationId, byStudent);
+      }
+      let subjects = byStudent.get(mark.studentId);
+      if (!subjects) {
+        subjects = new Set();
+        byStudent.set(mark.studentId, subjects);
+      }
+      subjects.add(mark.subjectId);
+    }
+
+    // Build the response.
     res.json({
       sessions: years.map((year) => ({
         id: year.id,
@@ -206,30 +293,133 @@ router.get(
         status: year.status,
         terms: year.terms,
       })),
-      assessments: assessments.map((a) => ({
-        id: a.id,
-        title: a.title,
-        assessmentType: a.assessmentType,
-        status: a.status,
-        // The maximum comes from the assessment; it is not editable here.
-        maxScore: a.maxScore,
-        classId: a.classId,
-        className: a.class?.name ?? null,
-        gradeLevel: a.class?.gradeLevel ?? null,
-        learningAreaCount: a.learningAreas.length,
-        learningAreaNames: a.learningAreas.map((row) => row.subject.name),
-      })),
-      classes: classes.map((cls) => ({
-        id: cls.id,
-        name: cls.name,
-        gradeLevel: cls.gradeLevel,
-        streams: cls.streams,
-      })),
-      // The grade list is derived from the school's classes, so it offers only
-      // levels the school actually uses.
+      assessments: assessments.map((assessment) => {
+        const classId = assessment.classId;
+        const scope = classId ? (scopesByClass?.get(classId) ?? null) : null;
+
+        const canEnter = canSeeAllClasses || (scope?.hasAccess ?? false);
+        const allAreas = canSeeAllClasses || (scope?.entersAllAreas ?? false);
+        const allowedSubjectIds = canSeeAllClasses ? [] : (scope?.allowedSubjectIds ?? []);
+
+        // Determine which streams of this class the caller may see.
+        let streamIds: string[] = [];
+        if (!canSeeAllClasses && scope) {
+          if (canSeeAllClasses || (scope?.allStreams ?? false)) {
+            streamIds = scope?.streamIds ?? [];
+          } else {
+            streamIds = scope?.streamIds ?? [];
+          }
+        }
+
+        // Compute entry progress: how many marks recorded vs total cells in scope.
+        const enrolled = classId === null ? [] : (enrollmentsByClass.get(classId) ?? []);
+
+        const enrolledInScope = enrolled.filter(({ streamId }) => {
+          if (streamId === null) {
+            return false;
+          }
+          return (
+            canSeeAllClasses ||
+            (scope?.allStreams ?? false) ||
+            (scope?.streamIds ?? []).includes(streamId)
+          );
+        });
+        const enrolledStudentIds = new Set(
+          enrolledInScope
+            .filter(({ studentId }) => studentId !== null)
+            .map(({ studentId }) => studentId!)
+        );
+        const learningAreaIds = assessment.learningAreas.map((area) => area.subject.id);
+        let allowedAreaIds: Set<string>;
+        if (canSeeAllClasses || allAreas) {
+          allowedAreaIds = new Set(learningAreaIds);
+        } else {
+          allowedAreaIds = new Set(
+            (scope?.allowedSubjectIds ?? []).filter((id) => learningAreaIds.includes(id))
+          );
+        }
+
+        const cells = enrolledStudentIds.size * allowedAreaIds.size;
+        let recorded = 0;
+        const studentMarks = marksByExam.get(assessment.id);
+        if (studentMarks) {
+          for (const [studentId, subjects] of studentMarks) {
+            if (enrolledStudentIds.has(studentId)) {
+              for (const subjectId of subjects) {
+                if (allowedAreaIds.has(subjectId)) {
+                  recorded += 1;
+                }
+              }
+            }
+          }
+        }
+
+        return {
+          id: assessment.id,
+          title: assessment.title,
+          assessmentType: assessment.assessmentType,
+          status: assessment.status,
+          maxScore: assessment.maxScore,
+          classId: assessment.classId,
+          className: assessment.class?.name ?? null,
+          gradeLevel: assessment.class?.gradeLevel ?? null,
+          academicYearId: assessment.academicYear?.id ?? null,
+          termId: assessment.term?.id ?? null,
+          sessionName: assessment.academicYear?.label ?? assessment.academicYear?.name ?? null,
+          termName: assessment.term?.name ?? null,
+          termNumber: assessment.term?.termNumber ?? null,
+          learningAreaCount: assessment.learningAreas.length,
+          learningAreaNames: assessment.learningAreas.map((row) => row.subject.name),
+          entry: {
+            canEnter,
+            allAreas,
+            allowedSubjectIds,
+            recorded,
+            cells,
+            complete: recorded > 0 && recorded === cells,
+          },
+        };
+      }),
+      classes: canSeeAllClasses
+        ? allClasses.map((cls) => ({
+            id: cls.id,
+            name: cls.name,
+            gradeLevel: cls.gradeLevel,
+            streams: cls.streams,
+          }))
+        : [...allowedClassIds!]
+            .map((id) => {
+              const cls = allClasses.find((c) => c.id === id);
+              if (!cls) return null;
+              return {
+                id: cls.id,
+                name: cls.name,
+                gradeLevel: cls.gradeLevel,
+                streams: cls.streams,
+              };
+            })
+            .filter((cls): cls is NonNullable<typeof cls> => cls !== null),
       gradeLevels: [
-        ...new Set(classes.map((cls) => cls.gradeLevel).filter((g): g is string => Boolean(g))),
+        ...new Set(
+          canSeeAllClasses
+            ? allClasses.map((c) => c.gradeLevel)
+            : [...allowedClassIds!]
+                .map((id) => {
+                  const cls = allClasses.find((c) => c.id === id);
+                  return cls ? cls.gradeLevel : null;
+                })
+                .filter(Boolean)
+        ),
       ].sort(),
+      scope: {
+        allClasses: canSeeAllClasses,
+        classesWithoutAllocation: canSeeAllClasses
+          ? 0
+          : allClasses.filter((c) => {
+              if (!allowedClassIds) return false;
+              return !allowedClassIds.has(c.id);
+            }).length,
+      },
     });
   })
 );

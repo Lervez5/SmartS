@@ -14,7 +14,6 @@ import {
   Field,
   FloatingFormModal,
   LoadingState,
-  Modal,
   SectionHeader,
   Select,
   StatusPill,
@@ -173,9 +172,9 @@ export default function LearningAreasPage() {
   // Groups collapse as a set, so Expand All and Collapse All have something
   // real to act on rather than being decorative.
   const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
-  // Per-grade detail panel: clicking a grade pill opens what is and is not
-  // created for it, which is the question the form is really asking.
-  const [gradeDetails, setGradeDetails] = React.useState<string | null>(null);
+  // Per-grade detail panel: clicking a grade pill expands what is and is not
+  // created for it inline, which is the question the form is really asking.
+  const [expandedGrade, setExpandedGrade] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const timer = window.setTimeout(() => setDebounced(search.trim()), 250);
@@ -785,10 +784,31 @@ export default function LearningAreasPage() {
                 grade list can never be read as both. */}
             <Field label="Grade applicability" required>
               <Select
-                value={draft.gradeScope}
-                onChange={(e) => setDraft({ ...draft, gradeScope: e.target.value as GradeScope })}
+                value={
+                  draft.gradeScope === 'all'
+                    ? 'all'
+                    : draft.gradeLevels.length === 1
+                      ? `grade:${draft.gradeLevels[0]}`
+                      : 'selected'
+                }
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'all') {
+                    setDraft({ ...draft, gradeScope: 'all', gradeLevels: [] });
+                  } else if (value.startsWith('grade:')) {
+                    const grade = value.replace('grade:', '');
+                    setDraft({ ...draft, gradeScope: 'selected', gradeLevels: [grade] });
+                  } else {
+                    setDraft({ ...draft, gradeScope: value as GradeScope });
+                  }
+                }}
               >
                 <option value="all">All grades this school teaches</option>
+                {gradeOptions.map((grade) => (
+                  <option key={grade} value={`grade:${grade}`}>
+                    Grade {grade}
+                  </option>
+                ))}
                 <option value="selected">Only the grades I pick below</option>
               </Select>
             </Field>
@@ -797,7 +817,7 @@ export default function LearningAreasPage() {
               <Field
                 label="Grades"
                 required
-                hint="Pick at least one grade, or switch to all grades."
+                hint="Pick at least one grade, or switch to all grades. Click a grade to see what is already created for it."
               >
                 {gradeOptions.length === 0 ? (
                   <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
@@ -818,8 +838,9 @@ export default function LearningAreasPage() {
                           key={grade}
                           type="button"
                           aria-pressed={checked}
+                          aria-expanded={expandedGrade === grade}
                           onClick={() =>
-                            setGradeDetails(grade)
+                            setExpandedGrade((previous) => (previous === grade ? null : grade))
                           }
                           className={
                             checked
@@ -843,11 +864,29 @@ export default function LearningAreasPage() {
                             aria-label={`Select grade ${grade}`}
                           />
                           {grade}
+                          {createdForGrade > 0 ? (
+                            <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                              {createdForGrade}
+                            </span>
+                          ) : null}
                         </button>
                       );
                     })}
                   </div>
                 )}
+                {expandedGrade ? (
+                  <GradeInlineDetail
+                    grade={expandedGrade}
+                    gradeOptions={gradeOptions}
+                    customAreas={customAreas}
+                    canManage={canManage}
+                    onClose={() => setExpandedGrade(null)}
+                    onAddArea={(grade) => {
+                      setExpandedGrade(null);
+                      setDraft({ ...emptyDraft(), gradeScope: 'selected', gradeLevels: [grade] });
+                    }}
+                  />
+                ) : null}
               </Field>
             ) : (
               <p className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
@@ -932,31 +971,17 @@ export default function LearningAreasPage() {
           </div>
         ) : null}
       </FloatingFormModal>
-
-      {/* ---------------------------------------------------------------- *
-       * Per-grade detail panel
-       * ---------------------------------------------------------------- */}
-      <GradeDetailsModal
-        grade={gradeDetails}
-        gradeOptions={gradeOptions}
-        customAreas={customAreas}
-        canManage={canManage}
-        onClose={() => setGradeDetails(null)}
-        onAddArea={(grade) => {
-          setGradeDetails(null);
-          setDraft({ ...emptyDraft(), gradeScope: 'selected', gradeLevels: [grade] });
-        }}
-      />
     </div>
   );
 }
 
 /**
- * Per-grade detail panel. Clicking a grade pill opens what is and is not
- * created for it - the question the form is really asking, surfaced at the
- * moment of choosing rather than buried in the table.
+ * Inline per-grade detail. Clicking a grade pill expands what is and is not
+ * created for it right under the picker, so the question "what's already
+ * here for Grade 3?" is answered at the moment of choosing rather than in a
+ * separate screen.
  */
-function GradeDetailsModal({
+function GradeInlineDetail({
   grade,
   gradeOptions,
   customAreas,
@@ -979,32 +1004,28 @@ function GradeDetailsModal({
   const allGrades = customAreas.filter((area) => area.appliesToAllGrades);
 
   return (
-    <Modal
-      isOpen
-      onClose={onClose}
-      title={`Grade ${grade}`}
-      description="Learning areas created for this grade, and what is not yet."
-      size="lg"
-    >
-      <div className="space-y-4">
-        <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-3">
-          <div>
-            <p className="text-sm font-medium text-foreground">Grade {grade}</p>
-            <p className="text-xs text-muted-foreground">
-              {createdForGrade.length} area
-              {createdForGrade.length === 1 ? '' : 's'} · {allGrades.length} apply to all grades
-            </p>
-          </div>
+    <div className="mt-3 rounded-lg border bg-card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-foreground">Grade {grade}</p>
+          <p className="text-xs text-muted-foreground">
+            {createdForGrade.length} area
+            {createdForGrade.length === 1 ? '' : 's'} · {allGrades.length} apply to all grades
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
           {canManage ? (
-            <Button
-              size="sm"
-              onClick={() => onAddArea(grade)}
-            >
+            <Button size="sm" onClick={() => onAddArea(grade)}>
               New area for this grade
             </Button>
           ) : null}
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            Hide
+          </Button>
         </div>
+      </div>
 
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">Created</p>
           {createdForGrade.length > 0 ? (
@@ -1017,10 +1038,7 @@ function GradeDetailsModal({
                       {area.code ? `Code ${area.code}` : 'No code'} · {area.status}
                     </span>
                   </span>
-                  <StatusPill
-                    label={STATUS_LABEL[area.status]}
-                    tone={STATUS_TONE[area.status]}
-                  />
+                  <StatusPill label={STATUS_LABEL[area.status]} tone={STATUS_TONE[area.status]} />
                 </li>
               ))}
             </ul>
@@ -1057,13 +1075,7 @@ function GradeDetailsModal({
             </p>
           )}
         </div>
-
-        <div className="flex justify-end">
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Close
-          </Button>
-        </div>
       </div>
-    </Modal>
+    </div>
   );
 }

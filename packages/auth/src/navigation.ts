@@ -900,7 +900,7 @@ const ADMIN_NAV: NavSection[] = [
         permissions: ['courses.view'],
         icon: 'book-open',
         order: 1,
-        implemented: false,
+        implemented: true,
       },
       {
         id: 'adm.timetable',
@@ -1461,11 +1461,9 @@ const ADMIN_NAV: NavSection[] = [
         id: 'adm.grades',
         label: 'Grades',
         href: '/admin/academics/grades',
-        permissions: ['academics.view'],
+        permissions: ['grades.view'],
         icon: 'layers',
         order: 4,
-        implemented: false,
-        gap: 'No Grade model exists. Grade is a fixed Prisma enum, while StudentProfile.gradeLevel and Class.gradeLevel are free-text strings, so grades cannot be listed, ordered or renamed.',
       },
       {
         id: 'adm.classes',

@@ -244,7 +244,9 @@ export function GuardianSelect({
         title="Guardian Details"
         size="md"
       >
-        {detailsFor ? <GuardianDetails guardian={detailsFor} onClose={() => setDetailsFor(null)} /> : null}
+        {detailsFor ? (
+          <GuardianDetails guardian={detailsFor} onClose={() => setDetailsFor(null)} />
+        ) : null}
       </Modal>
     </div>
   );
@@ -335,13 +337,7 @@ function roleLabel(role: string): string {
 }
 
 /** The relationship behind a guardian link, shown when details are opened. */
-function GuardianDetails({
-  guardian,
-  onClose,
-}: {
-  guardian: GuardianOption;
-  onClose: () => void;
-}) {
+function GuardianDetails({ guardian, onClose }: { guardian: GuardianOption; onClose: () => void }) {
   const children = guardian.children ?? [];
 
   return (
@@ -386,10 +382,15 @@ function GuardianDetails({
         {children.length > 0 ? (
           <ul className="mt-1 divide-y divide-border rounded-md border">
             {children.map((child) => (
-              <li key={child.linkId} className="flex items-center justify-between px-3 py-2 text-sm">
+              <li
+                key={child.linkId}
+                className="flex items-center justify-between px-3 py-2 text-sm"
+              >
                 <span className="min-w-0">
                   <span className="block truncate text-foreground">{child.name}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{child.email}</span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {child.email}
+                  </span>
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {child.gradeLevel ? `Guardian · ${child.gradeLevel}` : 'Guardian'}

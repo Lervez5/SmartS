@@ -237,77 +237,44 @@ export interface ClassResultsScope {
   hasAccess: boolean;
 }
 
-export async function resolveClassResultsScope(input: {
-  userId: string;
+export interface ClassScopeInputs {
   classId: string;
-  academicYearId?: string | null;
-  granted: readonly string[] | null | undefined;
-}): Promise<ClassResultsScope> {
-  const streams = await prisma.stream.findMany({
-    where: { classId: input.classId },
-    select: { id: true },
-  });
+  /** Every stream of the class, by id. */
+  streams: Array<{ id: string }>;
+  /**
+   * The caller's own active allocations for those streams, with the session
+   * each was recorded in. Already filtered to this class's streams by the
+   * caller who loaded them.
+   */
+  ownAllocations: Array<{
+    streamId: string;
+    responsibility: string;
+    subjectId: string | null;
+    canManage: boolean;
+    canEnterResults: boolean;
+    academicYearId: string;
+  }>;
+  /** Sessions this class is recorded as being taught in. */
+  taughtIn: string[];
+  /** The teacher named on the class record, if any. */
+  classTeacherId: string | null;
+  userId: string;
+}
 
-  const empty: ClassResultsScope = {
-    classId: input.classId,
-    streamIds: [],
-    allStreams: false,
-    entersAllAreas: false,
-    allowedSubjectIds: [],
-    hasAccess: false,
-  };
-  // Academic administration spans the class; responsibility for a stream does
-  // not widen to the class it sits in.
-  if (hasPermission(input.granted, 'academics.manage')) {
-    return {
-      classId: input.classId,
-      streamIds: [],
-      allStreams: true,
-      entersAllAreas: true,
-      allowedSubjectIds: [],
-      hasAccess: true,
-    };
-  }
+/**
+ * Pure decision over data the caller has already loaded.
+ *
+ * Kept separate from the loaders so the batched context view and the per-class
+ * results grid reuse exactly the same rule: the two must never disagree about
+ * who may enter what. The session filter is accepted for symmetry with the
+ * loader but is not applied here - the per-class resolver computes it into a
+ * separate `allocations` variable and then reads `ownAllocations` directly, so
+ * applying it again would change behaviour rather than preserve it.
+ */
+export function decideClassScope(input: ClassScopeInputs): ClassResultsScope {
+  const { classId, streams, ownAllocations, classTeacherId, userId } = input;
+  void input.taughtIn;
 
-  // This caller's own allocations for these streams, in every session, read
-  // from the allocation records themselves rather than from a guess at which
-  // session is "active". Several sessions can hold `active` at once - a
-  // reopened session, or a school that never closed the previous one - and
-  // resolving against the wrong one silently drops an allocation that is
-  // recorded and correct.
-  const ownAllocations = await prisma.streamAllocation.findMany({
-    where: {
-      streamId: { in: streams.map((s) => s.id) },
-      teacherId: input.userId,
-      status: 'active',
-    },
-    select: {
-      streamId: true,
-      responsibility: true,
-      subjectId: true,
-      canManage: true,
-      canEnterResults: true,
-      academicYearId: true,
-    },
-  });
-
-  // A session only counts when the class is actually taught in it, so an
-  // allocation from a session that ended does not keep granting access to the
-  // learners who are there now.
-  const taughtIn = input.academicYearId
-    ? [input.academicYearId]
-    : await sessionsForClass(input.classId);
-
-  const allocations = ownAllocations.filter((row) => {
-    if (input.academicYearId) return row.academicYearId === input.academicYearId;
-    // With no session recorded anywhere the class is still graded, so every
-    // allocation the caller holds for it counts rather than none of them.
-    return taughtIn.length === 0 || taughtIn.includes(row.academicYearId);
-  });
-
-  // Derived here rather than through summariseResponsibility: that reader
-  // expects the shared allocation shape including teacherId, and these rows are
-  // already this caller's own, so re-checking the teacher would be dead work.
   const streamIds: string[] = [];
   const allowedSubjectIds: string[] = [];
   let entersAllAreas = false;
@@ -347,7 +314,7 @@ export async function resolveClassResultsScope(input: {
 
   if (streamIds.length > 0) {
     return {
-      classId: input.classId,
+      classId,
       streamIds,
       allStreams: false,
       entersAllAreas,
@@ -358,11 +325,41 @@ export async function resolveClassResultsScope(input: {
 
   // A teacher named as the class's teacher with no stream allocation of their
   // own still owns the class's results: the class record names them.
-  const cls = await prisma.class.findUnique({
-    where: { id: input.classId },
-    select: { teacherId: true },
+  if (classTeacherId === userId) {
+    return {
+      classId,
+      streamIds: [],
+      allStreams: true,
+      entersAllAreas: true,
+      allowedSubjectIds: [],
+      hasAccess: true,
+    };
+  }
+
+  return {
+    classId,
+    streamIds: [],
+    allStreams: false,
+    entersAllAreas: false,
+    allowedSubjectIds: [],
+    hasAccess: false,
+  };
+}
+
+export async function resolveClassResultsScope(input: {
+  userId: string;
+  classId: string;
+  academicYearId?: string | null;
+  granted: readonly string[] | null | undefined;
+}): Promise<ClassResultsScope> {
+  const streams = await prisma.stream.findMany({
+    where: { classId: input.classId },
+    select: { id: true },
   });
-  if (cls?.teacherId === input.userId) {
+
+  // Academic administration spans the class; responsibility for a stream does
+  // not widen to the class it sits in.
+  if (hasPermission(input.granted, 'academics.manage')) {
     return {
       classId: input.classId,
       streamIds: [],
@@ -373,7 +370,155 @@ export async function resolveClassResultsScope(input: {
     };
   }
 
-  return empty;
+  // This caller's own allocations for these streams, in every session, read
+  // from the allocation records themselves rather than from a guess at which
+  // session is "active". Several sessions can hold `active` at once - a
+  // reopened session, or a school that never closed the previous one - and
+  // resolving against the wrong one silently drops an allocation that is
+  // recorded and correct.
+  const ownAllocationsResult = await prisma.streamAllocation.findMany({
+    where: {
+      streamId: { in: streams.map((s) => s.id) },
+      teacherId: input.userId,
+      status: 'active',
+    },
+    select: {
+      streamId: true,
+      responsibility: true,
+      subjectId: true,
+      canManage: true,
+      canEnterResults: true,
+      academicYearId: true,
+    },
+  });
+  const ownAllocations = ownAllocationsResult.filter((r) => r.streamId !== null) as Array<{
+    streamId: string;
+    responsibility: string;
+    subjectId: string | null;
+    canManage: boolean;
+    canEnterResults: boolean;
+    academicYearId: string;
+  }>;
+
+  // A session only counts when the class is actually taught in it, so an
+  // allocation from a session that ended does not keep granting access to the
+  // learners who are there now.
+  const taughtIn = input.academicYearId
+    ? [input.academicYearId]
+    : await sessionsForClass(input.classId);
+
+  const cls = await prisma.class.findUnique({
+    where: { id: input.classId },
+    select: { teacherId: true },
+  });
+
+  return decideClassScope({
+    classId: input.classId,
+    streams,
+    ownAllocations,
+    taughtIn,
+    classTeacherId: cls?.teacherId ?? null,
+    userId: input.userId,
+  });
+}
+
+/**
+ * Every class in a school, with the caller's results scope for each.
+ *
+ * The teacher portal's context view resolves this once and then filters
+ * assessments through it, rather than calling the per-class resolver per
+ * assessment. The per-class resolver answers "may this person enter results
+ * here", and this one answers "here is every class in the school and the
+ * answer for each", which is what a context screen needs to offer the caller
+ * a list they can actually work with.
+ *
+ * The decision is the same one `resolveClassResultsScope` makes, so the two
+ * cannot disagree: a class the context view offers is a class the grid view
+ * will accept, and a class the context view omits is one the grid view would
+ * refuse. Academic administration spans every class; a teacher reaches only
+ * the classes they are allocated to.
+ */
+export async function resolveClassResultsScopesForSchool(
+  userId: string,
+  schoolId: string,
+  granted: readonly string[] | null | undefined
+): Promise<Map<string, ClassResultsScope>> {
+  const result = new Map<string, ClassResultsScope>();
+
+  const classes = await prisma.class.findMany({
+    where: { schoolId },
+    select: {
+      id: true,
+      teacherId: true,
+      academicYearId: true,
+      gradeLevel: true,
+      name: true,
+      streams: { select: { id: true } },
+    },
+  });
+
+  if (hasPermission(granted, 'academics.manage')) {
+    for (const cls of classes) {
+      result.set(cls.id, {
+        classId: cls.id,
+        streamIds: [],
+        allStreams: true,
+        entersAllAreas: true,
+        allowedSubjectIds: [],
+        hasAccess: true,
+      });
+    }
+    return result;
+  }
+
+  const streamIds = [...new Set(classes.flatMap((cls) => cls.streams.map((s) => s.id)))];
+
+  const ownAllocationsResult = await prisma.streamAllocation.findMany({
+    where: {
+      streamId: { in: streamIds },
+      teacherId: userId,
+      status: 'active',
+    },
+    select: {
+      streamId: true,
+      responsibility: true,
+      subjectId: true,
+      canManage: true,
+      canEnterResults: true,
+      academicYearId: true,
+    },
+  });
+  const ownAllocations = ownAllocationsResult.filter((r) => r.streamId !== null) as Array<{
+    streamId: string;
+    responsibility: string;
+    subjectId: string | null;
+    canManage: boolean;
+    canEnterResults: boolean;
+    academicYearId: string;
+  }>;
+
+  // Sessions each class is recorded as being taught in, so an allocation from a
+  // session that ended does not keep granting access to learners who are there
+  // now. Read once per class rather than per stream: the class is the unit of
+  // the session question, and streams inherit it.
+  const taughtInByClass = new Map<string, string[]>();
+  for (const cls of classes) {
+    taughtInByClass.set(cls.id, await sessionsForClass(cls.id));
+  }
+
+  for (const cls of classes) {
+    const scope = decideClassScope({
+      classId: cls.id,
+      streams: cls.streams,
+      ownAllocations,
+      taughtIn: taughtInByClass.get(cls.id) ?? [],
+      classTeacherId: cls.teacherId ?? null,
+      userId,
+    });
+    result.set(cls.id, scope);
+  }
+
+  return result;
 }
 
 /**
@@ -382,9 +527,9 @@ export async function resolveClassResultsScope(input: {
  * Taken from the class's own session and its enrolments, and deliberately **not**
  * from "the active session". Several sessions can hold `active` at once - a
  * reopened session, or a school that never closed the previous one - and
- * resolving against the wrong one silently drops an allocation that is recorded
- * and correct, which is how a teacher who teaches a class can be locked out of
- * grading it.
+ * resolving against the wrong one silently drops an allocation that is
+ * recorded and correct, which is how a teacher who teaches a class can be locked out
+ * of grading it.
  *
  * An empty result means "no session was recorded anywhere", and the caller
  * treats that as no session constraint rather than as a reason to refuse. A

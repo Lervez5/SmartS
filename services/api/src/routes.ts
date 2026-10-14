@@ -40,6 +40,7 @@ import { router as dashboardRouter } from './modules/dashboard';
 import { router as coursesRouter } from './modules/courses';
 import { router as cohortsRouter } from './modules/cohorts';
 import { router as calendarRouter } from './modules/calendar';
+import { router as gradesRouter } from './modules/grades';
 import { router as reportingRouter } from './modules/reporting';
 import { router as learnerPlacementRouter } from './modules/learner-placement';
 import { router as auditLogsRouter } from './modules/audit-logs';
@@ -85,7 +86,6 @@ router.use('/learning-areas', learningAreasRouter);
 router.use('/attendance', attendanceRouter);
 router.use('/examinations', examinationsRouter);
 router.use('/grading', gradingRouter);
-router.use('/lms', lmsRouter);
 router.use('/finance', financeRouter);
 router.use('/expenses', expensesRouter);
 router.use('/payroll', payrollRouter);
@@ -110,5 +110,7 @@ router.use('/results-entry', resultsEntryRouter);
 router.use('/teacher-allocation', teacherAllocationRouter);
 
 router.use('/placement', learnerPlacementRouter);
+
+router.use('/grades', gradesRouter);
 
 router.use('/reports', reportsRouter);

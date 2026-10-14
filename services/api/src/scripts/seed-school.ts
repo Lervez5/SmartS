@@ -19,6 +19,57 @@ const EMAIL = [
 ];
 
 /**
+ * The canonical curriculum grade levels for RaceField Comprehensive School.
+ *
+ * These match the school's actual grade catalogue as stored in the database.
+ * Each entry has an academicLevel that preserves negative values for
+ * Pre Primary levels (PP1=-2, PP2=-1) and zero for Crèche.
+ */
+const CANONICAL_GRADE_LEVELS: Array<{
+  designationCode: string;
+  name: string;
+  academicLevel: number;
+  description: string;
+}> = [
+  {
+    designationCode: 'PP1',
+    name: 'Pre Primary 1',
+    academicLevel: -2,
+    description: 'Curriculum Grade - Pre Primary 1',
+  },
+  {
+    designationCode: 'PP2',
+    name: 'Pre Primary 2',
+    academicLevel: -1,
+    description: 'Curriculum Grade - Pre Primary 2',
+  },
+  {
+    designationCode: 'G0',
+    name: 'Crèche',
+    academicLevel: 0,
+    description: 'Curriculum Grade - Crèche',
+  },
+  {
+    designationCode: 'G1',
+    name: 'Grade 1',
+    academicLevel: 1,
+    description: 'Curriculum Grade - Grade 1',
+  },
+  {
+    designationCode: 'G2',
+    name: 'Grade 2',
+    academicLevel: 2,
+    description: 'Curriculum Grade - Grade 2',
+  },
+  {
+    designationCode: 'G3',
+    name: 'Grade 3',
+    academicLevel: 3,
+    description: 'Curriculum Grade - Grade 3',
+  },
+];
+
+/**
  * Seeds an active academic session (AcademicYear) with its terms for the school.
  *
  * The session selector mounted in every portal's navbar reads its options from
@@ -84,6 +135,46 @@ async function ensureAcademicSessions(schoolId: string) {
   });
 }
 
+/**
+ * Seeds the canonical curriculum grade levels for the school.
+ *
+ * Idempotent: only missing grades are created. Any grade that already exists
+ * (by designation code) is left untouched, so school-specific customizations
+ * to names or descriptions survive a re-seed. Curriculum-defined grades that
+ * are missing become `origin: curriculum`; the school is free to add custom
+ * grades of their own later via the admin UI.
+ */
+async function ensureGradeLevels(schoolId: string) {
+  for (const g of CANONICAL_GRADE_LEVELS) {
+    const existing = await prisma.gradeLevel.findFirst({
+      where: { schoolId, designationCode: g.designationCode },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      await prisma.gradeLevel.create({
+        data: {
+          schoolId,
+          name: g.name,
+          designationCode: g.designationCode,
+          academicLevel: g.academicLevel,
+          description: g.description,
+          status: 'active',
+          origin: 'curriculum',
+        },
+      });
+      logger.info('Grade level created', {
+        schoolId,
+        code: g.designationCode,
+        name: g.name,
+        academicLevel: g.academicLevel,
+      });
+    }
+  }
+
+  logger.info('Grade levels ensured', { schoolId });
+}
+
 async function main() {
   logger.info('Seeding school...');
 
@@ -91,11 +182,11 @@ async function main() {
   if (!school) {
     school = await prisma.school.create({
       data: {
-        name: 'Greenfield Academy',
-        displayName: 'Greenfield Academy',
-        schoolCode: 'GFA',
-        schoolType: 'Day Secondary',
-        schoolLevel: 'Secondary',
+        name: 'RaceField Comprehensive School',
+        displayName: 'RaceField Comprehensive School',
+        schoolCode: 'RFC',
+        schoolType: 'Day & Boarding',
+        schoolLevel: 'Primary',
         curriculum: 'CBC',
         status: 'ACTIVE',
       },
@@ -133,6 +224,7 @@ async function main() {
   }
 
   await ensureAcademicSessions(school.id);
+  await ensureGradeLevels(school.id);
 
   logger.info('School seed complete.');
 }
