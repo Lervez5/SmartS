@@ -246,7 +246,7 @@ router.post('/mark', requireMark, async (req, res, next) => {
         classId: payload.classId,
         // Narrowed to the caller's streams, so a teacher responsible for one
         // stream of a five-stream class cannot mark the other four.
-        ...(streamScope ? { streamId: { in: [...streamScope] } } : {}),
+        ...(streamScope?.size ? { streamId: { in: [...streamScope] } } : {}),
       },
       select: { studentId: true },
     });

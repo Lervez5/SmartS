@@ -132,24 +132,30 @@ router.get(
     const { schoolId } = schoolScopeOf(req);
     const userId = req.user!.id;
 
-    // Get academic session for allocation checks
     const sessionId = await currentSessionId(schoolId);
 
-    // Find classes where user is main class teacher via:
-    // 1. Direct Class.teacherId (legacy)
-    // 2. Class-level StreamAllocation (main_class_teacher, streamId: null)
-    // 3. Stream-level StreamAllocation (main_class_teacher) for classes with streams
     const classIds = new Set<string>();
+    const assistantClassIds = new Set<string>();
 
-    // 1. Legacy class teacher
+    // 1. Legacy main class teacher (Class.teacherId)
     const legacyClasses = await prisma.class.findMany({
       where: { schoolId, teacherId: userId },
       select: { id: true },
     });
     legacyClasses.forEach((c) => classIds.add(c.id));
 
+    // 2. Legacy assistant with management rights
+    const assistantClasses = await prisma.class.findMany({
+      where: { schoolId, assistants: { some: { assistantId: userId, canManage: true } } },
+      select: { id: true },
+    });
+    assistantClasses.forEach((c) => {
+      classIds.add(c.id);
+      assistantClassIds.add(c.id);
+    });
+
     if (sessionId) {
-      // 2. Class-level StreamAllocation (no streams, class-level main teacher)
+      // 3. Class-level StreamAllocation as main_class_teacher (streamId: null)
       const classLevelAllocs = await prisma.streamAllocation.findMany({
         where: {
           schoolId,
@@ -164,7 +170,7 @@ router.get(
       });
       classLevelAllocs.forEach((a) => a.classId && classIds.add(a.classId));
 
-      // 3. Stream-level StreamAllocation for classes with streams
+      // 4. Stream-level StreamAllocation as main_class_teacher
       const streamAllocs = await prisma.streamAllocation.findMany({
         where: {
           schoolId,
@@ -179,6 +185,47 @@ router.get(
       streamAllocs.forEach((a) => {
         if (a.stream) classIds.add(a.stream.classId);
       });
+
+      // 5. Stream-level StreamAllocation as assistant_class_teacher with canManage
+      const assistantStreamAllocs = await prisma.streamAllocation.findMany({
+        where: {
+          schoolId,
+          academicYearId: sessionId,
+          teacherId: userId,
+          responsibility: 'assistant_class_teacher',
+          status: 'active',
+          canManage: true,
+          streamId: { not: null },
+        },
+        select: { stream: { select: { classId: true } } },
+      });
+      assistantStreamAllocs.forEach((a) => {
+        if (a.stream) {
+          classIds.add(a.stream.classId);
+          assistantClassIds.add(a.stream.classId);
+        }
+      });
+
+      // 6. Class-level StreamAllocation as assistant_class_teacher with canManage
+      const assistantClassAllocs = await prisma.streamAllocation.findMany({
+        where: {
+          schoolId,
+          academicYearId: sessionId,
+          teacherId: userId,
+          responsibility: 'assistant_class_teacher',
+          status: 'active',
+          canManage: true,
+          streamId: null,
+          classId: { not: null },
+        },
+        select: { classId: true },
+      });
+      assistantClassAllocs.forEach((a) => {
+        if (a.classId) {
+          classIds.add(a.classId);
+          assistantClassIds.add(a.classId);
+        }
+      });
     }
 
     if (classIds.size === 0) {
@@ -191,7 +238,15 @@ router.get(
       include: classInclude,
       orderBy: { createdAt: 'desc' },
     });
-    res.json({ classes: classes.map(mapClass) });
+
+    res.json({
+      classes: classes.map((cls) => {
+        const mapped = mapClass(cls);
+        const isMainTeacher = cls.teacherId === userId;
+        const isAssistant = assistantClassIds.has(cls.id) && !isMainTeacher;
+        return { ...mapped, isAssistant };
+      }),
+    });
   })
 );
 

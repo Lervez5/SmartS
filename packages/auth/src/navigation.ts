@@ -335,8 +335,6 @@ const TEACHER_NAV: NavSection[] = [
         href: '/dashboard/classes',
         permissions: ['cohorts.view'],
         icon: 'users-round',
-        implemented: false,
-        gap: 'No page exists at this route yet, so the link resolves to nothing.',
         order: 1,
       },
       {
@@ -346,8 +344,6 @@ const TEACHER_NAV: NavSection[] = [
         permissions: ['learningAreas.view'],
         icon: 'shapes',
         order: 2,
-        implemented: false,
-        gap: "The learning-area catalogue now exists: GET /api/learning-areas is implemented over the Subject records, school-scoped and gated on learningAreas.view, and GET /api/subjects is no longer unguarded. What is missing is this teacher-facing view. A teacher's learning areas come from their allocations, which the teacher allocation workspace already shows; this view would add the areas applicable to the sessions they teach.",
       },
       {
         id: 'tea.courses',

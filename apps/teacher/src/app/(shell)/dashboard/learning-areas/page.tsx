@@ -1,8 +1,9 @@
 'use client';
 
 import * as React from 'react';
+import { ChevronDown } from 'lucide-react';
 import { useApi } from '@schoolos/hooks';
-import { ActionButtons, notify } from '@schoolos/ui';
+import { notify } from '@schoolos/ui';
 import {
   DashboardCard,
   DataTable,
@@ -14,22 +15,6 @@ import {
   type DataTableColumn,
   type StatusTone,
 } from '@schoolos/ui';
-
-/**
- * Learning Areas - teacher portal.
- *
- * The learning areas this teacher is responsible for.
- *
- * The list comes from the teacher's own stream allocations, which is the record
- * that says who teaches what to whom - not from the whole school catalogue, and
- * not from a list of every area an administrator happens to have created. A
- * teacher who teaches one area across three streams sees one area against three
- * streams, because that is the shape of the work.
- *
- * Reaching the allocation itself is a link into the teacher allocation
- * workspace, where responsibility is actually changed. Editing a learning area
- * here would be editing something the school owns, not the teacher.
- */
 
 interface LearningArea {
   id: string;
@@ -44,17 +29,20 @@ interface LearningArea {
   appliesToAllGrades: boolean;
 }
 
+interface Stream {
+  id: string;
+  name: string;
+  code: string;
+  isClassLevel: boolean;
+  class: { id: string; name: string; gradeLevel: string | null };
+}
+
 interface TeachingRow {
   area: LearningArea;
   responsibility: string;
   canEnterResults: boolean;
   canManage: boolean;
-  stream: {
-    id: string;
-    name: string;
-    code: string;
-    class: { id: string; name: string; gradeLevel: string | null };
-  };
+  stream: Stream;
   academicYear: { id: string; name: string } | null;
 }
 
@@ -67,6 +55,11 @@ interface TeachingResponse {
 const ORIGIN_LABEL: Record<'custom' | 'curriculum', string> = {
   custom: 'School-defined',
   curriculum: 'Curriculum-defined',
+};
+
+const ORIGIN_TONE: Record<'custom' | 'curriculum', StatusTone> = {
+  custom: 'neutral',
+  curriculum: 'info',
 };
 
 const RESPONSIBILITY_LABEL: Record<string, string> = {
@@ -85,7 +78,13 @@ function describeGrades(area: LearningArea): string {
   if (area.appliesToAllGrades) return 'All grades';
   if (area.gradeLevels.length === 0) return 'No grades selected';
   if (area.gradeLevels.length === 1) return `Grade ${area.gradeLevels[0]}`;
-  return `Grades ${area.gradeLevels.join(', ')}`;
+  if (area.gradeLevels.length <= 3) return `Grades ${area.gradeLevels.join(', ')}`;
+  return `Grades ${area.gradeLevels.slice(0, 3).join(', ')} +${area.gradeLevels.length - 3}`;
+}
+
+function streamLabel(stream: Stream): string {
+  if (stream.isClassLevel) return 'Whole class';
+  return `${stream.name} (${stream.code})`;
 }
 
 export default function TeacherLearningAreasPage() {
@@ -94,27 +93,7 @@ export default function TeacherLearningAreasPage() {
   const rows = data.data?.teaching ?? [];
   const areaCount = data.data?.areaCount ?? 0;
   const streamCount = data.data?.streamCount ?? 0;
-
-  /**
-   * A teacher who teaches five areas across nine streams has nine rows but five
-   * areas. The card reads the distinct-area count, and the table shows every
-   * allocation, so neither number hides the other.
-   */
-  const byArea = React.useMemo(() => {
-    const map = new Map<
-      string,
-      { area: LearningArea; streamCount: number; canEnterResults: boolean }
-    >();
-    for (const row of rows) {
-      const existing = map.get(row.area.id);
-      map.set(row.area.id, {
-        area: row.area,
-        streamCount: (existing?.streamCount ?? 0) + 1,
-        canEnterResults: existing?.canEnterResults || row.canEnterResults,
-      });
-    }
-    return [...map.values()].sort((a, b) => a.area.name.localeCompare(b.area.name));
-  }, [rows]);
+  const curriculumCount = rows.filter((r) => r.area.origin === 'curriculum').length;
 
   const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
 
@@ -128,9 +107,8 @@ export default function TeacherLearningAreasPage() {
     return [...grouped.entries()]
       .map(([classId, items]) => ({
         key: classId,
-        label:
-          items[0].stream.class.name +
-          (items[0].stream.class.gradeLevel ? ` · ${items[0].stream.class.gradeLevel}` : ''),
+        label: items[0].stream.class.name,
+        sublabel: items[0].stream.class.gradeLevel ?? undefined,
         items: items.sort((a, b) => a.area.name.localeCompare(b.area.name)),
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
@@ -145,14 +123,30 @@ export default function TeacherLearningAreasPage() {
     });
   }
 
-  const rowColumns: Array<DataTableColumn<TeachingRow>> = [
+  function toggleAll() {
+    const keys = groups.map((g) => g.key);
+    const anyOpen = keys.some((k) => !collapsed.has(k));
+    setCollapsed(anyOpen ? new Set(keys) : new Set());
+  }
+
+  const groupedColumns: Array<DataTableColumn<TeachingRow>> = [
     {
       id: 'area',
       header: 'Learning area',
       cell: (row) => (
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">{row.area.name}</p>
-          <p className="truncate text-xs text-muted-foreground">{describeGrades(row.area)}</p>
+          <div className="flex items-center gap-2">
+            <span
+              className={
+                row.area.origin === 'curriculum'
+                  ? 'text-xs text-blue-600'
+                  : 'text-xs text-amber-600'
+              }
+            >
+            </span>
+            <p className="truncate text-sm font-medium text-foreground">{row.area.name}</p>
+          </div>
+          <p className="ml-6 truncate text-xs text-muted-foreground">{describeGrades(row.area)}</p>
         </div>
       ),
       sortValue: (row) => row.area.name,
@@ -161,12 +155,10 @@ export default function TeacherLearningAreasPage() {
       id: 'stream',
       header: 'Stream',
       cell: (row) => (
-        <span className="text-sm text-foreground">
-          {row.stream.name} <span className="text-muted-foreground">({row.stream.code})</span>
-        </span>
+        <span className="text-sm text-foreground">{streamLabel(row.stream)}</span>
       ),
       hideBelow: 'sm',
-      sortValue: (row) => row.stream.name,
+      sortValue: (row) => streamLabel(row.stream),
     },
     {
       id: 'responsibility',
@@ -192,12 +184,12 @@ export default function TeacherLearningAreasPage() {
       hideBelow: 'lg',
     },
     {
-      id: 'origin',
+      id: 'source',
       header: 'Source',
       cell: (row) => (
         <StatusPill
           label={ORIGIN_LABEL[row.area.origin]}
-          tone={row.area.origin === 'curriculum' ? 'info' : 'neutral'}
+          tone={ORIGIN_TONE[row.area.origin]}
         />
       ),
       hideBelow: 'lg',
@@ -207,20 +199,17 @@ export default function TeacherLearningAreasPage() {
       header: '',
       align: 'right',
       cell: (row) => (
-        <ActionButtons
-          items={[
-            {
-              id: 'view',
-              label: `What ${row.area.name} covers`,
-              icon: 'book-open',
-              onClick: () =>
-                notify.info(
-                  row.area.description ??
-                    `${row.area.name} has no description recorded. Ask an administrator to add one.`
-                ),
-            },
-          ]}
-        />
+        <button
+          type="button"
+          onClick={() =>
+            notify.info(
+              row.area.description ?? `${row.area.name} has no description recorded.`
+            )
+          }
+          className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+        >
+          View details
+        </button>
       ),
     },
   ];
@@ -269,7 +258,7 @@ export default function TeacherLearningAreasPage() {
         />
         <DashboardCard
           title="Curriculum-defined"
-          value={rows.filter((r) => r.area.origin === 'curriculum').length}
+          value={curriculumCount}
           icon="shield-check"
           description="Synchronized from the curriculum"
         />
@@ -282,86 +271,68 @@ export default function TeacherLearningAreasPage() {
           icon="book-open"
         />
       ) : (
-        <>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            {byArea.map(({ area, streamCount: streams, canEnterResults }) => (
-              <div key={area.id} className="rounded-lg border bg-card p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">{area.name}</p>
-                    <p className="text-xs text-muted-foreground">{describeGrades(area)}</p>
-                  </div>
-                  <StatusPill
-                    label={ORIGIN_LABEL[area.origin]}
-                    tone={area.origin === 'curriculum' ? 'info' : 'neutral'}
-                  />
-                </div>
-                <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <dt className="text-muted-foreground">Streams</dt>
-                    <dd className="font-medium text-foreground">{streams}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Results entry</dt>
-                    <dd className="font-medium text-foreground">
-                      {canEnterResults ? 'Permitted' : 'Not permitted'}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              {groups.length} {groups.length === 1 ? 'class' : 'classes'} · {rows.length} allocation{rows.length === 1 ? '' : 's'}
+            </p>
             <button
               type="button"
-              onClick={() => {
-                const keys = groups.map((g) => g.key);
-                const anyOpen = keys.some((k) => !collapsed.has(k));
-                setCollapsed(anyOpen ? new Set(keys) : new Set());
-              }}
-              className="rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+              onClick={toggleAll}
+              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               {groups.some((g) => !collapsed.has(g.key)) ? 'Collapse all' : 'Expand all'}
             </button>
           </div>
 
-          <div className="space-y-3">
-            {groups.map((group) => {
-              const isCollapsed = collapsed.has(group.key);
-              return (
-                <div key={group.key} className="rounded-lg border bg-card">
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup(group.key)}
-                    aria-expanded={!isCollapsed}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left"
-                  >
-                    <span className="text-xs font-medium text-muted-foreground">{group.label}</span>
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                      {group.items.length}
-                    </span>
-                    <span className="flex-1" />
-                    <span className="text-xs text-muted-foreground">
-                      {isCollapsed ? 'Show' : 'Hide'}
-                    </span>
-                  </button>
-                  {!isCollapsed ? (
-                    <div className="border-t">
-                      <DataTable
-                        caption={`Learning areas for ${group.label}`}
-                        columns={rowColumns}
-                        rows={group.items}
-                        rowKey={(row) => `${row.area.id}:${row.stream.id}`}
-                        pageSize={group.items.length > 10 ? 10 : 0}
-                      />
+          {groups.map((group) => {
+            const isCollapsed = collapsed.has(group.key);
+            return (
+              <div key={group.key} className="rounded-lg border bg-card shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.key)}
+                  aria-expanded={!isCollapsed}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                >
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">{group.label}</span>
+                      {group.sublabel && (
+                        <>
+                          <span className="text-xs text-muted-foreground">·</span>
+                          <span className="text-xs text-muted-foreground">{group.sublabel}</span>
+                        </>
+                      )}
                     </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        </>
+                    <span className="text-xs text-muted-foreground">
+                      {group.items.length} {group.items.length === 1 ? 'area' : 'areas'}
+                    </span>
+                  </div>
+                  <span className="rounded-full bg-muted/50 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    {group.items.length}
+                  </span>
+                  <ChevronDown
+                    className={
+                      isCollapsed ? 'ml-auto h-4 w-4 rotate-0' : 'ml-auto h-4 w-4 rotate-180'
+                    }
+                  />
+                </button>
+                {!isCollapsed ? (
+                  <div className="border-t bg-muted/20">
+                    <DataTable
+                      caption={`Learning areas for ${group.label}`}
+                      columns={groupedColumns}
+                      rows={group.items}
+                      rowKey={(row) => `${row.area.id}:${row.stream.id}`}
+                      pageSize={group.items.length > 10 ? 10 : 0}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

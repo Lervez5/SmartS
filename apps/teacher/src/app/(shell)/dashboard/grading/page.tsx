@@ -160,7 +160,7 @@ interface ContextResponse {
     name: string;
     label: string | null;
     status: string;
-    terms: Array<{ id: string; name: string; termNumber: number | null }>;
+    terms: Array<{ id: string; name: string; termNumber: number | null; startDate: Date | null; endDate: Date | null }>;
   }>;
   assessments: Array<{
     id: string;
@@ -171,6 +171,11 @@ interface ContextResponse {
     classId: string;
     className: string | null;
     gradeLevel: string | null;
+    academicYearId: string | null;
+    termId: string | null;
+    sessionName: string | null;
+    termName: string | null;
+    termNumber: number | null;
     learningAreaCount: number;
     learningAreaNames: string[];
   }>;
@@ -225,44 +230,92 @@ export default function TeacherGradingPage() {
   const [edits, setEdits] = React.useState<Record<string, string>>({});
   const [busy, setBusy] = React.useState(false);
 
-  const context = useApi<ContextResponse>(
-    can('examinations.view') ? '/api/results-entry/context' : null
-  );
+   // Build the context URL with query params so the server applies the filters
+   // directly, returning only the assessments the teacher needs to see for the
+   // selected session / term / grade.  When no filter is set the endpoint omits
+   // the param and returns the full (already scope-limited) set.
+   const contextUrl = React.useMemo(() => {
+     const params = new URLSearchParams();
+     if (sessionId) params.set('academicYearId', sessionId);
+     if (termId) params.set('termId', termId);
+     if (gradeLevel) params.set('gradeLevel', gradeLevel);
+     const qs = params.toString();
+     return can('examinations.view')
+       ? `/api/results-entry/context${qs ? `?${qs}` : ''}`
+       : null;
+   }, [sessionId, termId, gradeLevel, can]);
 
-  const sessions = context.data?.sessions ?? [];
-  const selectedSession = sessions.find((s) => s.id === sessionId) ?? null;
-  const termOptions = selectedSession?.terms ?? [];
+   const context = useApi<ContextResponse>(contextUrl);
 
-  // Grades are derived from the school's classes, never a hardcoded list.
-  const gradeOptions = React.useMemo(() => {
-    const grades = new Set<string>();
-    for (const cls of context.data?.classes ?? []) {
-      if (cls.gradeLevel) grades.add(cls.gradeLevel);
-    }
-    return [...grades].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  }, [context.data]);
+   const sessions = context.data?.sessions ?? [];
+   const selectedSession = sessions.find((s) => s.id === sessionId) ?? null;
+   const termOptions = selectedSession?.terms ?? [];
 
-  // Streams belong to a class within a grade, so a stream filter only applies
-  // once a grade is chosen - a stream is a subdivision, never a filter of its own.
-  const streamOptions = React.useMemo(() => {
-    if (!gradeLevel) return [];
-    return (context.data?.classes ?? [])
-      .filter((cls) => cls.gradeLevel === gradeLevel)
-      .flatMap((cls) => cls.streams);
-  }, [context.data, gradeLevel]);
+   // When sessions load, pre-select the current (active) academic session so the
+   // teacher starts in the term they are actually working in.
+   React.useEffect(() => {
+     if (!sessionId && sessions.length > 0) {
+       const active = sessions.find((s) => s.status === 'active');
+       if (active) setSessionId(active.id);
+     }
+   }, [sessions, sessionId]);
 
-  const assessments = React.useMemo(() => {
-    return (context.data?.assessments ?? []).filter((assessment) => {
-      if (sessionId && assessment.classId) {
-        // The session is known through the class's class record, so it is not
-        // carried on the assessment itself; filter on grade, which is.
-        void sessionId;
+   // When a session is selected, auto-pick its first term (they arrive ordered
+   // by termNumber, so the first one is the natural default).  This avoids
+   // leaving the term dropdown on "All terms" while a session is pinned, and
+   // keeps the assessment list scoped to the right term by default.
+   React.useEffect(() => {
+      if (!sessionId) {
+         setTermId('');
+         return;
       }
-      if (termId && assessment.classId) void termId;
-      if (gradeLevel && assessment.gradeLevel !== gradeLevel) return false;
-      return true;
-    });
-  }, [context.data, sessionId, termId, gradeLevel]);
+      const session = sessions.find((s) => s.id === sessionId);
+      if (!session) {
+         setTermId('');
+         return;
+      }
+      const terms = session.terms ?? [];
+      setTermId(terms.length > 0 ? terms[0].id : '');
+   }, [sessionId, sessions]);
+
+   // Grades are derived from the school's classes, never a hardcoded list.
+   const gradeOptions = React.useMemo(() => {
+     const grades = new Set<string>();
+     for (const cls of context.data?.classes ?? []) {
+       if (cls.gradeLevel) grades.add(cls.gradeLevel);
+     }
+     return [...grades].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+   }, [context.data]);
+
+    // Streams belong to a class within a grade, so a stream filter only applies
+    // once a grade is chosen - a stream is a subdivision, never a filter of its own.
+    // When the grade has no streams, the class is undivided and the filter is
+    // informational only, since all learners sit in the class itself.
+    const gradeHasStreams = React.useMemo(() => {
+      if (!gradeLevel) return false;
+      return (context.data?.classes ?? []).some(
+         (cls) => cls.gradeLevel === gradeLevel && cls.streams.length > 0
+      );
+    }, [context.data, gradeLevel]);
+
+    const streamOptions = React.useMemo(() => {
+       if (!gradeLevel) return [];
+       return (context.data?.classes ?? [])
+         .filter((cls) => cls.gradeLevel === gradeLevel)
+         .flatMap((cls) => cls.streams);
+    }, [context.data, gradeLevel]);
+
+    // With server-side filtering via query params, the assessment list is already
+    // narrowed to the selected session / term / grade.  A client-side safety net
+    // keeps the list correct during the brief window before the refetch settles.
+    const assessments = React.useMemo(() => {
+      return (context.data?.assessments ?? []).filter((assessment) => {
+        if (sessionId && assessment.academicYearId !== sessionId) return false;
+        if (termId && assessment.termId !== termId) return false;
+        if (gradeLevel && assessment.gradeLevel !== gradeLevel) return false;
+        return true;
+      });
+    }, [context.data, sessionId, termId, gradeLevel]);
 
   const selected = assessments.find((a) => a.id === assessmentId) ?? null;
 
@@ -338,21 +391,36 @@ export default function TeacherGradingPage() {
     return saved && saved.score !== null ? String(saved.score) : '';
   }
 
-  /** What a currently-draft value would resolve to, before it is saved. */
-  function draftGrade(row: RosterRow, subjectId: string): CellGrade | null {
-    // Only marks the server has resolved carry a grade. A draft is shown as
-    // unsaved rather than previewed: the band comes from the grading
-    // configuration, and resolving it here would be a second grading engine.
-    const saved = row.cells[subjectId];
-    if (!saved || saved.score === null) return null;
-    return {
-      competencyLevel: saved.competencyLevel,
-      competencyLabel: saved.competencyLabel,
-      racefieldBandCode: saved.racefieldBandCode,
-      racefieldBandLabel: saved.racefieldBandLabel,
-      racefieldPoints: saved.racefieldPoints,
-    };
-  }
+   /** What a draft value resolves to against the active grading scale. */
+   function resolveDraftGrade(row: RosterRow, subjectId: string): CellGrade | null {
+     const draft = cellDraft(row, subjectId);
+     if (!draft || !draft.valid || draft.value === '') return null;
+
+     const score = Number(draft.value);
+     if (!grading || !grading.scale) return null;
+
+     const band = grading.scale.bands.find(
+       (b) => score >= b.minScore && (b.maxScore === null || score <= b.maxScore)
+     );
+
+     let competency: { level: string; label: string } | null = null;
+     if (maxScore !== null && maxScore > 0) {
+       const percent = (score / maxScore) * 100;
+       competency =
+         grading.competencyBands?.find(
+           (b) => percent >= b.minPercent && percent <= (b.maxPercent ?? 100)
+         ) ?? null;
+     }
+
+     if (!band && !competency) return null;
+     return {
+       competencyLevel: competency?.level ?? null,
+       competencyLabel: competency?.label ?? null,
+       racefieldBandCode: band?.code ?? null,
+       racefieldBandLabel: band?.label ?? null,
+       racefieldPoints: band?.points ?? null,
+     };
+   }
 
   /** A draft value the server would accept, before it is saved. */
   function cellDraft(row: RosterRow, subjectId: string): { value: string; valid: boolean } | null {
@@ -539,74 +607,86 @@ export default function TeacherGradingPage() {
       base.push({
         id: `area-${area.id}`,
         header: area.code ? `${area.name} (${area.code})` : area.name,
-        cell: (row) => {
-          const cell = row.cells[area.id];
-          const grade = draftGrade(row, area.id);
+         cell: (row) => {
+           const cell = row.cells[area.id];
+           const draft = cellDraft(row, area.id);
+           const savedGrade = cell && cell.score !== null
+             ? {
+                 racefieldBandCode: cell.racefieldBandCode,
+                 racefieldPoints: cell.racefieldPoints,
+               }
+             : null;
+           const draftGrade = draft && draft.valid && draft.value !== ''
+             ? resolveDraftGrade(row, area.id)
+             : null;
 
-          // A cell is one of four states, and the interface says which: nothing
-          // recorded, a draft not yet saved, a saved mark, or a locked published
-          // result.
-          const hasSaved = cell && cell.score !== null;
+           const hasSaved = cell && cell.score !== null;
 
-          if (locked) {
-            return (
-              <div className="text-right">
-                {hasSaved ? (
-                  <>
-                    <p className="text-sm font-medium text-foreground">
-                      {cell.score}
-                      {cell.maxScore !== null ? `/${cell.maxScore}` : ''}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {cell.racefieldBandCode ?? '—'}
-                      {cell.racefieldPoints !== null ? ` · ${cell.racefieldPoints}pts` : ''}
-                    </p>
-                  </>
-                ) : (
-                  <span className="text-xs text-muted-foreground">not entered</span>
-                )}
-              </div>
-            );
-          }
+           if (locked) {
+             return (
+               <div className="text-right">
+                 {hasSaved ? (
+                   <>
+                     <p className="text-sm font-medium text-foreground">
+                       {cell.score}
+                       {cell.maxScore !== null ? `/${cell.maxScore}` : ''}
+                     </p>
+                     <p className="text-xs text-muted-foreground">
+                       {cell.racefieldBandCode ?? '—'}
+                       {cell.racefieldPoints !== null ? ` · ${cell.racefieldPoints}pts` : ''}
+                     </p>
+                   </>
+                 ) : (
+                   <span className="text-xs text-muted-foreground">not entered</span>
+                 )}
+               </div>
+             );
+           }
 
-          return (
-            <div className="space-y-1">
-              <TextInput
-                type="number"
-                min={0}
-                max={maxScore ?? undefined}
-                value={cellValue(row, area.id)}
-                onChange={(e) => setEdit(row.learnerId, area.id, e.target.value)}
-                className="h-9 w-20 text-right"
-                inputMode="decimal"
-              />
-              <p className="text-xs text-muted-foreground">
-                {cellDraft(row, area.id) ? (
-                  cellDraft(row, area.id)!.valid ? (
-                    <span className="text-amber-600 dark:text-amber-400">unsaved</span>
-                  ) : (
-                    <span className="text-destructive">
-                      {maxScore !== null ? `enter 0–${maxScore}` : 'enter a number'}
-                    </span>
-                  )
-                ) : grade ? (
-                  <>
-                    {grade.racefieldBandCode ?? '—'}
-                    {grade.racefieldPoints !== null ? ` · ${grade.racefieldPoints}pts` : ''}
-                  </>
-                ) : (
-                  '—'
-                )}
-              </p>
-            </div>
-          );
-        },
-      });
-    }
-    return base;
-    // `edits` is read inside each cell, so the columns are rebuilt whenever a
-    // draft changes; the rest of the grid is stable per assessment.
-  }, [areas, edits, locked, maxScore]);
+           const grade = draftGrade ?? savedGrade;
+           const gradeLabel = grade ? (
+             <>
+               <span className="font-medium text-foreground">
+                 {grade.racefieldBandCode ?? '—'}
+               </span>
+               {grade.racefieldPoints !== null ? (
+                 <span className="text-muted-foreground"> · {grade.racefieldPoints}pts</span>
+               ) : null}
+             </>
+           ) : (
+             '—'
+           );
+
+           return (
+             <div className="space-y-1">
+               <TextInput
+                 type="number"
+                 min={0}
+                 max={maxScore ?? undefined}
+                 value={cellValue(row, area.id)}
+                 onChange={(e) => setEdit(row.learnerId, area.id, e.target.value)}
+                 className="h-9 w-20 text-right"
+                 inputMode="decimal"
+               />
+               {draft ? (
+                 draft.valid ? (
+                   <div className="flex items-center gap-2 text-xs">
+                     <span className="text-amber-600 dark:text-amber-400">unsaved</span>
+                     {draftGrade ? gradeLabel : null}
+                   </div>
+                 ) : (
+                   <span className="text-xs text-destructive">
+                     {maxScore !== null ? `enter 0–${maxScore}` : 'enter a number'}
+                   </span>
+                 )
+               ) : gradeLabel}
+             </div>
+           );
+         },
+       });
+     }
+     return base;
+   }, [areas, edits, locked, maxScore, grading]);
 
   return (
     <div className="space-y-6">
@@ -671,14 +751,25 @@ export default function TeacherGradingPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Stream" hint="Subdivisions of a class within a grade.">
+          <Field
+            label="Stream"
+            hint={
+              gradeLevel && !gradeHasStreams
+                ? 'This grade has no streams — the class is undivided.'
+                : 'Subdivisions of a class within a grade.'
+            }
+          >
             <Select
               value={streamId}
               onChange={(e) => setStreamId(e.target.value)}
               disabled={streamOptions.length === 0}
             >
               <option value="">
-                {streamOptions.length === 0 ? 'Select a grade first' : 'All streams'}
+                {!gradeLevel
+                  ? 'Select a grade first'
+                  : gradeHasStreams
+                  ? 'All streams'
+                  : 'Class is undivided'}
               </option>
               {streamOptions.map((stream) => (
                 <option key={stream.id} value={stream.id}>

@@ -187,7 +187,7 @@ function present(session: {
   startDate: Date;
   endDate: Date;
   status: AcademicSessionStatus;
-  terms: Array<{ id: string; name: string; termNumber: number; status: TermStatus }>;
+  terms: Array<{ id: string; name: string; termNumber: number; startDate: Date; endDate: Date; status: TermStatus }>;
 }) {
   return {
     id: session.id,
@@ -205,6 +205,8 @@ function present(session: {
         id: term.id,
         name: term.name,
         termNumber: term.termNumber,
+        startDate: term.startDate,
+        endDate: term.endDate,
         status: term.status,
       })),
   };
@@ -264,10 +266,12 @@ router.get(
             }
           : {}),
       },
-      include: {
-        terms: { select: { id: true, name: true, termNumber: true, status: true } },
-      },
-      orderBy,
+       include: {
+         terms: {
+           select: { id: true, name: true, termNumber: true, startDate: true, endDate: true, status: true },
+         },
+       },
+       orderBy,
       ...(query.limit ? { take: query.limit } : {}),
     });
 
@@ -300,11 +304,11 @@ router.get(
     const { schoolId } = schoolScopeOf(req);
     const session = await prisma.academicYear.findFirst({
       where: { schoolId, status: 'active' },
-      include: {
-        terms: { select: { id: true, name: true, termNumber: true, status: true } },
-      },
-      orderBy: { startDate: 'desc' },
-    });
+       include: {
+         terms: { select: { id: true, name: true, termNumber: true, startDate: true, endDate: true, status: true } },
+       },
+       orderBy: { startDate: 'desc' },
+     });
 
     if (!session) {
       res.json({ session: null });

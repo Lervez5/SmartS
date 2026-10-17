@@ -212,8 +212,8 @@ export async function streamTeams(schoolId: string, academicYearId: string, clas
     orderBy: [{ responsibility: 'asc' }, { teacher: { name: 'asc' } }],
   });
 
-  // Filter to stream-level allocations only (class-level have streamId: null)
-  const streamAllocations = allocations.filter((r) => r.streamId !== null);
+  // Filter to stream-level allocations only (class-level have streamId: null or missing)
+  const streamAllocations = allocations.filter((r) => r.streamId != null);
 
   const byStream = new Map<string, typeof streamAllocations>();
   for (const row of streamAllocations) {

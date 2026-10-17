@@ -37,9 +37,7 @@ interface Term {
   startDate: string;
   endDate: string;
   status: 'planned' | 'active' | 'completed';
-}
-
-interface SessionRow {
+}interface SessionRow {
   id: string;
   name: string;
   label?: string | null;
@@ -93,6 +91,17 @@ export default function AdminFeeTermsPage() {
   const [saving, setSaving] = React.useState(false);
   const [createError, setCreateError] = React.useState<string | null>(null);
 
+  // Inline term editing — tracks which term row is open in edit mode and
+  // holds the working copy of the values the admin is adjusting.
+  const [editingTermId, setEditingTermId] = React.useState<string | null>(null);
+  const [editForm, setEditForm] = React.useState<{ startDate: string; endDate: string; status: string }>({
+    startDate: '',
+    endDate: '',
+    status: '',
+  });
+  const [editError, setEditError] = React.useState<string | null>(null);
+  const [savingTerm, setSavingTerm] = React.useState(false);
+
   // Defaults to the session with the fewest terms, so the next term number
   // follows from what already exists.
   React.useEffect(() => {
@@ -142,6 +151,76 @@ export default function AdminFeeTermsPage() {
     }
   }
 
+  function startEdit(term: (typeof terms)[number]) {
+    setEditingTermId(term.id);
+    setEditForm({
+      startDate: term.startDate ? term.startDate.slice(0, 10) : '',
+      endDate: term.endDate ? term.endDate.slice(0, 10) : '',
+      status: term.status,
+    });
+    setEditError(null);
+  }
+
+  function cancelEdit() {
+    setEditingTermId(null);
+    setEditError(null);
+  }
+
+  async function updateTerm(term: (typeof terms)[number]) {
+    const hasChanges =
+      (editForm.startDate ? editForm.startDate.slice(0, 10) : '') !==
+        (term.startDate ? term.startDate.slice(0, 10) : '') ||
+      (editForm.endDate ? editForm.endDate.slice(0, 10) : '') !==
+        (term.endDate ? term.endDate.slice(0, 10) : '') ||
+      editForm.status !== term.status;
+
+    if (!hasChanges) {
+      setEditingTermId(null);
+      return;
+    }
+
+    const startValue = editForm.startDate;
+    const endValue = editForm.endDate;
+    if (startValue && endValue && new Date(endValue) <= new Date(startValue)) {
+      setEditError('End date must be after the start date.');
+      return;
+    }
+
+    setSavingTerm(true);
+    setEditError(null);
+    try {
+      const res = await fetch(
+        `/api/academic-sessions/${term.session.id}/terms/${term.id}`,
+        {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            startDate: startValue || undefined,
+            endDate: endValue || undefined,
+            status: editForm.status as 'planned' | 'active' | 'completed' | undefined,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as
+          | { error?: { message?: string } }
+          | null;
+        setEditError(body?.error?.message ?? `Could not update the term (HTTP ${res.status}).`);
+        return;
+      }
+
+      notify.success(`Term ${term.termNumber} updated`);
+      setEditingTermId(null);
+      refetch();
+    } catch {
+      setEditError('Could not reach the API. Check that it is running.');
+    } finally {
+      setSavingTerm(false);
+    }
+  }
+
   const columns: Array<DataTableColumn<(typeof terms)[number]>> = [
     {
       id: 'term',
@@ -165,18 +244,42 @@ export default function AdminFeeTermsPage() {
     {
       id: 'period',
       header: 'Period',
-      cell: (row) => (
-        <div className="min-w-0">
-          <p className="truncate text-sm text-foreground">
-            {formatDate(row.startDate)} – {formatDate(row.endDate)}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">
-            {daysBetween(row.startDate, row.endDate) !== null
-              ? `${daysBetween(row.startDate, row.endDate)} days`
-              : '-'}
-          </p>
-        </div>
-      ),
+      cell: (row) => {
+        if (editingTermId === row.id) {
+          const startValue = editForm.startDate ? editForm.startDate.slice(0, 10) : '';
+          const endValue = editForm.endDate ? editForm.endDate.slice(0, 10) : '';
+          const invalidRange =
+            startValue && endValue && new Date(endValue) <= new Date(startValue);
+          return (
+            <div className="flex flex-col gap-2">
+              <TextInput
+                type="date"
+                value={startValue}
+                onChange={(event) => setEditForm((prev) => ({ ...prev, startDate: event.target.value }))}
+                error={invalidRange ? 'End date must be after the start date' : undefined}
+              />
+              <TextInput
+                type="date"
+                value={endValue}
+                onChange={(event) => setEditForm((prev) => ({ ...prev, endDate: event.target.value }))}
+                error={invalidRange ? 'End date must be after the start date' : undefined}
+              />
+            </div>
+          );
+        }
+        return (
+          <div className="min-w-0">
+            <p className="truncate text-sm text-foreground">
+              {formatDate(row.startDate)} – {formatDate(row.endDate)}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              {daysBetween(row.startDate, row.endDate) !== null
+                ? `${daysBetween(row.startDate, row.endDate)} days`
+                : '-'}
+            </p>
+          </div>
+        );
+      },
       hideBelow: 'sm',
       sortValue: (row) => row.startDate,
     },
@@ -184,7 +287,22 @@ export default function AdminFeeTermsPage() {
       id: 'status',
       header: 'Status',
       align: 'right',
-      cell: (row) => <StatusPill label={row.status} tone={TERM_TONE[row.status] ?? 'neutral'} />,
+      cell: (row) => {
+        if (editingTermId === row.id) {
+          return (
+            <select
+              value={editForm.status}
+              onChange={(event) => setEditForm((prev) => ({ ...prev, status: event.target.value }))}
+              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="planned">Planned</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+            </select>
+          );
+        }
+        return <StatusPill label={row.status} tone={TERM_TONE[row.status] ?? 'neutral'} />;
+      },
       sortValue: (row) => row.status,
     },
   ];
@@ -339,6 +457,49 @@ export default function AdminFeeTermsPage() {
                 icon="calendar-range"
               />
             }
+            renderRowActions={canManage ? (row) => {
+              if (editingTermId === row.id) {
+                return (
+                  <div className="flex items-center gap-1">
+                    {editError ? (
+                      <span
+                        role="alert"
+                        className="mr-2 text-xs text-destructive"
+                        title={editError}
+                      >
+                        Error
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => updateTerm(row)}
+                      disabled={savingTerm}
+                      className="rounded-md border border-input bg-background px-2 py-1 text-xs font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      {savingTerm ? 'Saving…' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEdit}
+                      disabled={savingTerm}
+                      className="rounded-md border border-input bg-background px-2 py-1 text-xs font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                );
+              }
+              return (
+                <button
+                  type="button"
+                  onClick={() => startEdit(row)}
+                  className="rounded-md border border-input bg-background px-2 py-1 text-xs font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  title="Edit term"
+                >
+                  <NavIcon name="pencil" className="h-3.5 w-3.5" />
+                </button>
+              );
+            } : undefined}
           />
 
           <p className="text-xs text-muted-foreground">

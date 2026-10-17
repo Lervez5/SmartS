@@ -101,8 +101,8 @@ export async function loadAllocations(streamIds: string[], academicYearIds: stri
       canEnterResults: true,
     },
   });
-  // Filter to only stream-level allocations (streamId not null)
-  return rows.filter((r) => r.streamId !== null) as Array<{
+  // Filter to only stream-level allocations (streamId is a non-null, non-undefined value)
+  return rows.filter((r) => r.streamId != null) as Array<{
     streamId: string;
     teacherId: string;
     responsibility: string;
@@ -388,10 +388,10 @@ export async function resolveClassResultsScope(input: {
       subjectId: true,
       canManage: true,
       canEnterResults: true,
-      academicYearId: true,
+             academicYearId: true,
     },
   });
-  const ownAllocations = ownAllocationsResult.filter((r) => r.streamId !== null) as Array<{
+  const ownAllocations = ownAllocationsResult.filter((r) => r.streamId != null) as Array<{
     streamId: string;
     responsibility: string;
     subjectId: string | null;
@@ -485,10 +485,10 @@ export async function resolveClassResultsScopesForSchool(
       subjectId: true,
       canManage: true,
       canEnterResults: true,
-      academicYearId: true,
+             academicYearId: true,
     },
   });
-  const ownAllocations = ownAllocationsResult.filter((r) => r.streamId !== null) as Array<{
+  const ownAllocations = ownAllocationsResult.filter((r) => r.streamId != null) as Array<{
     streamId: string;
     responsibility: string;
     subjectId: string | null;
