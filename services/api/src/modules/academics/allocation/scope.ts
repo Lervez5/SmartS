@@ -245,9 +245,14 @@ export interface ClassScopeInputs {
    * The caller's own active allocations for those streams, with the session
    * each was recorded in. Already filtered to this class's streams by the
    * caller who loaded them.
+   *
+   * Includes class-level allocations where `streamId` is null — these grant
+   * access to the entire class (all streams), so a teacher recorded as the
+   * class teacher with no stream-level assignment is still authorised.
    */
   ownAllocations: Array<{
-    streamId: string;
+    streamId: string | null;
+    classId: string | null;
     responsibility: string;
     subjectId: string | null;
     canManage: boolean;
@@ -269,7 +274,7 @@ export interface ClassScopeInputs {
  * who may enter what. The session filter is accepted for symmetry with the
  * loader but is not applied here - the per-class resolver computes it into a
  * separate `allocations` variable and then reads `ownAllocations` directly, so
- * applying it again would change behaviour rather than preserve it.
+   * applying it again would change behaviour rather than preserve it.
  */
 export function decideClassScope(input: ClassScopeInputs): ClassResultsScope {
   const { classId, streams, ownAllocations, classTeacherId, userId } = input;
@@ -286,7 +291,7 @@ export function decideClassScope(input: ClassScopeInputs): ClassResultsScope {
     const ownsClass = mine.some(
       (row) =>
         row.responsibility === 'main_class_teacher' ||
-        row.responsibility === 'assistant_class_teacher'
+        row.responsibility === 'assistant_class_teacher',
     );
     // An assistant only enters results where the school granted that right on
     // the assignment; a view-only assistant is not given it by their role alone.
@@ -295,7 +300,7 @@ export function decideClassScope(input: ClassScopeInputs): ClassResultsScope {
         row.responsibility === 'main_class_teacher' ||
         ((row.responsibility === 'assistant_class_teacher' ||
           row.responsibility === 'subject_teacher') &&
-          row.canEnterResults)
+          row.canEnterResults),
     );
 
     if (!ownsClass && !mayEnterAreas) continue;
@@ -321,6 +326,54 @@ export function decideClassScope(input: ClassScopeInputs): ClassResultsScope {
       allowedSubjectIds: entersAllAreas ? [] : allowedSubjectIds,
       hasAccess: true,
     };
+  }
+
+  // A class-level allocation is recorded with streamId null and classId set; it
+  // grants access to the entire class (all streams). A class with no streams
+  // still resolves correctly: allStreams = true, streamIds = [], and downstream
+  // enrollment queries run without a stream filter.
+  const classLevelAllocs = ownAllocations.filter(
+    (row) => row.streamId === null && row.classId === classId,
+  );
+
+  if (classLevelAllocs.length > 0) {
+    const ownsClass = classLevelAllocs.some(
+      (row) =>
+        row.responsibility === 'main_class_teacher' ||
+        row.responsibility === 'assistant_class_teacher',
+    );
+
+    if (ownsClass) {
+      return {
+        classId,
+        streamIds: [],
+        allStreams: true,
+        entersAllAreas: true,
+        allowedSubjectIds: [],
+        hasAccess: true,
+      };
+    }
+
+    // A subject teacher with a class-level allocation teaches their area to
+    // every stream in the class (or to all enrollees if there are no streams).
+    const subjectAllocations = classLevelAllocs.filter(
+      (row) => row.responsibility === 'subject_teacher' && row.subjectId,
+    );
+    if (subjectAllocations.length > 0) {
+      for (const row of subjectAllocations) {
+        if (row.subjectId && !allowedSubjectIds.includes(row.subjectId)) {
+          allowedSubjectIds.push(row.subjectId);
+        }
+      }
+      return {
+        classId,
+        streamIds: [],
+        allStreams: true,
+        entersAllAreas: false,
+        allowedSubjectIds,
+        hasAccess: true,
+      };
+    }
   }
 
   // A teacher named as the class's teacher with no stream allocation of their
@@ -376,23 +429,39 @@ export async function resolveClassResultsScope(input: {
   // reopened session, or a school that never closed the previous one - and
   // resolving against the wrong one silently drops an allocation that is
   // recorded and correct.
-  const ownAllocationsResult = await prisma.streamAllocation.findMany({
-    where: {
-      streamId: { in: streams.map((s) => s.id) },
-      teacherId: input.userId,
-      status: 'active',
-    },
+  //
+   // The query covers both stream-level allocations (streamId set) and class-level
+   // allocations (streamId null, classId set), because a class-wide assignment
+   // grants access to every stream in the class.
+   //
+   // Note: `streamId: null` is NOT used here because Prisma's MongoDB connector
+   // requires the field to exist on the document — and class-level allocations
+   // created without an explicit `streamId: null` have the field omitted from BSON.
+   // Matching on `classId` alone captures class-level allocations correctly.
+   const ownAllocationsResult = await prisma.streamAllocation.findMany({
+     where: {
+       teacherId: input.userId,
+       status: 'active',
+       OR: [
+         ...(streams.length > 0
+           ? [{ streamId: { in: streams.map((s) => s.id) } }]
+           : []),
+         { classId: input.classId },
+       ],
+     },
     select: {
       streamId: true,
+      classId: true,
       responsibility: true,
       subjectId: true,
       canManage: true,
       canEnterResults: true,
-             academicYearId: true,
+      academicYearId: true,
     },
   });
-  const ownAllocations = ownAllocationsResult.filter((r) => r.streamId != null) as Array<{
-    streamId: string;
+  const ownAllocations = ownAllocationsResult as Array<{
+    streamId: string | null;
+    classId: string | null;
     responsibility: string;
     subjectId: string | null;
     canManage: boolean;
@@ -473,23 +542,43 @@ export async function resolveClassResultsScopesForSchool(
 
   const streamIds = [...new Set(classes.flatMap((cls) => cls.streams.map((s) => s.id)))];
 
+  // Fetch every active allocation for this teacher in one query, then let
+  // `decideClassScope` partition them into stream-level and class-level
+  // buckets in application code.
+  //
+  // Prisma's MongoDB connector translates `where: { streamId: null }` into an
+  // aggregation expression that requires the `streamId` field to *exist* on the
+  // document (it emits `$ne: ["$streamId", "$$REMOVE"]`). When an allocation is
+  // created without explicitly setting `streamId: null` — or when the field was
+  // simply never written — Prisma omits it from the BSON document, so a null
+  // query silently returns no rows for class-level assignments. Querying by
+  // `classId` instead (or fetching all and filtering in JS) avoids the trap.
   const ownAllocationsResult = await prisma.streamAllocation.findMany({
     where: {
-      streamId: { in: streamIds },
       teacherId: userId,
       status: 'active',
+      OR: [
+        // Stream-level allocations: streamId is one of the school's streams.
+        ...(streamIds.length > 0 ? [{ streamId: { in: streamIds } }] : []),
+        // Class-level allocations: streamId is absent/null, classId is set.
+        // Matching on classId alone captures both cases because stream-level
+        // allocations do not carry a classId.
+        { classId: { in: classes.map((c) => c.id) } },
+      ],
     },
     select: {
       streamId: true,
+      classId: true,
       responsibility: true,
       subjectId: true,
       canManage: true,
       canEnterResults: true,
-             academicYearId: true,
+      academicYearId: true,
     },
   });
-  const ownAllocations = ownAllocationsResult.filter((r) => r.streamId != null) as Array<{
-    streamId: string;
+  const ownAllocations = ownAllocationsResult as Array<{
+    streamId: string | null;
+    classId: string | null;
     responsibility: string;
     subjectId: string | null;
     canManage: boolean;

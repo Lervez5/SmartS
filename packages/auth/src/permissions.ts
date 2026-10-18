@@ -313,6 +313,7 @@ const TEACHER_GRANTS: Permission[] = [
   'learningAreas.view',
   'curriculum.view',
   'progress.view',
+  'progress.manage',
   'courses.view',
   'courses.manage',
   'cohorts.view',

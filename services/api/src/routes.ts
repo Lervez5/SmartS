@@ -43,6 +43,7 @@ import { router as calendarRouter } from './modules/calendar';
 import { router as gradesRouter } from './modules/grades';
 import { router as reportingRouter } from './modules/reporting';
 import { router as learnerPlacementRouter } from './modules/learner-placement';
+import { router as progressRouter } from './modules/progress';
 import { router as auditLogsRouter } from './modules/audit-logs';
 import { router as rolesRouter } from './modules/roles';
 import { router as settingsRouter } from './modules/settings';
@@ -112,5 +113,7 @@ router.use('/teacher-allocation', teacherAllocationRouter);
 router.use('/placement', learnerPlacementRouter);
 
 router.use('/grades', gradesRouter);
+
+router.use('/progress', progressRouter);
 
 router.use('/reports', reportsRouter);

@@ -156,7 +156,7 @@ model Permission {
   key         String  @unique // e.g. "students.read", "attendance.write"
   name        String
   description String?
-  domain      String  // e.g. "students", "attendance", "finance"
+  domain      String // e.g. "students", "attendance", "finance"
 
   rolePermissions RolePermission[]
 }
@@ -231,6 +231,8 @@ model User {
   smsCampaignsCreated       SmsCampaign[]         @relation("SmsCampaignsCreated")
   smsAutomationRulesCreated SmsAutomationRule[]   @relation("SmsAutomationRulesCreated")
   attendance                Attendance[]          @relation("StudentAttendance")
+  teacherObservations       ProgressObservation[] @relation("TeacherObservations")
+  learnerObservations       ProgressObservation[] @relation("LearnerObservations")
   invoices                  Invoice[]             @relation("StudentInvoices")
   transportAssignments      TransportAssignment[]
   libraryBorrowings         LibraryBorrowing[]
@@ -400,24 +402,25 @@ model EnrollmentBatchEntry {
 }
 
 model Subject {
-  id                  String               @id @default(auto()) @map("_id") @db.ObjectId
-  name                String
-  code                String?
-  description         String?
-  topics              Topic[]
-  lessons             Lesson[]
-  classes             Class[]              @relation("SubjectClasses")
-  courses             Course[]
-  examinations        Examination[]        @relation("SubjectExams")
-  grades              Grade[]              @relation("SubjectGrades")
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  school              School               @relation(fields: [schoolId], references: [id])
-  schoolId            String               @db.ObjectId
-  examinationSubjects ExaminationSubject[]
-  teachingAssignments TeachingAssignment[]
-  streamAllocations   StreamAllocation[]
-  gradeLevels         SubjectGradeLevel[]
+  id                   String                @id @default(auto()) @map("_id") @db.ObjectId
+  name                 String
+  code                 String?
+  description          String?
+  topics               Topic[]
+  lessons              Lesson[]
+  classes              Class[]               @relation("SubjectClasses")
+  courses              Course[]
+  examinations         Examination[]         @relation("SubjectExams")
+  grades               Grade[]               @relation("SubjectGrades")
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  school               School                @relation(fields: [schoolId], references: [id])
+  schoolId             String                @db.ObjectId
+  examinationSubjects  ExaminationSubject[]
+  teachingAssignments  TeachingAssignment[]
+  streamAllocations    StreamAllocation[]
+  progressObservations ProgressObservation[] @relation("SubjectProgressObservations")
+  gradeLevels          SubjectGradeLevel[]
 
   status LearningAreaStatus @default(active)
   origin LearningAreaOrigin @default(custom)
@@ -466,8 +469,8 @@ model Lesson {
   lessonType String            @default("note") // video | pdf | note | interactive
   content    String?
   fileUrl    String?
-  duration   Int?              // seconds
-  difficulty Float?            // 0..1
+  duration   Int? // seconds
+  difficulty Float? // 0..1
   exercises  Exercise[]
   accessLogs LessonAccessLog[] @relation("LessonAccessLogs")
   createdAt  DateTime          @default(now())
@@ -557,23 +560,24 @@ model AcademicYear {
   schoolId String @db.ObjectId
 
   /// Unique per school, not globally — two schools can both run a "2026" session.
-  name                String
-  label               String?
-  startDate           DateTime
-  endDate             DateTime
+  name                 String
+  label                String?
+  startDate            DateTime
+  endDate              DateTime
   /// Enforced by the service: only one active at a time.
-  status              AcademicSessionStatus @default(planned)
-  terms               Term[]
-  examinations        Examination[]
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  learnerExits        LearnerExit[]
-  teachingAssignments TeachingAssignment[]
-  streamAllocations   StreamAllocation[]
-  classes             Class[]
-  streams             Stream[]
-  enrollments         Enrollment[]
-  placementHistories  PlacementHistory[]
+  status               AcademicSessionStatus @default(planned)
+  terms                Term[]
+  examinations         Examination[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  learnerExits         LearnerExit[]
+  teachingAssignments  TeachingAssignment[]
+  streamAllocations    StreamAllocation[]
+  classes              Class[]
+  streams              Stream[]
+  enrollments          Enrollment[]
+  placementHistories   PlacementHistory[]
+  progressObservations ProgressObservation[] @relation("SessionProgressObservations")
 
   @@unique([schoolId, name])
   @@index([status])
@@ -581,17 +585,18 @@ model AcademicYear {
 }
 
 model Term {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  academicYearId String        @db.ObjectId
-  academicYear   AcademicYear  @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  name           String
-  termNumber     Int
-  startDate      DateTime
-  endDate        DateTime
-  status         TermStatus    @default(planned)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  examinations   Examination[]
+  id                   String                @id @default(auto()) @map("_id") @db.ObjectId
+  academicYearId       String                @db.ObjectId
+  academicYear         AcademicYear          @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  name                 String
+  termNumber           Int
+  startDate            DateTime
+  endDate              DateTime
+  status               TermStatus            @default(planned)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  examinations         Examination[]
+  progressObservations ProgressObservation[] @relation("TermProgressObservations")
 
   @@unique([academicYearId, termNumber])
   @@index([status])
@@ -744,25 +749,23 @@ model TeachingAssignment {
 
 /**
  * Canonical grade level catalogue for a school.
- *
  * A grade level is the educational stage a school teaches (e.g. "Pre Primary 1",
  * "Grade 1", "Crèche"). This is the master list the school configures; each
  * Class references a gradeLevel as a free-text label for backward
  * compatibility, while new integrations resolve through this catalogue.
- *
  * Curriculum-defined grades are seeded from the canonical curriculum and are
  * read-only; school-defined grades are editable by the school.
  */
 model GradeLevel {
-  id        String           @id @default(auto()) @map("_id") @db.ObjectId
-  school    School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  schoolId  String           @db.ObjectId
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId String @db.ObjectId
 
   /// The school's own designation code — unique per school. e.g. "PP1", "G1".
   designationCode String
 
   /// Human-readable name, e.g. "Pre Primary 1", "Grade 1".
-  name      String
+  name String
 
   /// Numeric ordering value; negative values sort before zero.
   /// -2 = Pre Primary 1, -1 = Pre Primary 2, 0 = Crèche, 1 = Grade 1, etc.
@@ -772,18 +775,18 @@ model GradeLevel {
   description String?
 
   /// active | inactive — controls whether new classes can be created at this level.
-  status    GradeLevelStatus @default(active)
+  status GradeLevelStatus @default(active)
 
   /// custom | curriculum — curriculum-defined grades cannot be deleted or edited.
-  origin    GradeLevelOrigin @default(custom)
+  origin GradeLevelOrigin @default(custom)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([schoolId])
-  @@index([academicLevel])
   @@unique([schoolId, designationCode])
   @@unique([schoolId, name])
+  @@index([schoolId])
+  @@index([academicLevel])
 }
 
 enum GradeLevelStatus {
@@ -814,26 +817,27 @@ model Class {
   subject   Subject? @relation("SubjectClasses", fields: [subjectId], references: [id])
   subjectId String?  @db.ObjectId
 
-  classCode           String?
-  gradeLevel          String?
-  teacher             User?                @relation("TeacherClasses", fields: [teacherId], references: [id])
-  teacherId           String?              @db.ObjectId
-  assistants          ClassAssistant[]
-  courseId            String?              @db.ObjectId
-  course              Course?              @relation(fields: [courseId], references: [id])
-  enrollments         Enrollment[]
-  assignments         Assignment[]         @relation("ClassAssignments")
-  attendance          Attendance[]         @relation("ClassAttendance")
-  schedules           ClassSchedule[]
-  streams             Stream[]
-  examinations        Examination[]        @relation("ClassExams")
-  grades              Grade[]              @relation("ClassGrades")
-  schedule            DateTime?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  teachingAssignments TeachingAssignment[]
-  streamAllocations   StreamAllocation[]
-  placementHistories  PlacementHistory[]
+  classCode            String?
+  gradeLevel           String?
+  teacher              User?                 @relation("TeacherClasses", fields: [teacherId], references: [id])
+  teacherId            String?               @db.ObjectId
+  assistants           ClassAssistant[]
+  courseId             String?               @db.ObjectId
+  course               Course?               @relation(fields: [courseId], references: [id])
+  enrollments          Enrollment[]
+  assignments          Assignment[]          @relation("ClassAssignments")
+  attendance           Attendance[]          @relation("ClassAttendance")
+  schedules            ClassSchedule[]
+  streams              Stream[]
+  examinations         Examination[]         @relation("ClassExams")
+  grades               Grade[]               @relation("ClassGrades")
+  schedule             DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  teachingAssignments  TeachingAssignment[]
+  streamAllocations    StreamAllocation[]
+  placementHistories   PlacementHistory[]
+  progressObservations ProgressObservation[] @relation("ClassProgressObservations")
 
   /// Scoped to school — two schools can both have a "PP1" without conflict.
   @@unique([schoolId, classCode])
@@ -866,9 +870,9 @@ model ClassSchedule {
   id         String    @id @default(auto()) @map("_id") @db.ObjectId
   class      Class     @relation(fields: [classId], references: [id])
   classId    String    @db.ObjectId
-  dayOfWeek  Int       // 0=Sun..6=Sat
-  startTime  String    // "HH:MM" 24h
-  endTime    String    // "HH:MM" 24h
+  dayOfWeek  Int // 0=Sun..6=Sat
+  startTime  String // "HH:MM" 24h
+  endTime    String // "HH:MM" 24h
   room       String?
   recurrence String    @default("weekly") // weekly | biweekly | daily
   validFrom  DateTime
@@ -927,7 +931,7 @@ model Examination {
   subjectId      String?              @db.ObjectId
   startDate      DateTime
   endDate        DateTime?
-  duration       Int?                 // minutes
+  duration       Int? // minutes
   maxScore       Float?
   examAttempts   ExamAttempt[]
   grades         Grade[]              @relation("ExamGrades")
@@ -1102,17 +1106,17 @@ model ClassAssistant {
 /// Full audit of every learner stream move so "who was in Stream A on 3 March"
 /// remains answerable after reorganisation.
 model PlacementHistory {
-  id               String    @id @default(auto()) @map("_id") @db.ObjectId
-  learnerId        String    @db.ObjectId
-  previousStreamId String?   @db.ObjectId
-  newStreamId      String?   @db.ObjectId
-  classId          String    @db.ObjectId
-  academicYearId   String    @db.ObjectId
-  strategy         String    @default("manual")
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  learnerId        String   @db.ObjectId
+  previousStreamId String?  @db.ObjectId
+  newStreamId      String?  @db.ObjectId
+  classId          String   @db.ObjectId
+  academicYearId   String   @db.ObjectId
+  strategy         String   @default("manual")
   seed             Int?
   reason           String?
-  actionById       String?   @db.ObjectId
-  createdAt        DateTime  @default(now())
+  actionById       String?  @db.ObjectId
+  createdAt        DateTime @default(now())
 
   learner        User?        @relation(fields: [learnerId], references: [id])
   previousStream Stream?      @relation("PreviousPlacements", fields: [previousStreamId], references: [id])
@@ -1157,6 +1161,54 @@ model Grade {
   comment           String?
   gradedAt          DateTime         @default(now())
   gradedBy          String?          @db.ObjectId
+}
+
+/// Teacher-authored progress observations, kept separate from Grade rows (marks)
+/// and Examination rows (assessments) so observations never overwrite or
+/// duplicate official records. Scoped to a learner within the teacher's
+/// authorised class / learning-area / session / term context.
+model ProgressObservation {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolId String @db.ObjectId
+
+  /// The teacher authoring this observation.
+  teacher   User   @relation("TeacherObservations", fields: [teacherId], references: [id])
+  teacherId String @db.ObjectId
+
+  /// The learner this observation is about.
+  learner   User   @relation("LearnerObservations", fields: [learnerId], references: [id])
+  learnerId String @db.ObjectId
+
+  class   Class?  @relation("ClassProgressObservations", fields: [classId], references: [id])
+  classId String? @db.ObjectId
+
+  subject   Subject? @relation("SubjectProgressObservations", fields: [subjectId], references: [id])
+  subjectId String?  @db.ObjectId
+
+  academicYear   AcademicYear? @relation("SessionProgressObservations", fields: [academicYearId], references: [id])
+  academicYearId String?       @db.ObjectId
+
+  term   Term?   @relation("TermProgressObservations", fields: [termId], references: [id])
+  termId String? @db.ObjectId
+
+  text       String
+  /// 'draft' = saved but not yet associated with a finalised progress review;
+  /// 'finalised' = the teacher has marked it as part of the learner's record.
+  visibility ObservationVisibility @default(draft)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId, learnerId])
+  @@index([teacherId])
+  @@index([classId, academicYearId, termId])
+}
+
+enum ObservationVisibility {
+  draft
+  finalised
 }
 
 model LessonAccessLog {
@@ -1260,7 +1312,7 @@ model FinanceAccount {
   id           String               @id @default(auto()) @map("_id") @db.ObjectId
   code         String               @unique
   name         String
-  type         String               // asset | liability | income | expense | equity
+  type         String // asset | liability | income | expense | equity
   currency     String               @default("KES")
   createdAt    DateTime             @default(now())
   transactions FinanceTransaction[]
@@ -1276,7 +1328,7 @@ model FinanceTransaction {
   currency    String                   @default("KES")
   description String?
   reference   String?
-  relatedId   String?                  // invoice/receipt/contract id
+  relatedId   String? // invoice/receipt/contract id
   postedAt    DateTime?
   createdAt   DateTime                 @default(now())
   updatedAt   DateTime                 @updatedAt
@@ -1556,6 +1608,7 @@ model School {
   smsOptOuts              SmsOptOut[]
   smsAutomationRules      SmsAutomationRule[]
   enrollmentNotifications EnrollmentNotification[]
+  progressObservations    ProgressObservation[]
 
   @@index([status])
 }
@@ -1970,8 +2023,8 @@ model SmsAutomationRule {
   /// Enabling requires sms.manage permission. Enabling alone causes nothing to happen.
   enabled Boolean @default(false)
 
-  everyDays        Int @default(7)
-  overdueAfterDays Int @default(0)
+  everyDays           Int @default(7)
+  overdueAfterDays    Int @default(0)
   /// Ignore balances below this (minor units) — avoids messages for rounding-difference debts.
   minOutstandingCents Int @default(0)
 
